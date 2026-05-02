@@ -1,4 +1,5 @@
 const express = require('express');
+const path = require('path');
 const dotenv = require('dotenv');
 const morgan = require('morgan');
 const cors = require('cors');
@@ -32,6 +33,16 @@ const admin = require('./routes/admin');
 app.use('/api/v1/auth', auth);
 app.use('/api/v1/properties', properties);
 app.use('/api/v1/admin', admin);
+
+// Serve static assets in production
+if (process.env.NODE_ENV === 'production') {
+  // Set static folder
+  app.use(express.static(path.join(__dirname, '../dist')));
+
+  app.get('*', (req, res) => {
+    res.sendFile(path.resolve(__dirname, '../dist', 'index.html'));
+  });
+}
 
 // Export app for Vercel
 module.exports = app;
