@@ -26,6 +26,9 @@ const Login = () => {
     password: ''
   });
   const [otpSent, setOtpSent] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
 
@@ -34,12 +37,30 @@ const Login = () => {
     setError('');
   };
 
-  const handleSendOTP = () => {
+  const handleSendOTP = async () => {
     if (formData.phone && formData.phone.length === 10) {
-      setOtpSent(true);
-      alert(`📱 OTP sent to +91 ${formData.phone} via WhatsApp`);
+      setIsSendingOtp(true);
+      setError('');
+      try {
+        await authService.generateOtp(formData.phone);
+        setOtpSent(true);
+        setIsSendingOtp(false);
+        setOtpTimer(60);
+        const interval = setInterval(() => {
+          setOtpTimer((prev) => {
+            if (prev <= 1) {
+              clearInterval(interval);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      } catch (err) {
+        setIsSendingOtp(false);
+        setError(err.response?.data?.message || 'Failed to send OTP');
+      }
     } else {
-      alert('⚠️ Please enter a valid 10-digit phone number');
+      setError('Please enter a valid 10-digit phone number');
     }
   };
 
@@ -118,6 +139,21 @@ const Login = () => {
 
   const loginB2B = async () => {
     try {
+      if (loginMethod === 'phone') {
+        setIsVerifying(true);
+        const verifyRes = await authService.verifyOtp(formData.phone, formData.otp);
+        if (verifyRes.success) {
+          if (verifyRes.token) {
+            // User was automatically logged in
+            navigate('/b2b/dashboard');
+          } else {
+            // This shouldn't happen for login, but for safety:
+            setError('Account not found. Please register first.');
+          }
+          return;
+        }
+      }
+
       const identifier = loginMethod === 'email' ? formData.email : formData.phone;
       const response = await authService.login(identifier, formData.password);
       if (response.success) {
@@ -125,7 +161,15 @@ const Login = () => {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.response?.data?.message || 'Invalid credentials');
+      if (err.response?.data?.needsVerification) {
+        setLoginMethod('phone');
+        setFormData({ ...formData, phone: err.response.data.mobile });
+        setError('Please verify your mobile number to continue');
+        handleSendOTP();
+      } else {
+        setError(err.response?.data?.message || 'Invalid credentials');
+      }
+      setIsVerifying(false);
     }
   };
 
@@ -269,9 +313,9 @@ const Login = () => {
                           type="button"
                           className="otp-btn"
                           onClick={handleSendOTP}
-                          disabled={otpSent}
+                          disabled={isSendingOtp || (otpSent && otpTimer > 0)}
                         >
-                          {otpSent ? 'Sent!' : 'Send OTP'}
+                          {isSendingOtp ? 'Sending...' : otpSent && otpTimer > 0 ? `Resend in ${otpTimer}s` : 'Send OTP'}
                         </button>
                       </div>
                     </div>
@@ -300,8 +344,9 @@ const Login = () => {
                   <button
                     type="submit"
                     className="btn-login-primary"
+                    disabled={isVerifying}
                   >
-                    Login as PG Owner
+                    {isVerifying ? 'Verifying...' : 'Login as PG Owner'}
                     <ArrowRight size={16} />
                   </button>
                 </div>

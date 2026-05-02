@@ -36,6 +36,10 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isMobileVerified: {
+    type: Boolean,
+    default: false
+  },
   createdAt: {
     type: Date,
     default: Date.now

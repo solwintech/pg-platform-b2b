@@ -27,10 +27,14 @@ const Register = () => {
     password: ''
   });
   const [otpSent, setOtpSent] = useState(false);
+  const [isVerified, setIsVerified] = useState(false);
   const [otp, setOtp] = useState('');
+  const [otpTimer, setOtpTimer] = useState(0);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -39,12 +43,46 @@ const Register = () => {
     }
   };
 
-  const handleSendOTP = () => {
+  const handleSendOTP = async () => {
     if (formData.phone && formData.phone.length === 10) {
-      setOtpSent(true);
-      alert(`📱 OTP sent to +91 ${formData.phone} via WhatsApp`);
+      setIsSendingOtp(true);
+      try {
+        await authService.generateOtp(formData.phone);
+        setOtpSent(true);
+        setIsSendingOtp(false);
+        setOtpTimer(60);
+        // Start timer
+        const interval = setInterval(() => {
+          setOtpTimer((prev) => {
+            if (prev <= 1) {
+              clearInterval(interval);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      } catch (err) {
+        setIsSendingOtp(false);
+        setErrors({ ...errors, phone: err.response?.data?.message || 'Failed to send OTP' });
+      }
     } else {
       setErrors({ ...errors, phone: 'Please enter a valid 10-digit phone number' });
+    }
+  };
+
+  const handleVerifyOTP = async () => {
+    if (otp.length === 6) {
+      setIsVerifyingOtp(true);
+      try {
+        await authService.verifyOtp(formData.phone, otp);
+        setIsVerified(true);
+        setIsVerifyingOtp(false);
+      } catch (err) {
+        setIsVerifyingOtp(false);
+        setErrors({ ...errors, otp: err.response?.data?.message || 'Invalid OTP' });
+      }
+    } else {
+      setErrors({ ...errors, otp: 'Please enter 6-digit OTP' });
     }
   };
 
@@ -58,7 +96,7 @@ const Register = () => {
     else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
     if (!formData.password.trim()) newErrors.password = 'Password is required';
     else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
-    if (!otpSent) newErrors.otp = 'Please verify your phone number with OTP';
+    if (!isVerified) newErrors.otp = 'Please verify your phone number with OTP';
     if (!agreeTerms) newErrors.terms = 'You must agree to the terms and conditions';
 
     setErrors(newErrors);
@@ -75,7 +113,8 @@ const Register = () => {
           email: formData.email,
           password: formData.password,
           phone: formData.phone,
-          role: 'b2b'
+          role: 'b2b',
+          isMobileVerified: true
         });
         setIsSubmitting(false);
         alert('Registration successful! Please login to your dashboard.');
@@ -175,32 +214,42 @@ const Register = () => {
                         />
                         <button
                           type="button"
-                          className="otp-btn"
+                          className={`otp-btn ${isVerified ? 'verified' : ''}`}
                           onClick={handleSendOTP}
-                          disabled={otpSent}
+                          disabled={isVerified || isSendingOtp || (otpSent && otpTimer > 0)}
                         >
-                          {otpSent ? '✓ Verified' : 'Send OTP'}
+                          {isVerified ? '✓ Verified' : isSendingOtp ? 'Sending...' : otpSent && otpTimer > 0 ? `Resend in ${otpTimer}s` : 'Send OTP'}
                         </button>
                       </div>
                       {errors.phone && <small className="error-text">{errors.phone}</small>}
                     </div>
                   </div>
 
-                  {otpSent && (
-                    <div className="col-md-6">
+                  {otpSent && !isVerified && (
+                    <div className="col-md-12">
                       <div className="form-group">
-
-                        <div className="input-icon">
-                          <Smartphone size={16} className="icon" />
+                        <div className="input-group-custom">
+                          <span className="input-group-text-modern">
+                            <Smartphone size={16} />
+                          </span>
                           <input
                             type="text"
-                            className="form-control-modern"
+                            className={`form-control-modern ${errors.otp ? 'error' : ''}`}
                             placeholder="Enter 6-digit OTP"
                             value={otp}
                             onChange={(e) => setOtp(e.target.value)}
                             maxLength="6"
                           />
+                          <button
+                            type="button"
+                            className="otp-btn"
+                            onClick={handleVerifyOTP}
+                            disabled={isVerifyingOtp || otp.length !== 6}
+                          >
+                            {isVerifyingOtp ? 'Verifying...' : 'Verify OTP'}
+                          </button>
                         </div>
+                        {errors.otp && <small className="error-text">{errors.otp}</small>}
                       </div>
                     </div>
                   )}
