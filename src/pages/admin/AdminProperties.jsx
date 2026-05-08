@@ -27,11 +27,13 @@ import {
   X,
   MoreVertical,
   Home,
-  Calendar
+  Calendar,
+  DoorOpen
 } from 'lucide-react';
 import { mockListings } from '../../utils/mockData';
 import propertyService from '../../services/propertyService';
 import adminService from '../../services/adminService';
+import { formatDate } from '../../utils/dateFormatter';
 
 const AdminProperties = () => {
   const [properties, setProperties] = useState([]);
@@ -43,6 +45,7 @@ const AdminProperties = () => {
   const [genderFilter, setGenderFilter] = useState('all');
   const [selectedProperty, setSelectedProperty] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showRoomsModal, setShowRoomsModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   useEffect(() => {
@@ -159,6 +162,61 @@ const AdminProperties = () => {
     }
   };
 
+  const handleTogglePublish = async (id) => {
+    try {
+      await propertyService.togglePublish(id);
+      const updatedProperties = properties.map(p =>
+        p._id === id ? { ...p, isPublished: !p.isPublished } : p
+      );
+      setProperties(updatedProperties);
+      applyFilters(updatedProperties, searchTerm, statusFilter, typeFilter, genderFilter);
+      
+      if (selectedProperty && selectedProperty._id === id) {
+        setSelectedProperty({ ...selectedProperty, isPublished: !selectedProperty.isPublished });
+      }
+    } catch (error) {
+      console.error('Error toggling publish status:', error);
+      alert('Error updating publication status');
+    }
+  };
+
+  const handleToggleRoomAvailability = async (propertyId, roomTypeId) => {
+    try {
+      await propertyService.toggleRoomAvailability(propertyId, roomTypeId);
+      
+      const updatedProperties = properties.map(p => {
+        if (p._id === propertyId) {
+          const updatedRoomTypes = p.roomTypes.map(rt => {
+             const rtId = rt._id || rt.id || rt.name;
+             if (rtId === roomTypeId) {
+               return { ...rt, isAvailable: rt.isAvailable === false ? true : false };
+             }
+             return rt;
+          });
+          return { ...p, roomTypes: updatedRoomTypes };
+        }
+        return p;
+      });
+      
+      setProperties(updatedProperties);
+      applyFilters(updatedProperties, searchTerm, statusFilter, typeFilter, genderFilter);
+      
+      if (selectedProperty && selectedProperty._id === propertyId) {
+        const updatedRoomTypes = selectedProperty.roomTypes.map(rt => {
+           const rtId = rt._id || rt.id || rt.name;
+           if (rtId === roomTypeId) {
+             return { ...rt, isAvailable: rt.isAvailable === false ? true : false };
+           }
+           return rt;
+        });
+        setSelectedProperty({ ...selectedProperty, roomTypes: updatedRoomTypes });
+      }
+    } catch (error) {
+      console.error('Error toggling room availability:', error);
+      alert('Error updating room availability');
+    }
+  };
+
   const getStatusBadge = (status) => {
     switch (status) {
       case 'approved':
@@ -271,14 +329,15 @@ const AdminProperties = () => {
                 <th>Pricing</th>
                 <th>Capacity</th>
                 <th>Status</th>
-                <th>Created</th>
+                <th>Visibility</th>
+                <th>Submitted On</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredProperties.length === 0 ? (
                 <tr>
-                  <td colSpan="8" className="text-center py-5">
+                  <td colSpan="9" className="text-center py-5">
                     <Building2 size={50} className="text-muted mb-3" />
                     <h6>No properties found</h6>
                     <p className="text-muted small">Try adjusting your filters</p>
@@ -320,7 +379,22 @@ const AdminProperties = () => {
                         )}
                       </div>
                     </td>
-                    <td className="small">{new Date(property.createdAt).toLocaleDateString()}</td>
+                    <td>
+                      <div className="form-check form-switch">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          role="switch"
+                          checked={property.isPublished}
+                          onChange={() => handleTogglePublish(property._id)}
+                          style={{ cursor: 'pointer' }}
+                        />
+                        <span className="ms-1 small text-muted" style={{ fontSize: '10px' }}>
+                          {property.isPublished ? 'Live' : 'Hidden'}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="small" style={{ minWidth: '150px' }}>{formatDate(property.createdAt)}</td>
                     <td>
                       <div className="d-flex gap-2">
                         <button
@@ -333,26 +407,56 @@ const AdminProperties = () => {
                         >
                           <Eye size={14} />
                         </button>
-                        {property.status === 'pending' && (
-                          <>
-                            <button
-                              className="btn-icon-sm btn-success"
-                              onClick={() => updatePropertyStatus(property._id, 'approved')}
-                              title="Approve"
-                              style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer' }}
-                            >
-                              <CheckCircle size={14} />
-                            </button>
-                            <button
-                              className="btn-icon-sm btn-danger"
-                              onClick={() => updatePropertyStatus(property._id, 'rejected')}
-                              title="Reject"
-                              style={{ background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', padding: '6px', cursor: 'pointer' }}
-                            >
-                              <XCircle size={14} />
-                            </button>
-                          </>
-                        )}
+                        <button
+                          className="btn-icon-sm btn-outline-premium"
+                          onClick={() => {
+                            setSelectedProperty(property);
+                            setShowRoomsModal(true);
+                          }}
+                          title="Manage Rooms"
+                        >
+                          <DoorOpen size={14} />
+                        </button>
+                        <div className="dropdown">
+                          <button 
+                            className="btn-icon-sm btn-outline-premium" 
+                            type="button" 
+                            data-bs-toggle="dropdown" 
+                            aria-expanded="false"
+                            title="Quick Status"
+                          >
+                            <MoreVertical size={14} />
+                          </button>
+                          <ul className="dropdown-menu dropdown-menu-end shadow-sm border-0 py-1" style={{ fontSize: '12px' }}>
+                            <li>
+                              <button 
+                                className="dropdown-item d-flex align-items-center gap-2 py-2" 
+                                onClick={() => updatePropertyStatus(property._id, 'approved')}
+                                disabled={property.status === 'approved'}
+                              >
+                                <CheckCircle size={14} className="text-success" /> Approve Property
+                              </button>
+                            </li>
+                            <li>
+                              <button 
+                                className="dropdown-item d-flex align-items-center gap-2 py-2" 
+                                onClick={() => updatePropertyStatus(property._id, 'rejected')}
+                                disabled={property.status === 'rejected'}
+                              >
+                                <XCircle size={14} className="text-danger" /> Reject Property
+                              </button>
+                            </li>
+                            <li>
+                              <button 
+                                className="dropdown-item d-flex align-items-center gap-2 py-2" 
+                                onClick={() => updatePropertyStatus(property._id, 'pending')}
+                                disabled={property.status === 'pending'}
+                              >
+                                <Clock size={14} className="text-warning" /> Mark as Pending
+                              </button>
+                            </li>
+                          </ul>
+                        </div>
                         <button
                           className="btn-icon-sm btn-outline-premium text-danger"
                           onClick={() => {
@@ -475,27 +579,42 @@ const AdminProperties = () => {
                     </div>
 
                     <div className="room-list-refined d-flex flex-column gap-3">
-                      {selectedProperty.roomTypes?.map((room, idx) => (
-                        <div key={idx} className="room-item-premium p-3 border rounded-3 bg-light bg-opacity-50">
-                          <div className="d-flex justify-content-between align-items-start mb-2">
-                            <div>
-                              <div className="fw-bold text-dark" style={{ fontSize: '12px' }}>{room.name}</div>
-                              <div className="text-muted mt-1" style={{ fontSize: '10px' }}>{room.sharingType} • {room.size} sqft • {room.attachedBathroom ? 'Attached Bath' : 'Common Bath'}</div>
+                      {selectedProperty.roomTypes?.map((room, idx) => {
+                        const roomId = room._id || room.id || room.name;
+                        return (
+                          <div key={idx} className="room-item-premium p-3 border rounded-3 bg-light bg-opacity-50">
+                            <div className="d-flex justify-content-between align-items-start mb-2">
+                              <div>
+                                <div className="fw-bold text-dark" style={{ fontSize: '12px' }}>{room.name}</div>
+                                <div className="text-muted mt-1" style={{ fontSize: '10px' }}>{room.sharingType} • {room.size} sqft • {room.attachedBathroom ? 'Attached Bath' : 'Common Bath'}</div>
+                              </div>
+                              <div className="text-end d-flex flex-column align-items-end gap-1">
+                                <div className="fw-bold text-primary" style={{ fontSize: '13px' }}>₹{room.price}</div>
+                                <div className="form-check form-switch m-0">
+                                  <input
+                                    className="form-check-input"
+                                    type="checkbox"
+                                    role="switch"
+                                    checked={room.isAvailable !== false}
+                                    onChange={() => handleToggleRoomAvailability(selectedProperty._id, roomId)}
+                                    style={{ width: '1.8em', height: '0.9em', cursor: 'pointer' }}
+                                  />
+                                  <label className="form-check-label small text-muted ms-1" style={{ fontSize: '9px' }}>
+                                    {room.isAvailable !== false ? 'Available' : 'Occupied'}
+                                  </label>
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-end">
-                              <div className="fw-bold text-primary" style={{ fontSize: '13px' }}>₹{room.price}</div>
-                              <div style={{ fontSize: '9px', opacity: 0.7 }}>PER MONTH</div>
+                            <div className="d-flex flex-wrap gap-1 mt-2">
+                              {room.amenities?.map((a, i) => (
+                                <span key={i} className="badge bg-white text-muted border border-light shadow-sm" style={{ fontSize: '9px' }}>{a}</span>
+                              ))}
+                              {room.ac && <span className="badge bg-primary bg-opacity-10 text-primary" style={{ fontSize: '9px' }}>AC Room</span>}
+                              {room.furnishingStatus && <span className="badge bg-secondary bg-opacity-10 text-secondary" style={{ fontSize: '9px' }}>{room.furnishingStatus}</span>}
                             </div>
                           </div>
-                          <div className="d-flex flex-wrap gap-1 mt-2">
-                            {room.amenities?.map((a, i) => (
-                              <span key={i} className="badge bg-white text-muted border border-light shadow-sm" style={{ fontSize: '9px' }}>{a}</span>
-                            ))}
-                            {room.ac && <span className="badge bg-primary bg-opacity-10 text-primary" style={{ fontSize: '9px' }}>AC Room</span>}
-                            {room.furnishingStatus && <span className="badge bg-secondary bg-opacity-10 text-secondary" style={{ fontSize: '9px' }}>{room.furnishingStatus}</span>}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -611,27 +730,71 @@ const AdminProperties = () => {
             </div>
 
             <div className="modal-footer bg-light bg-opacity-50 border-top p-3 px-4 rounded-bottom-4">
-              <button className="btn btn-light px-4 border" onClick={() => setShowViewModal(false)} style={{ fontSize: '12px', fontWeight: '500' }}>Close Window</button>
-              {selectedProperty.status === 'pending' && (
-                <div className="d-flex gap-2">
-                  <button
-                    className="btn btn-danger px-4"
-                    onClick={() => {
-                      updatePropertyStatus(selectedProperty._id, 'rejected');
-                      setShowViewModal(false);
-                    }}
-                    style={{ fontSize: '12px', fontWeight: '600' }}
-                  >Reject</button>
-                  <button
-                    className="btn btn-success px-4"
-                    onClick={() => {
-                      updatePropertyStatus(selectedProperty._id, 'approved');
-                      setShowViewModal(false);
-                    }}
-                    style={{ fontSize: '12px', fontWeight: '600' }}
-                  >Approve & Publish</button>
+              <div className="d-flex w-100 justify-content-between align-items-center">
+                <div className="d-flex align-items-center gap-3">
+                   <div className="form-check form-switch m-0">
+                      <input
+                        className="form-check-input"
+                        type="checkbox"
+                        role="switch"
+                        id="modal-publish-toggle"
+                        checked={selectedProperty.isPublished}
+                        onChange={() => handleTogglePublish(selectedProperty._id)}
+                        style={{ cursor: 'pointer', scale: '1.1' }}
+                      />
+                      <label className="form-check-label fw-bold small ms-2" htmlFor="modal-publish-toggle">
+                        {selectedProperty.isPublished ? 'PUBLISHED & LIVE' : 'HIDDEN FROM PUBLIC'}
+                      </label>
+                   </div>
                 </div>
-              )}
+                <div className="d-flex gap-2">
+                  <button className="btn btn-light px-4 border" onClick={() => setShowViewModal(false)} style={{ fontSize: '12px', fontWeight: '500' }}>Close</button>
+                  <div className="dropdown">
+                    <button className="btn btn-outline-premium px-4 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style={{ fontSize: '12px', fontWeight: '600' }}>
+                      Change Status
+                    </button>
+                    <ul className="dropdown-menu shadow border-0">
+                      <li>
+                        <button 
+                          className="dropdown-item py-2" 
+                          onClick={() => updatePropertyStatus(selectedProperty._id, 'approved')}
+                          disabled={selectedProperty.status === 'approved'}
+                        >
+                          Approve Property
+                        </button>
+                      </li>
+                      <li>
+                        <button 
+                          className="dropdown-item py-2" 
+                          onClick={() => updatePropertyStatus(selectedProperty._id, 'rejected')}
+                          disabled={selectedProperty.status === 'rejected'}
+                        >
+                          Reject Property
+                        </button>
+                      </li>
+                      <li>
+                        <button 
+                          className="dropdown-item py-2" 
+                          onClick={() => updatePropertyStatus(selectedProperty._id, 'pending')}
+                          disabled={selectedProperty.status === 'pending'}
+                        >
+                          Mark as Pending
+                        </button>
+                      </li>
+                    </ul>
+                  </div>
+                  {selectedProperty.status === 'pending' && (
+                    <button
+                      className="btn btn-success px-4"
+                      onClick={() => {
+                        updatePropertyStatus(selectedProperty._id, 'approved');
+                        setShowViewModal(false);
+                      }}
+                      style={{ fontSize: '12px', fontWeight: '600', background: 'linear-gradient(135deg, #10b981, #059669)', border: 'none' }}
+                    >Quick Approve</button>
+                  )}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -704,6 +867,74 @@ const AdminProperties = () => {
               >
                 Confirm & Publish
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Rooms Management Modal */}
+      {showRoomsModal && selectedProperty && (
+        <div className="modal-overlay" onClick={() => setShowRoomsModal(false)}>
+          <div className="modal-container" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h5 className="modal-title">
+                <DoorOpen size={18} className="me-2" />
+                Manage Rooms - {selectedProperty.pgName}
+              </h5>
+              <button className="modal-close" onClick={() => setShowRoomsModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <div className="modal-body p-4">
+              <div className="room-list-refined d-flex flex-column gap-3">
+                {selectedProperty.roomTypes?.length > 0 ? (
+                  selectedProperty.roomTypes.map((room, idx) => {
+                    const roomTypeId = room._id || room.id || room.name;
+                    return (
+                      <div key={idx} className="room-item-premium p-3 border rounded-3 bg-light bg-opacity-50">
+                        <div className="d-flex justify-content-between align-items-start mb-2">
+                          <div>
+                            <div className="fw-bold text-dark d-flex align-items-center gap-2" style={{ fontSize: '14px' }}>
+                              {room.name}
+                              {room.isAvailable !== false ? 
+                                <span className="badge bg-success bg-opacity-10 text-success" style={{ fontSize: '10px' }}>Available</span> :
+                                <span className="badge bg-danger bg-opacity-10 text-danger" style={{ fontSize: '10px' }}>Occupied</span>
+                              }
+                            </div>
+                            <div className="text-muted mt-1" style={{ fontSize: '11px' }}>
+                              {room.sharingType} • ₹{room.price}/month • {room.attachedBathroom ? 'Attached Bath' : 'Common Bath'}
+                            </div>
+                          </div>
+                          <div className="form-check form-switch p-0 m-0">
+                            <input 
+                              className="form-check-input cursor-pointer" 
+                              type="checkbox" 
+                              role="switch" 
+                              id={`adminRoomAvail-${roomTypeId}`}
+                              checked={room.isAvailable !== false}
+                              onChange={() => handleToggleRoomAvailability(selectedProperty._id, roomTypeId)}
+                              style={{ width: '40px', height: '20px' }}
+                            />
+                          </div>
+                        </div>
+                        <div className="d-flex flex-wrap gap-1 mt-2">
+                          {room.amenities?.slice(0, 3).map((a, i) => (
+                            <span key={i} className="badge bg-white text-muted border" style={{ fontSize: '9px' }}>{a}</span>
+                          ))}
+                          {room.ac && <span className="badge bg-primary bg-opacity-10 text-primary" style={{ fontSize: '9px' }}>AC</span>}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-muted">No rooms configured for this property.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary w-100 shadow-sm" onClick={() => setShowRoomsModal(false)} style={{ background: 'linear-gradient(135deg, #4361ee, #3f37c9)', border: 'none' }}>Done</button>
             </div>
           </div>
         </div>

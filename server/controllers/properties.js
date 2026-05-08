@@ -194,3 +194,83 @@ exports.deleteProperty = async (req, res, next) => {
     res.status(400).json({ success: false, message: err.message });
   }
 };
+// @desc    Toggle property publication status
+// @route   PUT /api/v1/properties/:id/publish
+// @access  Private
+exports.togglePublish = async (req, res, next) => {
+  try {
+    const property = await Property.findById(req.params.id);
+
+    if (!property) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+
+    // Make sure user is property owner or admin
+    if (property.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(401).json({ success: false, message: 'Not authorized to update this property' });
+    }
+
+    const before = property.toObject();
+    
+    property.isPublished = !property.isPublished;
+    await property.save();
+
+    res.status(200).json({ success: true, data: property });
+    
+    // Log update
+    logActivity({
+      action: property.isPublished ? 'PUBLISH_PROPERTY' : 'UNPUBLISH_PROPERTY',
+      performedBy: req.user.id,
+      targetModel: 'Property',
+      targetId: property._id,
+      before,
+      after: property.toObject(),
+      details: `Property ${property.isPublished ? 'published' : 'unpublished'}: ${property.pgName}`
+    }, req);
+
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Toggle room availability status
+// @route   PUT /api/v1/properties/:id/rooms/:roomTypeId/availability
+// @access  Private
+exports.toggleRoomAvailability = async (req, res, next) => {
+  try {
+    const property = await Property.findById(req.params.id);
+
+    if (!property) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+
+    // Make sure user is property owner or admin
+    if (property.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+      return res.status(401).json({ success: false, message: 'Not authorized to update this property' });
+    }
+
+    const roomTypeId = req.params.roomTypeId;
+    
+    // Update roomTypes array - handle both _id (MongoDB) and id/name (Legacy)
+    const roomType = property.roomTypes.find(rt => 
+      (rt._id && rt._id.toString() === roomTypeId) || 
+      (rt.id && rt.id.toString() === roomTypeId) ||
+      (rt.name === roomTypeId)
+    );
+    
+    if (!roomType) {
+      return res.status(404).json({ success: false, message: 'Room type not found' });
+    }
+
+    roomType.isAvailable = roomType.isAvailable === false ? true : false;
+    
+    // Mark roomTypes as modified for Mongoose
+    property.markModified('roomTypes');
+    await property.save();
+
+    res.status(200).json({ success: true, data: property });
+
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};

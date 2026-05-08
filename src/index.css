@@ -115,6 +115,23 @@
   box-sizing: border-box;
 }
 
+::placeholder {
+  color: #cbd5e1 !important;
+  opacity: 1;
+}
+
+::-webkit-input-placeholder {
+  color: #cbd5e1 !important;
+}
+
+:-ms-input-placeholder {
+  color: #cbd5e1 !important;
+}
+
+::-ms-input-placeholder {
+  color: #cbd5e1 !important;
+}
+
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
   background: #f3f4f6;
@@ -599,6 +616,22 @@ body {
     transform: translateX(-100%);
     position: fixed;
     z-index: 1050;
+    transition: transform 0.3s ease;
+  }
+
+  .sidebar.mobile-show {
+    transform: translateX(0);
+  }
+
+  .sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1040;
+    transition: opacity 0.3s ease;
   }
   
   .main-content {
@@ -724,92 +757,114 @@ body {
   }
 }
 
-/* Amenity Card Styles */
-.amenity-card {
+/* Amenities & Features Styles */
+.amenities-section {
+  padding-bottom: 10px;
+}
+
+.amenity-toggle-card {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 12px;
+  padding: 10px 14px;
   background: white;
-  border-radius: 12px;
   border: 1px solid var(--gray-200);
-  transition: all 0.3s;
-  position: relative;
-}
-
-.amenity-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-color: var(--primary-color);
-}
-
-.amenity-icon {
-  width: 40px;
-  height: 40px;
   border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+  height: 100%;
+}
+
+.amenity-toggle-card:hover {
+  border-color: var(--primary-color);
+  background: #f8faff;
+}
+
+.amenity-toggle-card.active {
+  background: #e0e7ff;
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  box-shadow: 0 2px 4px rgba(79, 70, 229, 0.1);
+}
+
+.amenity-toggle-card.room.active {
+  background: #ecfdf5;
+  border-color: #10b981;
+  color: #047857;
+}
+
+.amenity-toggle-card.active span {
+  font-weight: 600;
+}
+
+/* Selected Amenities Chips */
+.selected-amenities-display {
+  margin-top: 20px;
+}
+
+.amenity-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #475569;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.amenity-chip.room {
+  background: #f0fdf4;
+  border-color: #d1fae5;
+  color: #065f46;
+}
+
+.amenity-chip .remove-btn {
+  background: transparent;
+  border: none;
+  padding: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
+  color: #94a3b8;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.amenity-content {
-  flex: 1;
+.amenity-chip .remove-btn:hover {
+  background: #e2e8f0;
+  color: #ef4444;
 }
 
-.amenity-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--gray-700);
-}
-
-.amenity-actions {
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-
-.amenity-card:hover .amenity-actions {
-  opacity: 1;
-}
-
-.btn-success {
-  background: #10b981;
-  color: white;
-  border: none;
-}
-
-.btn-success:hover {
-  background: #059669;
-}
-
-/* Form Control Small */
-.form-control-modern.form-control-sm {
-  padding: 4px 8px;
+/* Housekeeping Chips */
+.housekeeping-chip {
+  padding: 8px 16px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   font-size: 12px;
-  border-radius: 6px;
+  font-weight: 500;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .amenity-card {
-    padding: 10px;
-  }
-  
-  .amenity-icon {
-    width: 35px;
-    height: 35px;
-  }
-  
-  .amenity-name {
-    font-size: 13px;
-  }
-  
-  .amenity-actions {
-    opacity: 1;
-  }
+.housekeeping-chip:hover {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
 }
+
+.housekeeping-chip.active {
+  background: #e0e7ff;
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  font-weight: 600;
+}
+
 
 /* 4 Stats Cards in a Row - Desktop */
 
@@ -3685,4 +3740,13 @@ textarea.form-control-modern {
   font-size: 11px;
   color: #6b7280;
   margin-top: 2px;
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+.form-switch .form-check-input:checked {
+  background-color: var(--primary-color);
+  border-color: var(--primary-color);
 }

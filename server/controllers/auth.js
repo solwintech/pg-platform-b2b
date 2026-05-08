@@ -9,7 +9,7 @@ const { sendOtpSms } = require('../utils/sms');
 // @access  Public
 exports.register = async (req, res, next) => {
   try {
-    const { name, email, password, phone, role, isMobileVerified } = req.body;
+    const { name, email, password, phone, alternatePhone, role, isMobileVerified } = req.body;
 
     // Check if mobile is verified
     if (!isMobileVerified) {
@@ -25,8 +25,10 @@ exports.register = async (req, res, next) => {
       email,
       password,
       phone,
+      alternatePhone,
       role,
-      isMobileVerified: true
+      isMobileVerified: true,
+      profileImage: ''
     });
 
     sendTokenResponse(user, 201, res);
@@ -121,6 +123,63 @@ exports.getMe = async (req, res, next) => {
   }
 };
 
+// @desc    Update user details
+// @route   PUT /api/v1/auth/details
+// @access  Private
+exports.updateDetails = async (req, res, next) => {
+  try {
+    const fieldsToUpdate = {
+      name: req.body.name,
+      email: req.body.email,
+      phone: req.body.phone,
+      alternatePhone: req.body.alternatePhone,
+      profileImage: req.body.profileImage
+    };
+
+    // Remove undefined fields
+    Object.keys(fieldsToUpdate).forEach(key => fieldsToUpdate[key] === undefined && delete fieldsToUpdate[key]);
+
+    const user = await User.findByIdAndUpdate(req.user.id, fieldsToUpdate, {
+      new: true,
+      runValidators: true
+    });
+
+    res.status(200).json({
+      success: true,
+      data: user
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Update profile image
+// @route   PUT /api/v1/auth/image
+// @access  Private
+exports.updateProfileImage = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: 'Please upload a file' });
+    }
+
+    // File path for database (relative to public directory)
+    const imagePath = `profiles/${req.file.filename}`;
+
+    const user = await User.findByIdAndUpdate(req.user.id, {
+      profileImage: imagePath
+    }, {
+      new: true
+    });
+
+    res.status(200).json({
+      success: true,
+      data: user
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
 // @desc    Generate and send OTP
 // @route   POST /api/v1/auth/generate-otp
 // @access  Public
@@ -138,6 +197,11 @@ exports.generateOtp = async (req, res, next) => {
     // Generate a random 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
     const mobileWithPrefix = '+91' + mobile;
+
+    // Log OTP for development
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[DEV] OTP for ${mobile}: ${otp}`);
+    }
 
     // Check if user exists
     const user = await User.findOne({ phone: mobile });
@@ -290,4 +354,25 @@ const sendTokenResponse = (user, statusCode, res) => {
       role: user.role
     }
   });
+};
+
+// @desc    Update password
+// @route   PUT /api/v1/auth/updatepassword
+// @access  Private
+exports.updatePassword = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.id).select('+password');
+
+    // Check current password
+    if (!(await user.matchPassword(req.body.currentPassword))) {
+      return res.status(401).json({ success: false, message: 'Current password is incorrect' });
+    }
+
+    user.password = req.body.newPassword;
+    await user.save();
+
+    sendTokenResponse(user, 200, res);
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
 };

@@ -13,6 +13,24 @@ const MultiStepForm = ({ steps, onSubmit, initialData = {} }) => {
   }, [initialData]);
   
   const updateFormData = (data) => {
+    // Check if propertyType is being changed
+    if (data.propertyType && formData.propertyType && data.propertyType !== formData.propertyType) {
+      // Clear property-specific fields to ensure data consistency
+      setFormData({
+        ...formData,
+        ...data,
+        roomTypes: [],
+        amenities: [],
+        roomAmenities: [],
+        genderAllowed: '',
+        totalBeds: '',
+        propertySubCategory: '',
+        // Add other fields that should be reset
+      });
+      setError("Property type changed. Property-specific details have been reset for accuracy.");
+      return;
+    }
+
     setFormData({ ...formData, ...data });
     if (error) setError(null); // Clear error when user starts typing
   };

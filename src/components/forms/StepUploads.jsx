@@ -107,16 +107,27 @@ const StepUploads = ({ data, updateData }) => {
                     >
                       <option value="">Select Tag</option>
                       <optgroup label="Property Level">
-                        <option value="Common Area">Common Area</option>
-                        <option value="Canteen">Canteen / Dining</option>
-                        <option value="Reception">Reception</option>
-                        <option value="Exterior">Exterior</option>
+                        <option value="Building Exterior">Building Exterior</option>
+                        <option value="Reception / Entrance">Reception / Entrance</option>
+                        <option value="Common Area / Lounge">Common Area / Lounge</option>
+                        <option value="Dining Area / Canteen">Dining Area / Canteen</option>
+                        {data.amenities?.includes('Kitchen') && <option value="Kitchen Area">Kitchen Area</option>}
+                        <option value="Washroom (Common)">Washroom (Common)</option>
                       </optgroup>
-                      <optgroup label="Room Level">
-                        <option value="Bedroom">Bedroom</option>
-                        <option value="Bathroom">Bathroom</option>
-                        <option value="Balcony">Balcony</option>
-                        <option value="Study Area">Study Area</option>
+                      
+                      {data.roomTypes && data.roomTypes.length > 0 && (
+                        <optgroup label="Specific Room Types">
+                          {data.roomTypes.map((room, rIdx) => (
+                            <option key={rIdx} value={`Room: ${room.name}`}>{room.name} View</option>
+                          ))}
+                        </optgroup>
+                      )}
+
+                      <optgroup label="Generic Room Views">
+                        <option value="Bedroom General">Bedroom General</option>
+                        <option value="Attached Bathroom">Attached Bathroom</option>
+                        <option value="Balcony View">Balcony View</option>
+                        <option value="Furniture / Study Area">Furniture / Study Area</option>
                       </optgroup>
                     </select>
                   </div>

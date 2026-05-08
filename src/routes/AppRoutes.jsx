@@ -33,6 +33,7 @@ import WebsiteSettings from "../pages/admin/WebsiteSettings";
 
 import AdminRatingsReviews from '../pages/admin/AdminRatingsReviews';
 import RoomManagement from '../pages/b2b/RoomManagement';
+import B2BDashboard from '../pages/b2b/B2BDashboard';
 
 import ManagerDashboard from '../pages/manager/ManagerDashboard';
 import SubscriptionPlans from '../pages/admin/SubscriptionPlans';
@@ -40,6 +41,7 @@ import SubscriptionPlans from '../pages/admin/SubscriptionPlans';
 import AdminProperties from '../pages/admin/AdminProperties';
 import ManageAdvertisements from '../pages/admin/ManageAdvertisements';
 import ActivityLogs from "../pages/admin/ActivityLogs";
+import Profile from "../pages/b2b/Profile";
 
 
 // User Pages (Removed)
@@ -68,7 +70,7 @@ const AppRoutes = () => {
         }
       >
         <Route index element={<Navigate to="dashboard" replace />} />
-        <Route path="dashboard" element={<ComingSoon />} />
+        <Route path="dashboard" element={<B2BDashboard />} />
         <Route path="add-pg" element={<AddPG />} />
         <Route path="edit-pg/:id" element={<EditPG />} />
         <Route path="listings" element={<ManageListings />} />
@@ -78,7 +80,7 @@ const AppRoutes = () => {
 
         <Route path="reviews" element={<ComingSoon />} />
         <Route path="managers" element={<ComingSoon />} />
-
+        <Route path="profile" element={<Profile />} />
       </Route>
       {/* Protected Admin Routes */}
       <Route path="/admin">

@@ -15,7 +15,7 @@ const StepBasicInfo = ({ data, updateData }) => {
     <div className="step-basic-info">
       <h5 className="mb-3 fw-semibold">Property Information</h5>
       <p className="text-muted small mb-4">Fill in the basic details about your property and manager</p>
-      
+
       <div className="row g-3">
         {/* Property Type Selection */}
         <div className="col-md-12 mb-2">
@@ -41,6 +41,26 @@ const StepBasicInfo = ({ data, updateData }) => {
             ))}
           </div>
         </div>
+
+        {/* Sub-category for Home Stay */}
+        {(data.propertyType === 'Home Stay') && (
+          <div className="col-md-12 mb-3">
+            <label className="form-label small fw-bold text-primary">Configuration Details *</label>
+            <select
+              className="form-select form-select-sm border-primary border-opacity-25"
+              name="propertySubCategory"
+              value={data.propertySubCategory || ''}
+              onChange={handleChange}
+            >
+              <option value="">Select Configuration</option>
+              <option value="1 BHK">1 BHK</option>
+              <option value="2 BHK">2 BHK</option>
+              <option value="3 BHK">3 BHK</option>
+              <option value="4 BHK">4 BHK</option>
+              <option value="Independent House">Independent House</option>
+            </select>
+          </div>
+        )}
 
         {/* Property Name */}
         <div className="col-md-12">

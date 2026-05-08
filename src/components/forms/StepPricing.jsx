@@ -59,9 +59,10 @@ const StepPricing = ({ data, updateData }) => {
           <select 
             className="form-select form-select-sm"
             name="paymentCycle"
-            value={data.paymentCycle || 'Monthly'}
+            value={data.paymentCycle || ''}
             onChange={handleChange}
           >
+            <option value="" disabled>Select payment cycle</option>
             <option value="Monthly">Monthly</option>
             <option value="Quarterly">Quarterly</option>
             <option value="Annually">Annually</option>

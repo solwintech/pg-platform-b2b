@@ -16,6 +16,7 @@ import {
   Building2,
   UserPlus
 } from 'lucide-react';
+import { formatDate } from '../../utils/dateFormatter';
 import { mockUsers } from '../../utils/mockData';
 
 const ManageUsers = () => {
@@ -243,7 +244,7 @@ const ManageUsers = () => {
                 <th>Contact Info</th>
                 <th>Role</th>
                 <th>Status</th>
-                <th>Joined Date</th>
+                <th>Registered On</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -299,7 +300,7 @@ const ManageUsers = () => {
                       </span>
                     </td>
                     <td>
-                      <div className="text-sm">{user.joinedDate}</div>
+                      <div className="text-sm">{formatDate(user.createdAt || user.joinedDate)}</div>
                       <div className="text-xs text-muted d-flex align-items-center gap-1 mt-1">
                         <Calendar size={12} /> Member
                       </div>
@@ -401,9 +402,9 @@ const ManageUsers = () => {
                     </div>
                   </div>
                   <div className="row mb-3">
-                    <div className="col-4 text-muted">Joined:</div>
+                    <div className="col-4 text-muted">Registered:</div>
                     <div className="col-8">
-                      <Calendar size={14} className="me-1" /> {selectedUser.joinedDate}
+                      <Calendar size={14} className="me-1" /> {formatDate(selectedUser.createdAt || selectedUser.joinedDate)}
                     </div>
                   </div>
                 </div>

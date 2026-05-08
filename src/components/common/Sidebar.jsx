@@ -20,7 +20,7 @@ import {
   ClipboardList
 } from 'lucide-react';
 
-const Sidebar = ({ role, isCollapsed, toggleSidebar }) => {
+const Sidebar = ({ role, isCollapsed, toggleSidebar, isMobileOpen, closeMobile }) => {
   const menuItems = {
     b2b: [
       { path: '/b2b/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -29,7 +29,8 @@ const Sidebar = ({ role, isCollapsed, toggleSidebar }) => {
       { path: '/b2b/leads', icon: Phone, label: 'Leads' },
       
       { path: '/b2b/reviews', icon: Star, label: 'Ratings & Reviews' },
-       { path: '/b2b/managers', icon: Users, label: 'Managers' },
+      { path: '/b2b/managers', icon: Users, label: 'Managers' },
+      { path: '/b2b/profile', icon: Settings, label: 'Account Settings' },
     ],
     admin: [
       { path: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -55,7 +56,7 @@ const Sidebar = ({ role, isCollapsed, toggleSidebar }) => {
   const items = role === 'b2b' ? menuItems.b2b : menuItems.admin;
 
   return (
-    <div className="sidebar" style={{ width: isCollapsed ? '80px' : '260px' }}>
+    <div className={`sidebar ${isMobileOpen ? 'mobile-show' : ''}`} style={{ width: isCollapsed ? '80px' : '260px' }}>
       <div className="sidebar-header">
         <div className="d-flex justify-content-between align-items-center">
           {!isCollapsed && (
@@ -64,7 +65,7 @@ const Sidebar = ({ role, isCollapsed, toggleSidebar }) => {
                 <i className="fas fa-home"></i>
               </div>
               <div className="logo-text-container-sm">
-                <span className="logo-brand-sm">Stay<span className="brand-accent">Nest</span></span>
+                <span className="logo-brand-sm">Sortify<span className="brand-accent"> Stays</span></span>
                 <span className="logo-tagline-sm">ADMIN</span>
               </div>
             </div>
@@ -89,6 +90,7 @@ const Sidebar = ({ role, isCollapsed, toggleSidebar }) => {
                 `nav-link-custom ${isActive ? 'active' : ''}`
               }
               title={isCollapsed ? item.label : ''}
+              onClick={closeMobile}
             >
               <item.icon className="nav-icon" />
               {!isCollapsed && <span>{item.label}</span>}

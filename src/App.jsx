@@ -7,7 +7,7 @@ import './index.css';
 
 function App() {
   return (
-    <BrowserRouter>
+    <BrowserRouter basename="/staynest">
       <AppRoutes />
     </BrowserRouter>
   );

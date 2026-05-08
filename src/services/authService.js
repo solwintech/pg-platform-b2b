@@ -58,6 +58,37 @@ const authService = {
       localStorage.setItem('user', JSON.stringify(response.data.user));
     }
     return response.data;
+  },
+
+  // Update user details
+  updateDetails: async (details) => {
+    const response = await api.put('/auth/details', details);
+    if (response.data.success) {
+      localStorage.setItem('user', JSON.stringify(response.data.data));
+    }
+    return response.data;
+  },
+
+  // Update profile image
+  updateProfileImage: async (formData) => {
+    const response = await api.put('/auth/image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    if (response.data.success) {
+      localStorage.setItem('user', JSON.stringify(response.data.data));
+    }
+    return response.data;
+  },
+
+  // Update password
+  updatePassword: async (passwordData) => {
+    const response = await api.put('/auth/updatepassword', passwordData);
+    if (response.data.success) {
+      localStorage.setItem('token', response.data.token);
+    }
+    return response.data;
   }
 };
 

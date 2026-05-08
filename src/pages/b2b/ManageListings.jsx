@@ -27,16 +27,9 @@ const ManageListings = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(true);
-
-  const [showOfferModal, setShowOfferModal] = useState(false);
+  const [showRoomsModal, setShowRoomsModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedProperty, setSelectedProperty] = useState(null);
-  const [offerData, setOfferData] = useState({
-    type: 'percentage',
-    value: '',
-    validTill: '',
-    description: ''
-  });
 
   useEffect(() => {
     loadListings();
@@ -54,87 +47,47 @@ const ManageListings = () => {
     }
   };
 
-  // Open Offer Modal
-  const openOfferModal = (property) => {
-    setSelectedProperty(property);
-    if (property.offer) {
-      setOfferData({
-        type: property.offer.type,
-        value: property.offer.value,
-        validTill: property.offer.validTill,
-        description: property.offer.description
-      });
-    } else {
-      setOfferData({
-        type: 'percentage',
-        value: '',
-        validTill: '',
-        description: ''
-      });
-    }
-    setShowOfferModal(true);
-  };
-
-  // Close Offer Modal
-  const closeOfferModal = () => {
-    setShowOfferModal(false);
-    setSelectedProperty(null);
-    setOfferData({
-      type: 'percentage',
-      value: '',
-      validTill: '',
-      description: ''
-    });
-  };
-
   // Open View Modal
   const openViewModal = (property) => {
     setSelectedProperty(property);
     setShowViewModal(true);
   };
 
-  // Save Offer
-  const saveOffer = () => {
-    if (!offerData.value || !offerData.validTill) {
-      alert('Please fill all required fields');
-      return;
-    }
+  // Toggle Room Availability status
+  // Toggle Room Availability
+  const toggleRoomAvailabilityStatus = async (propertyId, roomTypeId) => {
+    try {
+      const response = await propertyService.toggleRoomAvailability(propertyId, roomTypeId);
+      if (response.success) {
+        setListings(listings.map(p =>
+          p._id === propertyId
+            ? { ...p, roomTypes: p.roomTypes.map(rt => (rt._id || rt.id || rt.name) === roomTypeId ? { ...rt, isAvailable: !rt.isAvailable } : rt) }
+            : p
+        ));
 
-    const updatedListings = listings.map(listing => {
-      if (listing.id === selectedProperty.id) {
-        return {
-          ...listing,
-          offer: {
-            type: offerData.type,
-            value: parseFloat(offerData.value),
-            validTill: offerData.validTill,
-            description: offerData.description || `${offerData.type === 'percentage' ? offerData.value + '% off' : '₹' + offerData.value + ' off'} on booking`
-          }
-        };
+        // Update selected property if it's currently being viewed
+        if (selectedProperty && selectedProperty._id === propertyId) {
+          setSelectedProperty({
+            ...selectedProperty,
+            roomTypes: selectedProperty.roomTypes.map(rt => (rt._id || rt.id || rt.name) === roomTypeId ? { ...rt, isAvailable: !rt.isAvailable } : rt)
+          });
+        }
       }
-      return listing;
-    });
-
-    setListings(updatedListings);
-    window.dummyDataStorage.setItem('pgListings', JSON.stringify(updatedListings));
-    alert('Offer saved successfully!');
-    closeOfferModal();
+    } catch (error) {
+      console.error('Error toggling room availability:', error);
+      alert('Failed to update room availability');
+    }
   };
 
-  // Remove Offer
-  const removeOffer = () => {
-    if (window.confirm('Are you sure you want to remove this offer?')) {
-      const updatedListings = listings.map(listing => {
-        if (listing.id === selectedProperty.id) {
-          const { offer, ...rest } = listing;
-          return rest;
-        }
-        return listing;
-      });
-      setListings(updatedListings);
-      window.dummyDataStorage.setItem('pgListings', JSON.stringify(updatedListings));
-      alert('Offer removed successfully!');
-      closeOfferModal();
+  const togglePublishStatus = async (property) => {
+    try {
+      const response = await propertyService.togglePublish(property._id);
+      if (response.success) {
+        setListings(listings.map(l => l._id === property._id ? { ...l, isPublished: !l.isPublished } : l));
+      }
+    } catch (error) {
+      console.error('Error toggling publish status:', error);
+      alert('Failed to update publication status');
     }
   };
 
@@ -163,8 +116,7 @@ const ManageListings = () => {
     total: listings.length,
     approved: listings.filter(l => l.status === 'approved').length,
     pending: listings.filter(l => l.status === 'pending').length,
-    rejected: listings.filter(l => l.status === 'rejected').length,
-    activeOffers: listings.filter(l => l.offer && new Date(l.offer.validTill) >= new Date()).length
+    rejected: listings.filter(l => l.status === 'rejected').length
   };
 
   if (loading) {
@@ -212,21 +164,7 @@ const ManageListings = () => {
             </div>
           </div>
         </div>
-        <div className="col-md-3 mb-2">
-          <div className="stats-card-small">
-            <div className="stats-card-small-content">
-              <div className="stats-card-small-left">
-                <div className="stats-icon-small" style={{ background: '#fed7aa' }}>
-                  <Gift size={14} color="#f59e0b" />
-                </div>
-                <div className="stats-info-small">
-                  <div className="stats-number-small">{stats.activeOffers}</div>
-                  <div className="stats-label-small">Active Offers</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+
         <div className="col-md-3 mb-2">
           <div className="stats-card-small">
             <div className="stats-card-small-content">
@@ -287,9 +225,8 @@ const ManageListings = () => {
                 <th>Property Name</th>
                 <th>Location</th>
                 <th>Beds</th>
-                <th>Offer/Discount</th>
                 <th>Status</th>
-                <th>Created</th>
+                <th>Visibility</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -305,197 +242,133 @@ const ManageListings = () => {
                   </td>
                 </tr>
               ) : (
-                filteredListings.map(listing => {
-                  const originalRent = listing.price || listing.rent || 0;
-                  let discountedRent = originalRent;
-                  let offerText = '';
-
-                  if (listing.offer && new Date(listing.offer.validTill) >= new Date()) {
-                    if (listing.offer.type === 'percentage') {
-                      discountedRent = originalRent - (originalRent * listing.offer.value / 100);
-                      offerText = `${listing.offer.value}% OFF`;
-                    } else if (listing.offer.type === 'fixed') {
-                      discountedRent = originalRent - listing.offer.value;
-                      offerText = `₹${listing.offer.value} OFF`;
-                    }
-                  }
-
-                  return (
-                    <tr key={listing.id}>
-                      <td style={{ fontSize: '13px' }}>
-                        <div className="fw-600">{listing.pgName}</div>
-                        <div className="text-muted" style={{ fontSize: '10px' }}>{listing.type || listing.propertyType || 'PG'}</div>
-                      </td>
-                      <td style={{ fontSize: '12px' }}>
-                        {listing.city || listing.location?.split(',')[0] || 'Bangalore'}
-                      </td>
-                      <td style={{ fontSize: '12px' }}>
-                        {listing.availableBeds || 0}/{listing.beds || listing.totalBeds || 0}
-                      </td>
-                      <td>
-                        {listing.offer && new Date(listing.offer.validTill) >= new Date() ? (
-                          <div className="offer-cell">
-                            <div className="offer-badge-active">
-                              <Tag size={10} />
-                              <span>{offerText}</span>
-                            </div>
-                            <div className="offer-details">
-                              <small>{listing.offer.description}</small>
-                              <small className="text-muted">Valid till {new Date(listing.offer.validTill).toLocaleDateString()}</small>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            className="btn-add-offer"
-                            onClick={() => openOfferModal(listing)}
-                          >
-                            <PlusCircle size={12} /> Add Offer
-                          </button>
-                        )}
-                      </td>
-                      <td>{getStatusBadge(listing.status)}</td>
-                      <td style={{ fontSize: '11px' }}>
-                        {listing.createdAt ? new Date(listing.createdAt).toLocaleDateString() : 'N/A'}
-                      </td>
-                      <td>
-                        <div className="d-flex gap-2">
-                          <button
-                            className="btn-outline-premium"
-                            onClick={() => openViewModal(listing)}
-                            style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                          >
-                            <Eye size={12} /> View
-                          </button>
-
-                          {listing.offer && (
-                            <button
-                              className="btn-outline-premium"
-                              onClick={() => openOfferModal(listing)}
-                              style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                            >
-                              <Tag size={12} /> Edit Offer
-                            </button>
-                          )}
-                          <button
-                            className="btn-outline-premium"
-                            onClick={() => navigate(`/b2b/edit-pg/${listing._id}`)}
-                            style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
-                          >
-                            <Edit size={12} /> Edit
-                          </button>
-                          <button className="btn-outline-premium text-danger" style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px', borderColor: '#ef4444', color: '#ef4444' }}>
-                            <Trash2 size={12} /> Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })
+                filteredListings.map(listing => (
+                  <tr key={listing._id || listing.id}>
+                    <td style={{ fontSize: '13px' }}>
+                      <div className="fw-600">{listing.pgName}</div>
+                      <div className="text-muted" style={{ fontSize: '10px' }}>{listing.propertyType || 'PG'}</div>
+                    </td>
+                    <td style={{ fontSize: '12px' }}>
+                      {listing.city || 'N/A'}
+                    </td>
+                    <td style={{ fontSize: '12px' }}>
+                      {listing.totalBeds || 0}
+                    </td>
+                    <td>{getStatusBadge(listing.status)}</td>
+                    <td>
+                      <div className="form-check form-switch">
+                        <input
+                          className="form-check-input cursor-pointer"
+                          type="checkbox"
+                          role="switch"
+                          id={`publishSwitch-${listing._id}`}
+                          checked={listing.isPublished !== false}
+                          onChange={() => togglePublishStatus(listing)}
+                        />
+                        <label className="form-check-label small text-muted" htmlFor={`publishSwitch-${listing._id}`}>
+                          {listing.isPublished !== false ? 'Published' : 'Unpublished'}
+                        </label>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="d-flex gap-2 flex-wrap">
+                        <button
+                          className="btn-outline-premium"
+                          onClick={() => {
+                            setSelectedProperty(listing);
+                            setShowRoomsModal(true);
+                          }}
+                          style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <DoorOpen size={12} /> Rooms
+                        </button>
+                        <button
+                          className="btn-outline-premium"
+                          onClick={() => openViewModal(listing)}
+                          style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <Eye size={12} /> View
+                        </button>
+                        <button
+                          className="btn-outline-premium"
+                          onClick={() => navigate(`/b2b/edit-pg/${listing._id}`)}
+                          style={{ padding: '4px 10px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                        >
+                          <Edit size={12} /> Edit
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* Offer Modal */}
-      {showOfferModal && selectedProperty && (
-        <div className="modal-overlay" onClick={closeOfferModal}>
-          <div className="modal-container" onClick={(e) => e.stopPropagation()}>
+      {/* View Property Modal */}
+      {showRoomsModal && selectedProperty && (
+        <div className="modal-overlay" onClick={() => setShowRoomsModal(false)}>
+          <div className="modal-container" style={{ maxWidth: '600px' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h5 className="modal-title">
-                <Tag size={18} className="me-2" />
-                {selectedProperty.offer ? 'Edit Offer' : 'Add Offer'} - {selectedProperty.pgName}
+                <DoorOpen size={18} className="me-2" />
+                Manage Rooms - {selectedProperty.pgName}
               </h5>
-              <button className="modal-close" onClick={closeOfferModal}>
+              <button className="modal-close" onClick={() => setShowRoomsModal(false)}>
                 <X size={18} />
               </button>
             </div>
-
-            <div className="modal-body">
-              <div className="form-group mb-3">
-                <label className="form-label small fw-medium">Discount Type</label>
-                <div className="d-flex gap-3">
-                  <label className="d-flex align-items-center gap-2">
-                    <input
-                      type="radio"
-                      value="percentage"
-                      checked={offerData.type === 'percentage'}
-                      onChange={(e) => setOfferData({ ...offerData, type: e.target.value })}
-                    />
-                    <span>Percentage (%)</span>
-                  </label>
-                  <label className="d-flex align-items-center gap-2">
-                    <input
-                      type="radio"
-                      value="fixed"
-                      checked={offerData.type === 'fixed'}
-                      onChange={(e) => setOfferData({ ...offerData, type: e.target.value })}
-                    />
-                    <span>Fixed Amount (₹)</span>
-                  </label>
-                </div>
-              </div>
-
-              <div className="form-group mb-3">
-                <label className="form-label small fw-medium">
-                  {offerData.type === 'percentage' ? 'Discount Percentage (%)' : 'Discount Amount (₹)'}
-                </label>
-                <input
-                  type="number"
-                  className="form-control-modern"
-                  value={offerData.value}
-                  onChange={(e) => setOfferData({ ...offerData, value: e.target.value })}
-                  placeholder={offerData.type === 'percentage' ? 'e.g., 20' : 'e.g., 2000'}
-                />
-              </div>
-
-              <div className="form-group mb-3">
-                <label className="form-label small fw-medium">Valid Till Date</label>
-                <input
-                  type="date"
-                  className="form-control-modern"
-                  value={offerData.validTill}
-                  onChange={(e) => setOfferData({ ...offerData, validTill: e.target.value })}
-                />
-              </div>
-
-              <div className="form-group mb-3">
-                <label className="form-label small fw-medium">Description (Optional)</label>
-                <textarea
-                  className="form-control-modern"
-                  rows="2"
-                  value={offerData.description}
-                  onChange={(e) => setOfferData({ ...offerData, description: e.target.value })}
-                  placeholder="Describe the offer details..."
-                />
-              </div>
-
-              {selectedProperty.offer && (
-                <div className="offer-preview mb-3">
-                  <div className="small fw-medium mb-1">Current Offer:</div>
-                  <div className="offer-badge-active mb-1">
-                    {selectedProperty.offer.type === 'percentage' ?
-                      `${selectedProperty.offer.value}% OFF` :
-                      `₹${selectedProperty.offer.value} OFF`
-                    }
+            <div className="modal-body p-4">
+              <div className="room-list-refined d-flex flex-column gap-3">
+                {selectedProperty.roomTypes?.length > 0 ? (
+                  selectedProperty.roomTypes.map((room, idx) => {
+                    const roomTypeId = room._id || room.id || room.name;
+                    return (
+                      <div key={idx} className="room-item-premium p-3 border rounded-3 bg-light bg-opacity-50">
+                        <div className="d-flex justify-content-between align-items-start mb-2">
+                          <div>
+                            <div className="fw-bold text-dark d-flex align-items-center gap-2" style={{ fontSize: '14px' }}>
+                              {room.name}
+                              {room.isAvailable !== false ?
+                                <span className="badge bg-success bg-opacity-10 text-success" style={{ fontSize: '10px' }}>Available</span> :
+                                <span className="badge bg-danger bg-opacity-10 text-danger" style={{ fontSize: '10px' }}>Not Available</span>
+                              }
+                            </div>
+                            <div className="text-muted mt-1" style={{ fontSize: '11px' }}>
+                              {room.sharingType} • ₹{room.price}/month • {room.attachedBathroom ? 'Attached Bath' : 'Common Bath'}
+                            </div>
+                          </div>
+                          <div className="form-check form-switch p-0 m-0">
+                            <input
+                              className="form-check-input cursor-pointer"
+                              type="checkbox"
+                              role="switch"
+                              id={`modalRoomAvail-${roomTypeId}`}
+                              checked={room.isAvailable !== false}
+                              onChange={() => toggleRoomAvailabilityStatus(selectedProperty._id, roomTypeId)}
+                              style={{ width: '40px', height: '20px' }}
+                            />
+                          </div>
+                        </div>
+                        <div className="d-flex flex-wrap gap-1 mt-2">
+                          {room.amenities?.slice(0, 3).map((a, i) => (
+                            <span key={i} className="badge bg-white text-muted border" style={{ fontSize: '9px' }}>{a}</span>
+                          ))}
+                          {room.ac && <span className="badge bg-primary bg-opacity-10 text-primary" style={{ fontSize: '9px' }}>AC</span>}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-muted">No rooms configured for this property.</p>
                   </div>
-                  <small className="text-muted">Valid till: {new Date(selectedProperty.offer.validTill).toLocaleDateString()}</small>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-
             <div className="modal-footer">
-              {selectedProperty.offer && (
-                <button className="btn-danger-outline" onClick={removeOffer}>
-                  Remove Offer
-                </button>
-              )}
-              <button className="btn-outline-premium" onClick={closeOfferModal}>
-                Cancel
-              </button>
-              <button className="btn-premium" onClick={saveOffer}>
-                <Save size={14} className="me-1" /> Save Offer
-              </button>
+              <button className="btn btn-primary w-100" onClick={() => setShowRoomsModal(false)}>Done</button>
             </div>
           </div>
         </div>
@@ -572,27 +445,48 @@ const ManageListings = () => {
                     </div>
 
                     <div className="room-list-refined d-flex flex-column gap-3">
-                      {selectedProperty.roomTypes?.map((room, idx) => (
-                        <div key={idx} className="room-item-premium p-3 border rounded-3 bg-light bg-opacity-50">
-                          <div className="d-flex justify-content-between align-items-start mb-2">
-                            <div>
-                              <div className="fw-bold text-dark" style={{ fontSize: '12px' }}>{room.name}</div>
-                              <div className="text-muted mt-1" style={{ fontSize: '10px' }}>{room.sharingType} • {room.size} sqft • {room.attachedBathroom ? 'Attached Bath' : 'Common Bath'}</div>
+                      {selectedProperty.roomTypes?.map((room, idx) => {
+                        const roomTypeId = room._id || room.id || room.name;
+                        return (
+                          <div key={idx} className="room-item-premium p-3 border rounded-3 bg-light bg-opacity-50">
+                            <div className="d-flex justify-content-between align-items-start mb-2">
+                              <div>
+                                <div className="fw-bold text-dark d-flex align-items-center gap-2" style={{ fontSize: '12px' }}>
+                                  {room.name}
+                                  {room.isAvailable !== false ?
+                                    <span className="badge bg-success bg-opacity-10 text-success" style={{ fontSize: '9px' }}>Available</span> :
+                                    <span className="badge bg-danger bg-opacity-10 text-danger" style={{ fontSize: '9px' }}>Not Available</span>
+                                  }
+                                </div>
+                                <div className="text-muted mt-1" style={{ fontSize: '10px' }}>{room.sharingType} • {room.size} sqft • {room.attachedBathroom ? 'Attached Bath' : 'Common Bath'}</div>
+                              </div>
+                              <div className="text-end d-flex flex-column align-items-end gap-2">
+                                <div className="fw-bold text-primary" style={{ fontSize: '13px' }}>₹{room.price}</div>
+                                <div className="form-check form-switch p-0 m-0 d-flex align-items-center gap-2">
+                                  <label className="form-check-label x-small text-muted" htmlFor={`roomAvail-${roomTypeId}`}>
+                                    Status
+                                  </label>
+                                  <input
+                                    className="form-check-input cursor-pointer ms-0"
+                                    type="checkbox"
+                                    role="switch"
+                                    id={`roomAvail-${roomTypeId}`}
+                                    checked={room.isAvailable !== false}
+                                    onChange={() => toggleRoomAvailabilityStatus(selectedProperty._id, roomTypeId)}
+                                  />
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-end">
-                              <div className="fw-bold text-primary" style={{ fontSize: '13px' }}>₹{room.price}</div>
-                              <div style={{ fontSize: '9px', opacity: 0.7 }}>PER MONTH</div>
+                            <div className="d-flex flex-wrap gap-1 mt-2">
+                              {room.amenities?.map((a, i) => (
+                                <span key={i} className="badge bg-white text-muted border border-light shadow-sm" style={{ fontSize: '9px' }}>{a}</span>
+                              ))}
+                              {room.ac && <span className="badge bg-primary bg-opacity-10 text-primary" style={{ fontSize: '9px' }}>AC Room</span>}
+                              {room.furnishingStatus && <span className="badge bg-secondary bg-opacity-10 text-secondary" style={{ fontSize: '9px' }}>{room.furnishingStatus}</span>}
                             </div>
                           </div>
-                          <div className="d-flex flex-wrap gap-1 mt-2">
-                            {room.amenities?.map((a, i) => (
-                              <span key={i} className="badge bg-white text-muted border border-light shadow-sm" style={{ fontSize: '9px' }}>{a}</span>
-                            ))}
-                            {room.ac && <span className="badge bg-primary bg-opacity-10 text-primary" style={{ fontSize: '9px' }}>AC Room</span>}
-                            {room.furnishingStatus && <span className="badge bg-secondary bg-opacity-10 text-secondary" style={{ fontSize: '9px' }}>{room.furnishingStatus}</span>}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 </div>

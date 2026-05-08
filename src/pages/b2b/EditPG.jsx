@@ -10,6 +10,7 @@ import StepAmenities from '../../components/forms/StepAmenities';
 import StepUploads from '../../components/forms/StepUploads';
 import StepReview from '../../components/forms/StepReview';
 import propertyService from '../../services/propertyService';
+import SubmissionTermsModal from '../../components/forms/SubmissionTermsModal';
 
 const EditPG = () => {
   const { id } = useParams();
@@ -17,6 +18,8 @@ const EditPG = () => {
   const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const [initialData, setInitialData] = useState(null);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState(null);
 
   useEffect(() => {
     const fetchProperty = async () => {
@@ -107,8 +110,15 @@ const EditPG = () => {
     { title: "Review", component: StepReview }
   ];
 
-  const handleSubmit = async (formData) => {
+  const handleSubmit = (formData) => {
+    setPendingFormData(formData);
+    setShowTermsModal(true);
+  };
+
+  const handleFinalSubmit = async () => {
     setSubmitting(true);
+    setShowTermsModal(false);
+    const formData = pendingFormData;
     try {
       // Define restricted fields that require admin re-approval
       const restrictedFields = ['pgName', 'address', 'area', 'city', 'pinCode', 'landmark', 'latitude', 'longitude'];
@@ -176,6 +186,13 @@ const EditPG = () => {
           )}
         </div>
       </div>
+
+      <SubmissionTermsModal 
+        isOpen={showTermsModal}
+        onConfirm={handleFinalSubmit}
+        onCancel={() => setShowTermsModal(false)}
+        isSubmitting={submitting}
+      />
     </div>
   );
 };

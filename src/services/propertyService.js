@@ -29,6 +29,18 @@ const propertyService = {
   deleteProperty: async (id) => {
     const response = await api.delete(`/properties/${id}`);
     return response.data;
+  },
+
+  // Toggle Publish Status
+  togglePublish: async (id) => {
+    const response = await api.put(`/properties/${id}/publish`);
+    return response.data;
+  },
+
+  // Toggle Room Availability
+  toggleRoomAvailability: async (propertyId, roomTypeId) => {
+    const response = await api.put(`/properties/${propertyId}/rooms/${roomTypeId}/availability`);
+    return response.data;
   }
 };
 

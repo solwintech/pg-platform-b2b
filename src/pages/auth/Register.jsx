@@ -13,9 +13,12 @@ import {
   Clock,
   LogIn,
   Lock,
-  AlertCircle
+  AlertCircle,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import authService from '../../services/authService';
+import { TermsOfServiceModal, PrivacyPolicyModal } from '../../components/auth/AuthModals';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -24,7 +27,8 @@ const Register = () => {
     phone: '',
     alternatePhone: '',
     email: '',
-    password: ''
+    password: '',
+    confirmPassword: ''
   });
   const [otpSent, setOtpSent] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
@@ -35,6 +39,10 @@ const Register = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -87,6 +95,7 @@ const Register = () => {
   };
 
   const validateForm = () => {
+    console.log('Validating form...', formData);
     const newErrors = {};
 
     if (!formData.ownerName.trim()) newErrors.ownerName = 'Owner / contact person name is required';
@@ -96,6 +105,9 @@ const Register = () => {
     else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
     if (!formData.password.trim()) newErrors.password = 'Password is required';
     else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+    
+    if (!formData.confirmPassword.trim()) newErrors.confirmPassword = 'Confirm password is required';
+    else if (formData.password !== formData.confirmPassword) newErrors.confirmPassword = 'Passwords do not match';
     if (!isVerified) newErrors.otp = 'Please verify your phone number with OTP';
     if (!agreeTerms) newErrors.terms = 'You must agree to the terms and conditions';
 
@@ -104,8 +116,10 @@ const Register = () => {
   };
 
   const handleRegister = async (e) => {
+    console.log('handleRegister triggered');
     e.preventDefault();
     if (validateForm()) {
+      console.log('Form is valid, submitting...');
       setIsSubmitting(true);
       try {
         await authService.register({
@@ -113,6 +127,7 @@ const Register = () => {
           email: formData.email,
           password: formData.password,
           phone: formData.phone,
+          alternatePhone: formData.alternatePhone,
           role: 'b2b',
           isMobileVerified: true
         });
@@ -138,7 +153,7 @@ const Register = () => {
               <div className="brand-logo">
                 <Building2 size={40} />
               </div>
-              <h2 className="brand-title">Register Your Property</h2>
+              <h2 className="brand-title">Sortify Stays</h2>
               <p className="brand-subtitle">Join India's largest PG & Hostel platform</p>
               <div className="brand-features">
                 <div className="feature-item">
@@ -277,15 +292,72 @@ const Register = () => {
                       <div className="input-icon">
                         <Lock size={16} className="icon" />
                         <input
-                          type="password"
+                          type={showPassword ? 'text' : 'password'}
                           className={`form-control-modern ${errors.password ? 'error' : ''}`}
                           name="password"
                           placeholder="Create a strong password (min 6 chars)"
                           value={formData.password}
                           onChange={handleChange}
+                          style={{ paddingRight: '40px' }}
                         />
+                        <button 
+                          type="button" 
+                          onClick={() => setShowPassword(!showPassword)}
+                          style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            color: '#94a3b8',
+                            display: 'flex',
+                            alignItems: 'center',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
                       </div>
                       {errors.password && <small className="error-text">{errors.password}</small>}
+                    </div>
+                  </div>
+
+                  <div className="col-md-12">
+                    <div className="form-group">
+                      <div className="input-icon">
+                        <Lock size={16} className="icon" />
+                        <input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          className={`form-control-modern ${errors.confirmPassword ? 'error' : ''}`}
+                          name="confirmPassword"
+                          placeholder="Confirm your password"
+                          value={formData.confirmPassword}
+                          onChange={handleChange}
+                          style={{ paddingRight: '40px' }}
+                        />
+                        <button 
+                          type="button" 
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            color: '#94a3b8',
+                            display: 'flex',
+                            alignItems: 'center',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      </div>
+                      {errors.confirmPassword && <small className="error-text">{errors.confirmPassword}</small>}
                     </div>
                   </div>
                 </div>
@@ -303,7 +375,7 @@ const Register = () => {
                       }}
                     />
                     <label className="form-check-label small" htmlFor="terms">
-                      I agree to the <a href="#" className="text-primary text-decoration-none">Terms of Service</a> and <a href="#" className="text-primary text-decoration-none">Privacy Policy</a>
+                      I agree to the <a href="#" onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }} className="text-primary text-decoration-none">Terms of Service</a> and <a href="#" onClick={(e) => { e.preventDefault(); setShowPrivacyModal(true); }} className="text-primary text-decoration-none">Privacy Policy</a>
                     </label>
                   </div>
                   {errors.terms && <small className="error-text">{errors.terms}</small>}
@@ -330,6 +402,14 @@ const Register = () => {
           </div>
         </div>
       </div>
+      <TermsOfServiceModal 
+        isOpen={showTermsModal} 
+        onClose={() => setShowTermsModal(false)} 
+      />
+      <PrivacyPolicyModal 
+        isOpen={showPrivacyModal} 
+        onClose={() => setShowPrivacyModal(false)} 
+      />
     </div>
   );
 };

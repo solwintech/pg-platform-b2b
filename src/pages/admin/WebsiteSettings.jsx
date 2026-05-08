@@ -20,9 +20,9 @@ const WebsiteSettings = () => {
 
   // General Settings
   const [generalSettings, setGeneralSettings] = useState({
-    siteName: 'PG Platform',
+    siteName: 'Sortify Stays',
     siteTagline: 'India\'s largest PG & Hostel discovery platform',
-    siteEmail: 'info@pgplatform.com',
+    siteEmail: 'info@sortifystays.com',
     sitePhone: '+91 98765 43210',
     siteAddress: 'Bangalore, Karnataka, India',
     timezone: 'Asia/Kolkata',
@@ -34,11 +34,11 @@ const WebsiteSettings = () => {
 
   // Social Media Links
   const [socialLinks, setSocialLinks] = useState({
-    facebook: 'https://facebook.com/pgplatform',
-    twitter: 'https://twitter.com/pgplatform',
-    instagram: 'https://instagram.com/pgplatform',
-    linkedin: 'https://linkedin.com/company/pgplatform',
-    youtube: 'https://youtube.com/pgplatform'
+    facebook: 'https://facebook.com/sortifystays',
+    twitter: 'https://twitter.com/sortifystays',
+    instagram: 'https://instagram.com/sortifystays',
+    linkedin: 'https://linkedin.com/company/sortifystays',
+    youtube: 'https://youtube.com/sortifystays'
   });
 
   // Homepage Sections

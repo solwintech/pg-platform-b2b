@@ -32,6 +32,19 @@ const userSchema = new mongoose.Schema({
     unique: true,
     match: [/^\d{10}$/, 'Please add a valid 10-digit phone number']
   },
+  alternatePhone: {
+    type: String,
+    validate: {
+      validator: function(v) {
+        return !v || /^\d{10}$/.test(v);
+      },
+      message: 'Please add a valid 10-digit alternate phone number'
+    }
+  },
+  profileImage: {
+    type: String,
+    default: ''
+  },
   active: {
     type: Boolean,
     default: true

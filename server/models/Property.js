@@ -21,6 +21,10 @@ const propertySchema = new mongoose.Schema({
     enum: ['pending', 'approved', 'rejected'],
     default: 'pending'
   },
+  isPublished: {
+    type: Boolean,
+    default: true
+  },
   // Basic Info
   managerName: String,
   managerPhone: String,
@@ -60,6 +64,13 @@ const propertySchema = new mongoose.Schema({
   // Media
   coverImage: String,
   galleryImages: [Object],
+
+  // Visiting Availability
+  visitingHours: {
+    availableDays: [String],
+    startTime: String,
+    endTime: String
+  },
   
   createdAt: {
     type: Date,

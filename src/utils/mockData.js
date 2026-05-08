@@ -1070,8 +1070,7 @@ export const mockReviews = [
 export const mockAmenities = [
   "WiFi", "AC", "Laundry", "Housekeeping", "Power Backup", 
   "Parking", "CCTV", "Security Guard", "Lift", "RO Water", "Gym",
-  "Swimming Pool", "Gaming Zone", "Study Room", "Library", "Meditation Area",
-  "TV", "Refrigerator", "Microwave", "Geyser", "Washing Machine"
+  "Swimming Pool", "Gaming Zone", "Study Room", "Library", "Meditation Area"
 ];
 
 // ==================== USERS ====================

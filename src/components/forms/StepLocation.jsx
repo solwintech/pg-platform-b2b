@@ -95,16 +95,8 @@ const StepLocation = ({ data, updateData }) => {
             value={data.area || ''}
             onChange={handleChange}
             placeholder="e.g. Shahapura A-sector, B-Sector, E-1"
-            list="area-suggestions"
+            autoComplete="off"
           />
-          <datalist id="area-suggestions">
-            <option value="Shahapura A-sector" />
-            <option value="Shahapura B-sector" />
-            <option value="Arera Colony E-1" />
-            <option value="MP Nagar Zone-1" />
-            <option value="Indrapuri Sector-C" />
-          </datalist>
-          <small className="text-muted">Type to see suggestions or enter your specific sector</small>
         </div>
 
         {/* Full Address */}
@@ -117,6 +109,8 @@ const StepLocation = ({ data, updateData }) => {
             onChange={handleChange}
             rows="2"
             placeholder="House No, Street name, Landmark, etc."
+            autoComplete="off"
+            spellCheck="false"
           />
         </div>
 
@@ -130,6 +124,7 @@ const StepLocation = ({ data, updateData }) => {
             value={data.city || ''}
             onChange={handleChange}
             placeholder="e.g. Bhopal"
+            autoComplete="off"
           />
         </div>
         <div className="col-md-6">
@@ -141,6 +136,7 @@ const StepLocation = ({ data, updateData }) => {
             value={data.pinCode || ''}
             onChange={handleChange}
             placeholder="462001"
+            autoComplete="off"
           />
         </div>
 
@@ -220,15 +216,8 @@ const StepLocation = ({ data, updateData }) => {
               placeholder="Search destination (e.g. DB Mall, MANIT)"
               value={newPlace.name}
               onChange={(e) => setNewPlace({...newPlace, name: e.target.value})}
-              list="popular-destinations"
+              autoComplete="off"
             />
-            <datalist id="popular-destinations">
-              <option value="DB Mall" />
-              <option value="MANIT Bhopal" />
-              <option value="Bhopal Junction" />
-              <option value="Habibganj Station" />
-              <option value="AIIMS Bhopal" />
-            </datalist>
             <div className="input-group input-group-sm" style={{ width: '120px' }}>
               <input
                 type="number"

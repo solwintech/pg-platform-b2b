@@ -5,7 +5,9 @@ import {
   Lock,
   Shield,
   ArrowRight,
-  Building2
+  Building2,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import authService from '../../services/authService';
 
@@ -17,6 +19,7 @@ const AdminLogin = () => {
   });
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -77,7 +80,7 @@ const AdminLogin = () => {
                       type="text"
                       className="form-control-modern"
                       name="username"
-                      placeholder="admin@pgplatform.com"
+                      placeholder="admin@sortifystays.com"
                       value={formData.username}
                       onChange={handleChange}
                     />
@@ -89,13 +92,33 @@ const AdminLogin = () => {
                   <div className="input-icon">
                     <Lock size={16} className="icon" />
                     <input
-                      type="password"
+                      type={showPassword ? 'text' : 'password'}
                       className="form-control-modern"
                       name="password"
                       placeholder="Enter admin password"
                       value={formData.password}
                       onChange={handleChange}
+                      style={{ paddingRight: '40px' }}
                     />
+                    <button 
+                      type="button" 
+                      onClick={() => setShowPassword(!showPassword)}
+                      style={{
+                        position: 'absolute',
+                        right: '12px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        padding: 0,
+                        color: '#94a3b8',
+                        display: 'flex',
+                        alignItems: 'center',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
                   </div>
                 </div>
 

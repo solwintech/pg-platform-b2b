@@ -10,10 +10,13 @@ import StepAmenities from '../../components/forms/StepAmenities';
 import StepUploads from '../../components/forms/StepUploads';
 import StepReview from '../../components/forms/StepReview';
 import propertyService from '../../services/propertyService';
+import SubmissionTermsModal from '../../components/forms/SubmissionTermsModal';
 
 const AddPG = () => {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [pendingFormData, setPendingFormData] = useState(null);
 
   const steps = [
     { 
@@ -86,10 +89,16 @@ const AddPG = () => {
     { title: "Review", component: StepReview }
   ];
 
-  const handleSubmit = async (formData) => {
+  const handleSubmit = (formData) => {
+    setPendingFormData(formData);
+    setShowTermsModal(true);
+  };
+
+  const handleFinalSubmit = async () => {
     setSubmitting(true);
+    setShowTermsModal(false);
     try {
-      await propertyService.createProperty(formData);
+      await propertyService.createProperty(pendingFormData);
       setSubmitting(false);
       alert('Success! Your property has been submitted and is pending admin approval.');
       navigate('/b2b/listings');
@@ -116,6 +125,13 @@ const AddPG = () => {
           )}
         </div>
       </div>
+
+      <SubmissionTermsModal 
+        isOpen={showTermsModal}
+        onConfirm={handleFinalSubmit}
+        onCancel={() => setShowTermsModal(false)}
+        isSubmitting={submitting}
+      />
     </div>
   );
 };

@@ -24,24 +24,51 @@ const StepRoomTypes = ({ data, updateData }) => {
   // Dynamic Room Options based on Property Type
   const getRoomOptions = () => {
     const type = data.propertyType;
-    if (type === 'PG' || type === 'Hostel' || type === 'Home Stay') {
-      const baseOptions = [
+    if (type === 'PG') {
+      return [
         { value: 'Private Room', label: 'Private Room' },
         { value: 'Double Sharing', label: 'Double Sharing' },
         { value: 'Triple Sharing', label: 'Triple Sharing' },
         { value: 'Quad Sharing', label: 'Quad Sharing' },
         { value: 'Five Sharing', label: 'Five Sharing' },
         { value: '1 RK', label: '1 RK' },
-        { value: '1 BHK', label: '1 BHK' }
+        { value: '1 BHK', label: '1 BHK' },
+        { value: '2 BHK', label: '2 BHK' },
+        { value: 'Hall', label: 'Hall' }
       ];
-      if (type === 'PG') baseOptions.push({ value: '2 BHK', label: '2 BHK' });
-      return baseOptions;
+    } else if (type === 'Hostel') {
+      return [
+        { value: 'Private Room', label: 'Private Room' },
+        { value: 'Double Sharing', label: 'Double Sharing' },
+        { value: 'Triple Sharing', label: 'Triple Sharing' },
+        { value: 'Quad Sharing', label: 'Quad Sharing' },
+        { value: 'Five Sharing', label: 'Five Sharing' },
+        { value: '1 RK', label: '1 RK' },
+        { value: '1 BHK', label: '1 BHK' },
+        { value: 'Hall', label: 'Hall' }
+      ];
+    } else if (type === 'Home Stay') {
+      return [
+        { value: 'Private Room', label: 'Private Room' },
+        { value: 'Double Sharing', label: 'Double Sharing' },
+        { value: 'Triple Sharing', label: 'Triple Sharing' },
+        { value: 'Quad Sharing', label: 'Quad Sharing' },
+        { value: 'Five Sharing', label: 'Five Sharing' },
+        { value: '1 RK', label: '1 RK' },
+        { value: '1 BHK', label: '1 BHK' },
+        { value: '2 BHK', label: '2 BHK' },
+        { value: '3 BHK', label: '3 BHK' },
+        { value: '4 BHK', label: '4 BHK' },
+        { value: 'Independent House', label: 'Independent House' },
+        { value: 'Hall', label: 'Hall' }
+      ];
     } else if (type === 'Service Apartment') {
       return [
         { value: '1 BHK', label: '1 BHK' },
         { value: '2 BHK', label: '2 BHK' },
         { value: '3 BHK', label: '3 BHK' },
-        { value: '4 BHK', label: '4 BHK' }
+        { value: '4 BHK', label: '4 BHK' },
+        { value: 'Studio Room', label: 'Studio Room' }
       ];
     }
     return [
@@ -134,6 +161,13 @@ const StepRoomTypes = ({ data, updateData }) => {
       <h5 className="mb-3 fw-semibold">Room & Bed Details</h5>
       <p className="text-muted small mb-4">Add different room types available in your {data.propertyType}</p>
 
+      {roomTypes.length === 0 && (
+        <div className="alert alert-info py-2 px-3 mb-3 d-flex align-items-center gap-2" style={{ fontSize: '11px', borderRadius: '8px' }}>
+          <span>ℹ️</span>
+          <span>Please add new room configurations suitable for a {data.propertyType}.</span>
+        </div>
+      )}
+
       {/* Existing Rooms List */}
       {roomTypes.length > 0 && (
         <div className="mb-4">
@@ -149,15 +183,34 @@ const StepRoomTypes = ({ data, updateData }) => {
                   <button className="btn btn-sm btn-light text-danger" onClick={() => deleteRoom(room.id)}><Trash2 size={14} /></button>
                 </div>
               </div>
-              <div className="d-flex flex-wrap gap-2 mt-2">
-                {room.bedSize && <span className="badge bg-info bg-opacity-10 text-info">🛏️ {room.bedSize}</span>}
-                {room.size && <span className="badge bg-light text-dark"><Maximize size={10} /> {room.size} sq ft</span>}
-                {room.attachedBathroom && <span className="badge bg-light text-dark"><Bath size={10} /> Attached Bath</span>}
-                {room.livingRoom && <span className="badge bg-light text-dark"><Layout size={10} /> Living Room</span>}
-                {room.numberOfRooms && <span className="badge bg-warning bg-opacity-10 text-dark">🏢 {room.numberOfRooms} Rooms</span>}
-                {room.furnishingStatus && <span className="badge bg-secondary bg-opacity-10 text-secondary">🛋️ {room.furnishingStatus}</span>}
-                {room.acType && <span className="badge bg-info bg-opacity-10 text-info"><Wind size={10} /> {room.acType}</span>}
+              <div className="mt-3">
+                <div className="small fw-bold text-muted mb-2">Selected Features:</div>
+                <div className="d-flex flex-wrap gap-2">
+                  {room.bedSize && <span className="badge bg-info bg-opacity-10 text-info">🛏️ {room.bedSize}</span>}
+                  {room.size && <span className="badge bg-light text-dark"><Maximize size={10} /> {room.size} sq ft</span>}
+                  {room.numberOfRooms && <span className="badge bg-warning bg-opacity-10 text-dark">🏢 {room.numberOfRooms} Rooms</span>}
+                  {room.furnishingStatus && <span className="badge bg-secondary bg-opacity-10 text-secondary">🛋️ {room.furnishingStatus}</span>}
+                  {room.acType && <span className="badge bg-info bg-opacity-10 text-info"><Wind size={10} /> {room.acType}</span>}
+                  
+                  {room.attachedBathroom && <span className="badge bg-success bg-opacity-10 text-success"><Bath size={10} /> Attached Bath</span>}
+                  {room.livingRoom && <span className="badge bg-primary bg-opacity-10 text-primary"><Layout size={10} /> Living Room</span>}
+                  {room.balcony && <span className="badge bg-primary bg-opacity-10 text-primary"><Sun size={10} /> Balcony</span>}
+                  {room.kitchen && <span className="badge bg-primary bg-opacity-10 text-primary"><Utensils size={10} /> Kitchen</span>}
+                </div>
               </div>
+              
+              {room.amenities && room.amenities.length > 0 && (
+                <div className="mt-2">
+                  <div className="small fw-bold text-muted mb-2">Selected Amenities:</div>
+                  <div className="d-flex flex-wrap gap-2">
+                    {room.amenities.map(amenity => (
+                      <span key={amenity} className="badge bg-light text-muted border">
+                        {amenity}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

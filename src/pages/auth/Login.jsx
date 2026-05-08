@@ -12,9 +12,12 @@ import {
   Key,
   UserPlus,
   HelpCircle,
-  Users
+  Users,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import authService from '../../services/authService';
+import { TermsOfServiceModal, PrivacyPolicyModal } from '../../components/auth/AuthModals';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -31,6 +34,9 @@ const Login = () => {
   const [otpTimer, setOtpTimer] = useState(0);
   const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
+  const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -100,6 +106,7 @@ const Login = () => {
   };
 
   const handleLogin = (e, role) => {
+    console.log('handleLogin triggered', { loginMethod, role, formData });
     if (e) e.preventDefault();
     setError('');
 
@@ -138,6 +145,7 @@ const Login = () => {
   };
 
   const loginB2B = async () => {
+    console.log('loginB2B started');
     try {
       if (loginMethod === 'phone') {
         setIsVerifying(true);
@@ -145,7 +153,7 @@ const Login = () => {
         if (verifyRes.success) {
           if (verifyRes.token) {
             // User was automatically logged in
-            navigate('/b2b/dashboard');
+            navigate('/b2b/add-pg');
           } else {
             // This shouldn't happen for login, but for safety:
             setError('Account not found. Please register first.');
@@ -157,7 +165,7 @@ const Login = () => {
       const identifier = loginMethod === 'email' ? formData.email : formData.phone;
       const response = await authService.login(identifier, formData.password);
       if (response.success) {
-        navigate('/b2b/dashboard');
+        navigate('/b2b/add-pg');
       }
     } catch (err) {
       console.error('Login error:', err);
@@ -184,7 +192,7 @@ const Login = () => {
               <div className="brand-logo">
                 <Building2 size={40} />
               </div>
-              <h2 className="brand-title">PG Platform</h2>
+              <h2 className="brand-title">Sortify Stays</h2>
               <p className="brand-subtitle">India's largest PG & Hostel discovery platform</p>
               <div className="brand-features">
                 <div className="feature-item">
@@ -205,7 +213,7 @@ const Login = () => {
               <div className="brand-actions">
 
 
-                <button className="action-btn help" onClick={() => alert('📞 For support, call +91 98765 43210 or email support@pgplatform.com')}>
+                <button className="action-btn help" onClick={() => alert('📞 For support, call +91 98765 43210 or email support@sortifystays.com')}>
                   <HelpCircle size={14} />
                   Need Help?
                 </button>
@@ -269,13 +277,33 @@ const Login = () => {
                       <div className="input-icon">
                         <Lock size={16} className="icon" />
                         <input
-                          type="password"
+                          type={showPassword ? 'text' : 'password'}
                           className="form-control-modern"
                           name="password"
                           placeholder="Enter your password"
                           value={formData.password}
                           onChange={handleChange}
+                          style={{ paddingRight: '40px' }}
                         />
+                        <button 
+                          type="button" 
+                          onClick={() => setShowPassword(!showPassword)}
+                          style={{
+                            position: 'absolute',
+                            right: '12px',
+                            top: '50%',
+                            transform: 'translateY(-50%)',
+                            background: 'none',
+                            border: 'none',
+                            padding: 0,
+                            color: '#94a3b8',
+                            display: 'flex',
+                            alignItems: 'center',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
                       </div>
                     </div>
                     <div className="d-flex justify-content-between align-items-center mb-4">
@@ -357,11 +385,22 @@ const Login = () => {
                 <p className="small text-muted mb-0">
                   Don't have an account? <a href="#" onClick={() => navigate('/register')} className="text-primary text-decoration-none fw-semibold">Register as PG Owner</a>
                 </p>
+                <p className="mt-2" style={{ fontSize: '10px', color: '#94a3b8' }}>
+                  By logging in, you agree to our <a href="#" onClick={(e) => { e.preventDefault(); setShowTermsModal(true); }} className="text-decoration-none text-muted fw-bold">Terms of Service</a> & <a href="#" onClick={(e) => { e.preventDefault(); setShowPrivacyModal(true); }} className="text-decoration-none text-muted fw-bold">Privacy Policy</a>
+                </p>
               </div>
             </div>
           </div>
         </div>
       </div>
+      <TermsOfServiceModal 
+        isOpen={showTermsModal} 
+        onClose={() => setShowTermsModal(false)} 
+      />
+      <PrivacyPolicyModal 
+        isOpen={showPrivacyModal} 
+        onClose={() => setShowPrivacyModal(false)} 
+      />
     </div>
   );
 };

@@ -38,7 +38,13 @@ const StepReview = ({ data }) => {
         { label: "Gender Allowed", value: data.genderAllowed },
         { label: "Total Beds", value: data.totalBeds },
         { label: "Total Rooms", value: data.totalRooms },
-        { label: "Floor details", value: data.floorNumber ? `${data.floorNumber} floor of ${data.totalFloors || '?'} floors` : null }
+        { label: "Floor details", value: data.floorNumber ? `${data.floorNumber} floor of ${data.totalFloors || '?'} floors` : null },
+        { 
+          label: "Visiting Availability", 
+          value: data.visitingHours?.availableDays?.length > 0 
+            ? `${data.visitingHours.availableDays.join(', ')} (${data.visitingHours.startTime} - ${data.visitingHours.endTime})` 
+            : "Not specified" 
+        }
       ]
     },
     {
