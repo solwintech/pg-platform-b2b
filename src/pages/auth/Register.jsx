@@ -45,9 +45,18 @@ const Register = () => {
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    if (errors[e.target.name]) {
-      setErrors({ ...errors, [e.target.name]: '' });
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    
+    // If phone number is changed after verification, reset verification status
+    if (name === 'phone' && (isVerified || otpSent)) {
+      setIsVerified(false);
+      setOtpSent(false);
+      setOtp('');
+    }
+    
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: '' });
     }
   };
 
@@ -95,7 +104,6 @@ const Register = () => {
   };
 
   const validateForm = () => {
-    console.log('Validating form...', formData);
     const newErrors = {};
 
     if (!formData.ownerName.trim()) newErrors.ownerName = 'Owner / contact person name is required';
@@ -111,15 +119,17 @@ const Register = () => {
     if (!isVerified) newErrors.otp = 'Please verify your phone number with OTP';
     if (!agreeTerms) newErrors.terms = 'You must agree to the terms and conditions';
 
+    if (Object.keys(newErrors).length > 0) {
+      newErrors.general = 'Please fill all required fields and verify your phone number to continue.';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleRegister = async (e) => {
-    console.log('handleRegister triggered');
     e.preventDefault();
     if (validateForm()) {
-      console.log('Form is valid, submitting...');
       setIsSubmitting(true);
       try {
         await authService.register({
@@ -202,7 +212,7 @@ const Register = () => {
                         <User size={16} className="icon" />
                         <input
                           type="text"
-                          className={`form-control-modern ${errors.ownerName ? 'error' : ''}`}
+                          className={`form-control-modern ${errors.ownerName ? 'is-invalid' : ''}`}
                           name="ownerName"
                           placeholder="Full name of owner / contact person"
                           value={formData.ownerName}
@@ -220,7 +230,7 @@ const Register = () => {
                         <span className="country-code">+91</span>
                         <input
                           type="tel"
-                          className={`form-control-modern ${errors.phone ? 'error' : ''}`}
+                          className={`form-control-modern ${errors.phone ? 'is-invalid' : ''}`}
                           name="phone"
                           placeholder="9876543210"
                           value={formData.phone}
@@ -249,7 +259,7 @@ const Register = () => {
                           </span>
                           <input
                             type="text"
-                            className={`form-control-modern ${errors.otp ? 'error' : ''}`}
+                            className={`form-control-modern ${errors.otp ? 'is-invalid' : ''}`}
                             placeholder="Enter 6-digit OTP"
                             value={otp}
                             onChange={(e) => setOtp(e.target.value)}
@@ -276,7 +286,7 @@ const Register = () => {
                         <Mail size={16} className="icon" />
                         <input
                           type="email"
-                          className={`form-control-modern ${errors.email ? 'error' : ''}`}
+                          className={`form-control-modern ${errors.email ? 'is-invalid' : ''}`}
                           name="email"
                           placeholder="contact@yourbusiness.com"
                           value={formData.email}
@@ -293,7 +303,7 @@ const Register = () => {
                         <Lock size={16} className="icon" />
                         <input
                           type={showPassword ? 'text' : 'password'}
-                          className={`form-control-modern ${errors.password ? 'error' : ''}`}
+                          className={`form-control-modern ${errors.password ? 'is-invalid' : ''}`}
                           name="password"
                           placeholder="Create a strong password (min 6 chars)"
                           value={formData.password}
@@ -330,7 +340,7 @@ const Register = () => {
                         <Lock size={16} className="icon" />
                         <input
                           type={showConfirmPassword ? 'text' : 'password'}
-                          className={`form-control-modern ${errors.confirmPassword ? 'error' : ''}`}
+                          className={`form-control-modern ${errors.confirmPassword ? 'is-invalid' : ''}`}
                           name="confirmPassword"
                           placeholder="Confirm your password"
                           value={formData.confirmPassword}

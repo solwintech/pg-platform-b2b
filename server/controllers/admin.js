@@ -1,20 +1,22 @@
 const Property = require('../models/Property');
 const User = require('../models/User');
 const ActivityLog = require('../models/ActivityLog');
+const SubscriptionPlan = require('../models/SubscriptionPlan');
 const logActivity = require('../utils/logger');
+const { sendPropertyApprovedSms } = require('../utils/sms');
 
 // @desc    Update property status (Approve/Reject)
 // @route   PUT /api/v1/admin/properties/:id/status
 // @access  Private/Admin
 exports.updatePropertyStatus = async (req, res, next) => {
   try {
-    const { status } = req.body;
-    
-    if (!['approved', 'rejected', 'pending'].includes(status)) {
+    const { status, isFeatured } = req.body;
+
+    if (status && !['approved', 'rejected', 'pending'].includes(status)) {
       return res.status(400).json({ success: false, message: 'Invalid status' });
     }
 
-    let property = await Property.findById(req.params.id);
+    let property = await Property.findById(req.params.id).populate('owner');
 
     if (!property) {
       return res.status(404).json({ success: false, message: 'Property not found' });
@@ -27,6 +29,11 @@ exports.updatePropertyStatus = async (req, res, next) => {
       updateFields.isReapproval = false;
       updateFields.changedFields = [];
       updateFields.previousValues = {};
+
+      // Send SMS Notification to Owner
+      if (property.owner && property.owner.phone) {
+        sendPropertyApprovedSms(property.owner.phone, property.pgName, property.owner.name);
+      }
     }
 
     property = await Property.findByIdAndUpdate(req.params.id, updateFields, {
@@ -35,7 +42,7 @@ exports.updatePropertyStatus = async (req, res, next) => {
     });
 
     res.status(200).json({ success: true, data: property });
-    
+
     // Log status change
     logActivity({
       action: status === 'approved' ? 'APPROVE_PROPERTY' : 'REJECT_PROPERTY',
@@ -86,7 +93,7 @@ exports.getUsers = async (req, res, next) => {
 exports.updateUserStatus = async (req, res, next) => {
   try {
     const { active } = req.body;
-    
+
     let user = await User.findById(req.params.id);
 
     if (!user) {
@@ -100,7 +107,7 @@ exports.updateUserStatus = async (req, res, next) => {
     });
 
     res.status(200).json({ success: true, data: user });
-    
+
     // Log status change
     logActivity({
       action: 'UPDATE_USER_STATUS',
@@ -112,6 +119,227 @@ exports.updateUserStatus = async (req, res, next) => {
       details: `User ${active ? 'activated' : 'deactivated'}: ${user.email}`
     }, req);
 
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Get dashboard stats
+// @route   GET /api/v1/admin/stats
+// @access  Private/Admin
+exports.getDashboardStats = async (req, res, next) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const totalProperties = await Property.countDocuments();
+    const pendingProperties = await Property.countDocuments({ status: 'pending' });
+    const approvedProperties = await Property.countDocuments({ status: 'approved' });
+
+    // Recent registrations
+    const recentProperties = await Property.find()
+      .sort('-createdAt')
+      .limit(5)
+      .select('pgName managerName city status createdAt propertyType');
+
+    const recentUsers = await User.find()
+      .sort('-createdAt')
+      .limit(5)
+      .select('name email role active createdAt');
+
+    // Growth stats (simple version: new this month)
+    const startOfMonth = new Date();
+    startOfMonth.setDate(1);
+    startOfMonth.setHours(0, 0, 0, 0);
+
+    const newUsersThisMonth = await User.countDocuments({ createdAt: { $gte: startOfMonth } });
+    const newPropertiesThisMonth = await Property.countDocuments({ createdAt: { $gte: startOfMonth } });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalUsers,
+        totalProperties,
+        pendingProperties,
+        approvedProperties,
+        newUsersThisMonth,
+        newPropertiesThisMonth,
+        recentProperties,
+        recentUsers,
+        monthlyData: {
+          users: [10, 20, 15, 25, 30, totalUsers],
+          properties: [5, 10, 8, 12, 15, totalProperties]
+        }
+      }
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Create a user
+// @route   POST /api/v1/admin/users
+// @access  Private/Admin
+exports.createUser = async (req, res, next) => {
+  try {
+    const user = await User.create(req.body);
+    res.status(201).json({ success: true, data: user });
+
+    logActivity({
+      action: 'CREATE_USER',
+      performedBy: req.user.id,
+      targetModel: 'User',
+      targetId: user._id,
+      after: user.toObject(),
+      details: `Admin created user: ${user.email}`
+    }, req);
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Update a user
+// @route   PUT /api/v1/admin/users/:id
+// @access  Private/Admin
+exports.updateUser = async (req, res, next) => {
+  try {
+    let user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const before = user.toObject();
+    user = await User.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true
+    });
+
+    res.status(200).json({ success: true, data: user });
+
+    logActivity({
+      action: 'UPDATE_USER',
+      performedBy: req.user.id,
+      targetModel: 'User',
+      targetId: user._id,
+      before,
+      after: user.toObject(),
+      details: `Admin updated user: ${user.email}`
+    }, req);
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Delete a user
+// @route   DELETE /api/v1/admin/users/:id
+// @access  Private/Admin
+exports.deleteUser = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    await user.deleteOne();
+    res.status(200).json({ success: true, data: {} });
+
+    logActivity({
+      action: 'DELETE_USER',
+      performedBy: req.user.id,
+      targetModel: 'User',
+      targetId: user._id,
+      before: user.toObject(),
+      details: `Admin deleted user: ${user.email}`
+    }, req);
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Get all subscription plans
+// @route   GET /api/v1/admin/plans
+// @access  Private/Admin
+exports.getSubscriptionPlans = async (req, res, next) => {
+  try {
+    const plans = await SubscriptionPlan.find().sort('price');
+    res.status(200).json({ success: true, count: plans.length, data: plans });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Create a subscription plan
+// @route   POST /api/v1/admin/plans
+// @access  Private/Admin
+exports.createSubscriptionPlan = async (req, res, next) => {
+  try {
+    const plan = await SubscriptionPlan.create(req.body);
+    res.status(201).json({ success: true, data: plan });
+
+    logActivity({
+      action: 'CREATE_PLAN',
+      performedBy: req.user.id,
+      targetModel: 'SubscriptionPlan',
+      targetId: plan._id,
+      after: plan.toObject(),
+      details: `Admin created subscription plan: ${plan.name}`
+    }, req);
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Update a subscription plan
+// @route   PUT /api/v1/admin/plans/:id
+// @access  Private/Admin
+exports.updateSubscriptionPlan = async (req, res, next) => {
+  try {
+    let plan = await SubscriptionPlan.findById(req.params.id);
+    if (!plan) {
+      return res.status(404).json({ success: false, message: 'Plan not found' });
+    }
+
+    const before = plan.toObject();
+    plan = await SubscriptionPlan.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true
+    });
+
+    res.status(200).json({ success: true, data: plan });
+
+    logActivity({
+      action: 'UPDATE_PLAN',
+      performedBy: req.user.id,
+      targetModel: 'SubscriptionPlan',
+      targetId: plan._id,
+      before,
+      after: plan.toObject(),
+      details: `Admin updated subscription plan: ${plan.name}`
+    }, req);
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Delete a subscription plan
+// @route   DELETE /api/v1/admin/plans/:id
+// @access  Private/Admin
+exports.deleteSubscriptionPlan = async (req, res, next) => {
+  try {
+    const plan = await SubscriptionPlan.findById(req.params.id);
+    if (!plan) {
+      return res.status(404).json({ success: false, message: 'Plan not found' });
+    }
+
+    await plan.deleteOne();
+    res.status(200).json({ success: true, data: {} });
+
+    logActivity({
+      action: 'DELETE_PLAN',
+      performedBy: req.user.id,
+      targetModel: 'SubscriptionPlan',
+      targetId: plan._id,
+      before: plan.toObject(),
+      details: `Admin deleted subscription plan: ${plan.name}`
+    }, req);
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }

@@ -9,20 +9,18 @@ const {
   togglePublish,
   toggleRoomAvailability
 } = require('../controllers/properties');
-const { protect, authorize } = require('../middleware/auth');
-
-router.use(protect); // All property routes are protected
+const { protect, authorize, optionalProtect } = require('../middleware/auth');
 
 router.route('/')
-  .get(getProperties)
-  .post(authorize('b2b', 'admin'), createProperty);
+  .get(optionalProtect, getProperties)
+  .post(protect, authorize('b2b', 'admin'), createProperty);
 
 router.route('/:id')
-  .get(getProperty)
-  .put(updateProperty)
-  .delete(deleteProperty);
+  .get(optionalProtect, getProperty)
+  .put(protect, updateProperty)
+  .delete(protect, deleteProperty);
 
-router.put('/:id/publish', togglePublish);
-router.put('/:id/rooms/:roomTypeId/availability', toggleRoomAvailability);
+router.put('/:id/publish', protect, togglePublish);
+router.put('/:id/rooms/:roomTypeId/availability', protect, toggleRoomAvailability);
 
 module.exports = router;

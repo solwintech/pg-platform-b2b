@@ -55,8 +55,8 @@ const AdminProperties = () => {
   const loadProperties = async () => {
     setLoading(true);
     try {
-      const response = await propertyService.getProperties();
-      const listings = response.data || [];
+      const response = await propertyService.getProperties({}, false);
+      const listings = response.properties || [];
       setProperties(listings);
       setFilteredProperties(listings);
       setLoading(false);
@@ -132,7 +132,7 @@ const AdminProperties = () => {
     }
 
     try {
-      await adminService.updatePropertyStatus(id, newStatus);
+      await adminService.updatePropertyStatus(id, { status: newStatus });
       const updatedProperties = properties.map(p =>
         p._id === id ? { ...p, status: newStatus, isReapproval: false, changedFields: [], previousValues: {} } : p
       );
@@ -214,6 +214,17 @@ const AdminProperties = () => {
     } catch (error) {
       console.error('Error toggling room availability:', error);
       alert('Error updating room availability');
+    }
+  };
+
+  const handleToggleFeatured = async (id, currentStatus) => {
+    try {
+      await adminService.updatePropertyStatus(id, { isFeatured: !currentStatus });
+      setProperties(properties.map(p => p._id === id ? { ...p, isFeatured: !currentStatus } : p));
+      setFilteredProperties(filteredProperties.map(p => p._id === id ? { ...p, isFeatured: !currentStatus } : p));
+    } catch (error) {
+      console.error('Error toggling featured status:', error);
+      alert('Failed to update featured status');
     }
   };
 
@@ -327,8 +338,8 @@ const AdminProperties = () => {
                 <th>Manager Info</th>
                 <th>Location</th>
                 <th>Pricing</th>
-                <th>Capacity</th>
                 <th>Status</th>
+                <th>Featured</th>
                 <th>Visibility</th>
                 <th>Submitted On</th>
                 <th>Actions</th>
@@ -354,7 +365,6 @@ const AdminProperties = () => {
                     </td>
                     <td>
                       <div className="small fw-500">{property.managerName || 'Not assigned'}</div>
-                      <div className="text-muted" style={{ fontSize: '10px' }}>{property.managerEmail}</div>
                       <div className="text-muted" style={{ fontSize: '10px' }}>{property.managerPhone}</div>
                     </td>
                     <td>
@@ -363,21 +373,21 @@ const AdminProperties = () => {
                         <span className="small">{property.city}</span>
                       </div>
                     </td>
-                    <td className="fw-600 text-primary">₹{property.price}/month</td>
-                    <td>
-                      <div className="small">{property.totalRooms || '-'} Rooms</div>
-                      <div className="small text-muted">{property.totalBeds || '-'} Beds</div>
-                      <div className="small text-success">{property.availableBeds || 0} Available</div>
-                    </td>
+                    <td className="fw-600 text-primary">₹{property.price || property.pricing?.deposit || 'N/A'}</td>
                     <td>
                       <div className="d-flex flex-column gap-1">
                         {getStatusBadge(property.status)}
-                        {property.status === 'pending' && (
-                          <span className={`badge ${property.isReapproval ? 'bg-info' : 'bg-primary'} bg-opacity-10 text-${property.isReapproval ? 'info' : 'primary'}`} style={{ fontSize: '9px', width: 'fit-content' }}>
-                            {property.isReapproval ? 'UPDATE REQUEST' : 'NEW PROPERTY'}
-                          </span>
-                        )}
                       </div>
+                    </td>
+                    <td className="text-center">
+                      <button 
+                        className={`btn-icon-only ${property.isFeatured ? 'text-warning' : 'text-muted opacity-50'}`}
+                        onClick={() => handleToggleFeatured(property._id, property.isFeatured)}
+                        style={{ border: 'none', background: 'none' }}
+                        title={property.isFeatured ? 'Remove from Featured' : 'Make Featured'}
+                      >
+                        <Star size={16} fill={property.isFeatured ? '#f59e0b' : 'none'} />
+                      </button>
                     </td>
                     <td>
                       <div className="form-check form-switch">
@@ -389,12 +399,9 @@ const AdminProperties = () => {
                           onChange={() => handleTogglePublish(property._id)}
                           style={{ cursor: 'pointer' }}
                         />
-                        <span className="ms-1 small text-muted" style={{ fontSize: '10px' }}>
-                          {property.isPublished ? 'Live' : 'Hidden'}
-                        </span>
                       </div>
                     </td>
-                    <td className="small" style={{ minWidth: '150px' }}>{formatDate(property.createdAt)}</td>
+                    <td className="small">{formatDate(property.createdAt)}</td>
                     <td>
                       <div className="d-flex gap-2">
                         <button
@@ -423,7 +430,6 @@ const AdminProperties = () => {
                             type="button" 
                             data-bs-toggle="dropdown" 
                             aria-expanded="false"
-                            title="Quick Status"
                           >
                             <MoreVertical size={14} />
                           </button>
@@ -432,41 +438,32 @@ const AdminProperties = () => {
                               <button 
                                 className="dropdown-item d-flex align-items-center gap-2 py-2" 
                                 onClick={() => updatePropertyStatus(property._id, 'approved')}
-                                disabled={property.status === 'approved'}
                               >
-                                <CheckCircle size={14} className="text-success" /> Approve Property
+                                <CheckCircle size={14} className="text-success" /> Approve
                               </button>
                             </li>
                             <li>
                               <button 
                                 className="dropdown-item d-flex align-items-center gap-2 py-2" 
                                 onClick={() => updatePropertyStatus(property._id, 'rejected')}
-                                disabled={property.status === 'rejected'}
                               >
-                                <XCircle size={14} className="text-danger" /> Reject Property
+                                <XCircle size={14} className="text-danger" /> Reject
                               </button>
                             </li>
+                            <li className="border-top my-1"></li>
                             <li>
                               <button 
-                                className="dropdown-item d-flex align-items-center gap-2 py-2" 
-                                onClick={() => updatePropertyStatus(property._id, 'pending')}
-                                disabled={property.status === 'pending'}
+                                className="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" 
+                                onClick={() => {
+                                  setSelectedProperty(property);
+                                  setShowDeleteConfirm(true);
+                                }}
                               >
-                                <Clock size={14} className="text-warning" /> Mark as Pending
+                                <Trash2 size={14} /> Delete
                               </button>
                             </li>
                           </ul>
                         </div>
-                        <button
-                          className="btn-icon-sm btn-outline-premium text-danger"
-                          onClick={() => {
-                            setSelectedProperty(property);
-                            setShowDeleteConfirm(true);
-                          }}
-                          title="Delete"
-                        >
-                          <Trash2 size={14} />
-                        </button>
                       </div>
                     </td>
                   </tr>

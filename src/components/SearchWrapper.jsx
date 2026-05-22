@@ -1,9 +1,13 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { MapPin, Building, Bed, Search, Sparkles, ChevronDown } from 'lucide-react';
+import { Autocomplete } from '@react-google-maps/api';
+import { useGoogleMaps } from '../context/GoogleMapsContext';
 import './SearchWrapper.css';
 
 const SearchWrapper = ({ filters, updateFilter, onSearch, locationLoading, getUserLocation }) => {
+  const autocompleteRef = useRef(null);
 
+  const { isLoaded } = useGoogleMaps();
 
   const propertyTypes = [
     { label: 'All Stays', value: 'all', icon: <Sparkles size={16} /> },
@@ -19,6 +23,22 @@ const SearchWrapper = ({ filters, updateFilter, onSearch, locationLoading, getUs
     { label: 'Co-ed', value: 'co-ed' },
     { label: 'Any', value: 'any' }
   ];
+
+  const onPlaceChanged = () => {
+    if (autocompleteRef.current !== null) {
+      const place = autocompleteRef.current.getPlace();
+      if (place.name) {
+        updateFilter('locality', place.name);
+        
+        // Also extract city if possible
+        const addressComponents = place.address_components || [];
+        const cityComponent = addressComponents.find(c => c.types.includes('locality'));
+        if (cityComponent) {
+          updateFilter('city', cityComponent.long_name);
+        }
+      }
+    }
+  };
 
   return (
     <div className="sw-main-container">
@@ -63,12 +83,26 @@ const SearchWrapper = ({ filters, updateFilter, onSearch, locationLoading, getUs
             <Search size={20} className="sw-icon" />
             <div className="sw-input-group">
               <span className="sw-label">SEARCH LOCALITY / AREA</span>
-              <input 
-                type="text" 
-                placeholder="Koramangala, Indiranagar..." 
-                value={filters.locality}
-                onChange={(e) => updateFilter('locality', e.target.value)}
-              />
+              {isLoaded ? (
+                <Autocomplete
+                  onLoad={ref => autocompleteRef.current = ref}
+                  onPlaceChanged={onPlaceChanged}
+                >
+                  <input 
+                    type="text" 
+                    placeholder="Koramangala, Indiranagar..." 
+                    value={filters.locality}
+                    onChange={(e) => updateFilter('locality', e.target.value)}
+                  />
+                </Autocomplete>
+              ) : (
+                <input 
+                  type="text" 
+                  placeholder="Koramangala, Indiranagar..." 
+                  value={filters.locality}
+                  onChange={(e) => updateFilter('locality', e.target.value)}
+                />
+              )}
             </div>
           </div>
 
@@ -81,8 +115,6 @@ const SearchWrapper = ({ filters, updateFilter, onSearch, locationLoading, getUs
 
       {/* Quick Filters Row */}
       <div className="sw-quick-filters">
-
-
         <div className="sw-filter-item">
           <span className="sw-filter-label">Gender:</span>
           <div className="sw-chips">
@@ -103,3 +135,4 @@ const SearchWrapper = ({ filters, updateFilter, onSearch, locationLoading, getUs
 };
 
 export default SearchWrapper;
+

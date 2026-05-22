@@ -25,6 +25,10 @@ const propertySchema = new mongoose.Schema({
     type: Boolean,
     default: true
   },
+  isFeatured: {
+    type: Boolean,
+    default: false
+  },
   // Basic Info
   managerName: String,
   managerPhone: String,

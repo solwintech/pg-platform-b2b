@@ -7,15 +7,73 @@ const logActivity = require('../utils/logger');
 exports.getProperties = async (req, res, next) => {
   try {
     let query;
-    if (req.user.role === 'admin') {
-      query = Property.find().populate('owner', 'name email');
+    
+    // Copy req.query
+    const reqQuery = { ...req.query };
+
+    // Fields to exclude from direct matching
+    const removeFields = ['select', 'sort', 'page', 'limit'];
+    removeFields.forEach(param => delete reqQuery[param]);
+
+    // Create query string for advanced operators
+    let queryStr = JSON.stringify(reqQuery);
+    queryStr = queryStr.replace(/\b(gt|gte|lt|lte|in)\b/g, match => `$${match}`);
+
+    const baseFilter = JSON.parse(queryStr);
+
+    // Role-based logic
+    if (!req.user) {
+      // Public: Only approved and published
+      baseFilter.status = 'approved';
+      baseFilter.isPublished = true;
+      query = Property.find(baseFilter);
+    } else if (req.user.role === 'admin') {
+      // Admin: All properties
+      query = Property.find(baseFilter).populate('owner', 'name email');
     } else {
-      query = Property.find({ owner: req.user.id });
+      // B2B: Only their own
+      baseFilter.owner = req.user.id;
+      query = Property.find(baseFilter);
     }
 
+    // Select Fields
+    if (req.query.select) {
+      const fields = req.query.select.split(',').join(' ');
+      query = query.select(fields);
+    }
+
+    // Sort
+    if (req.query.sort) {
+      const sortBy = req.query.sort.split(',').join(' ');
+      query = query.sort(sortBy);
+    } else {
+      query = query.sort('-createdAt');
+    }
+
+    // Pagination
+    const page = parseInt(req.query.page, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 100;
+    const startIndex = (page - 1) * limit;
+    const endIndex = page * limit;
+    const total = await Property.countDocuments(baseFilter);
+
+    query = query.skip(startIndex).limit(limit);
+
     const properties = await query;
-    res.status(200).json({ success: true, count: properties.length, data: properties });
+
+    res.status(200).json({
+      success: true,
+      count: properties.length,
+      total,
+      pagination: {
+        page,
+        limit
+      },
+      data: properties,
+      properties: properties // Keep for backward compatibility
+    });
   } catch (err) {
+    console.error(`[getProperties] Error: ${err.message}`);
     res.status(400).json({ success: false, message: err.message });
   }
 };
@@ -31,7 +89,15 @@ exports.getProperty = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Property not found' });
     }
 
-    // Make sure user is property owner or admin
+    // Public access: allow if published and approved
+    if (!req.user) {
+      if (property.status !== 'approved' || !property.isPublished) {
+        return res.status(401).json({ success: false, message: 'Not authorized to access this property' });
+      }
+      return res.status(200).json({ success: true, data: property });
+    }
+
+    // Auth access: Make sure user is property owner or admin
     if (property.owner.toString() !== req.user.id && req.user.role !== 'admin') {
       return res.status(401).json({ success: false, message: 'Not authorized to access this property' });
     }

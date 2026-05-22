@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Building2,
   Phone,
@@ -17,22 +17,55 @@ import {
   Target
 } from 'lucide-react';
 import StatsCard from '../../components/common/StatsCard';
+import propertyService from '../../services/propertyService';
+import leadService from '../../services/leadService';
 
 const B2BDashboard = () => {
   const [timeRange, setTimeRange] = useState('monthly');
   const [selectedProperty, setSelectedProperty] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [properties, setProperties] = useState([]);
+  const [recentLeads, setRecentLeads] = useState([]);
 
-  // Property Performance Data - Focus on Clicks & Leads only
-  const properties = [];
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
-  const recentLeads = [];
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const response = await propertyService.getProperties({}, false);
+      if (response.success) {
+        // Map backend properties to the format expected by dashboard
+        const mappedProps = (response.properties || []).map(p => ({
+          id: p._id,
+          name: p.pgName || p.title || 'Unnamed Property',
+          views: p.views || 0,
+          leads: p.leads || 0,
+          conversion: p.views > 0 ? ((p.leads / p.views) * 100).toFixed(1) : 0,
+          status: p.status || 'Active'
+        }));
+        setProperties(mappedProps);
+      }
+
+      // Fetch Leads
+      const leadsRes = await leadService.getB2BLeads();
+      if (leadsRes.success) {
+        setRecentLeads(leadsRes.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Calculate total stats
   const totalStats = {
-    totalViews: properties.reduce((acc, p) => acc + p.views, 0),
-    totalLeads: properties.reduce((acc, p) => acc + p.leads, 0),
+    totalViews: properties.reduce((acc, p) => acc + (typeof p.views === 'number' ? p.views : 0), 0),
+    totalLeads: recentLeads.length,
     avgConversion: properties.length > 0
-      ? (properties.reduce((acc, p) => acc + p.conversion, 0) / properties.length).toFixed(1)
+      ? (properties.reduce((acc, p) => acc + parseFloat(p.conversion), 0) / properties.length).toFixed(1)
       : "0.0"
   };
 
@@ -53,6 +86,16 @@ const B2BDashboard = () => {
   const weeklyClicks = [0, 0, 0, 0, 0, 0, 0];
   const weeklyLeads = [0, 0, 0, 0, 0, 0, 0];
 
+
+  if (loading) {
+    return (
+      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '60vh' }}>
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fade-in-up">
@@ -93,14 +136,14 @@ const B2BDashboard = () => {
             </thead>
             <tbody>
               {recentLeads.length > 0 ? (
-                recentLeads.map(lead => (
-                  <tr key={lead.id}>
+                recentLeads.slice(0, 5).map(lead => (
+                  <tr key={lead._id}>
                     <td className="small fw-600">{lead.name}</td>
-                    <td className="small">{lead.property}</td>
-                    <td className="small">{lead.date}</td>
+                    <td className="small">{lead.property?.pgName || 'N/A'}</td>
+                    <td className="small">{new Date(lead.createdAt).toLocaleDateString()}</td>
                     <td>
                       <span className={`badge-premium ${lead.type === 'Call' ? 'badge-success' : 'badge-info'}`}>
-                        {lead.type === 'Call' ? '📞 Call' : '✉️ Enquiry'}
+                        {lead.type === 'Call' ? '📞 Call' : lead.type === 'WhatsApp' ? '💬 WA' : '✉️ Enquiry'}
                       </span>
                     </td>
                     <td>

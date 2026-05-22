@@ -9,7 +9,10 @@ import {
   Info,
   ChevronDown,
   ChevronUp,
-  AlertCircle
+  AlertCircle,
+  Calendar,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import adminService from '../../services/adminService';
 
@@ -18,6 +21,13 @@ const ActivityLogs = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedLog, setExpandedLog] = useState(null);
+  const [actionFilter, setActionFilter] = useState('all');
+  const [modelFilter, setModelFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [userFilter, setUserFilter] = useState('all');
 
   useEffect(() => {
     fetchLogs();
@@ -45,12 +55,45 @@ const ActivityLogs = () => {
     return <span className="badge bg-secondary bg-opacity-10 text-secondary">{action}</span>;
   };
 
-  const filteredLogs = logs.filter(log => 
-    log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.performedBy?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.targetModel.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.details?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredLogs = logs.filter(log => {
+    const logDate = new Date(log.timestamp);
+    
+    const matchesSearch = 
+      log.action.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.performedBy?.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.targetModel.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      log.details?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesAction = actionFilter === 'all' || log.action.toLowerCase().includes(actionFilter.toLowerCase());
+    const matchesModel = modelFilter === 'all' || log.targetModel === modelFilter;
+    const matchesUser = userFilter === 'all' || log.performedBy?._id === userFilter;
+    
+    const matchesStartDate = !startDate || logDate >= new Date(startDate);
+    const matchesEndDate = !endDate || logDate <= new Date(endDate + 'T23:59:59');
+
+    return matchesSearch && matchesAction && matchesModel && matchesUser && matchesStartDate && matchesEndDate;
+  });
+
+  // Get unique models and users for filters
+  const uniqueModels = [...new Set(logs.map(log => log.targetModel))];
+  const uniqueUsers = Array.from(new Map(logs.filter(l => l.performedBy).map(log => [log.performedBy._id, log.performedBy])).values());
+
+  // Pagination logic
+  const totalPages = Math.ceil(filteredLogs.length / itemsPerPage);
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentLogs = filteredLogs.slice(indexOfFirstItem, indexOfLastItem);
+
+  const handlePageChange = (pageNumber) => {
+    setCurrentPage(pageNumber);
+    setExpandedLog(null);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, actionFilter, modelFilter, userFilter, startDate, endDate]);
 
   if (loading) {
     return (
@@ -74,19 +117,102 @@ const ActivityLogs = () => {
         </button>
       </div>
 
-      {/* Filters */}
+      {/* Filters Section */}
       <div className="modern-card mb-4">
-        <div className="card-header-modern">
-          <div className="navbar-search w-100">
-            <Search className="search-icon" size={16} />
-            <input 
-              type="text" 
-              className="form-control-premium" 
-              placeholder="Search by action, user, model or details..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ fontSize: '13px', padding: '8px 12px 8px 36px' }}
-            />
+        <div className="card-header-modern p-4">
+          {/* Row 1: Search */}
+          <div className="row mb-3">
+            <div className="col-12">
+              <div className="navbar-search w-100">
+                <Search className="search-icon" size={18} />
+                <input 
+                  type="text" 
+                  className="form-control-premium w-100" 
+                  placeholder="Search by action, user, model or specific details..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{ fontSize: '14px', padding: '12px 12px 12px 42px' }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Category & Date Filters */}
+          <div className="row g-3">
+            <div className="col-lg-3 col-md-6">
+              <label className="form-label x-small fw-bold text-muted text-uppercase mb-1">Action Type</label>
+              <select 
+                className="form-control-modern"
+                value={actionFilter}
+                onChange={(e) => setActionFilter(e.target.value)}
+                style={{ height: '42px' }}
+              >
+                <option value="all">All Actions</option>
+                <option value="create">Create</option>
+                <option value="update">Update</option>
+                <option value="delete">Delete</option>
+                <option value="approve">Approve</option>
+                <option value="reject">Reject</option>
+              </select>
+            </div>
+            
+            <div className="col-lg-2 col-md-6">
+              <label className="form-label x-small fw-bold text-muted text-uppercase mb-1">Target Model</label>
+              <select 
+                className="form-control-modern"
+                value={modelFilter}
+                onChange={(e) => setModelFilter(e.target.value)}
+                style={{ height: '42px' }}
+              >
+                <option value="all">All Models</option>
+                {uniqueModels.map(model => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-lg-3 col-md-6">
+              <label className="form-label x-small fw-bold text-muted text-uppercase mb-1">Performed By</label>
+              <select 
+                className="form-control-modern"
+                value={userFilter}
+                onChange={(e) => setUserFilter(e.target.value)}
+                style={{ height: '42px' }}
+              >
+                <option value="all">All Administrators</option>
+                {uniqueUsers.map(user => (
+                  <option key={user._id} value={user._id}>{user.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="col-lg-4 col-md-6">
+              <label className="form-label x-small fw-bold text-muted text-uppercase mb-1">Date Range</label>
+              <div className="d-flex gap-2">
+                <div className="position-relative flex-grow-1">
+                  <Calendar className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" size={14} />
+                  <input 
+                    type="date" 
+                    className="form-control-modern ps-5" 
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    style={{ height: '42px', fontSize: '12px' }}
+                    title="Start Date"
+                  />
+                </div>
+                <div className="position-relative flex-grow-1">
+                  <Calendar className="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted" size={14} />
+                  <input 
+                    type="date" 
+                    className="form-control-modern ps-5" 
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    style={{ height: '42px', fontSize: '12px' }}
+                    title="End Date"
+                  />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -106,7 +232,7 @@ const ActivityLogs = () => {
               </tr>
             </thead>
             <tbody>
-              {filteredLogs.length === 0 ? (
+              {currentLogs.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="text-center py-5">
                     <ClipboardList size={50} className="text-muted mb-3" />
@@ -114,7 +240,7 @@ const ActivityLogs = () => {
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map(log => (
+                currentLogs.map(log => (
                   <React.Fragment key={log._id}>
                     <tr 
                       className={expandedLog === log._id ? 'bg-light' : ''}
@@ -129,7 +255,7 @@ const ActivityLogs = () => {
                       </td>
                       <td>
                         <div className="d-flex align-items-center gap-2">
-                          <div className="avatar-sm" style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#4f46e5', color: 'white', display: 'flex', alignItems: 'center', justifyCenter: 'center', fontSize: '10px', fontWeight: 'bold' }}>
+                          <div className="avatar-sm" style={{ width: '24px', height: '24px', borderRadius: '50%', background: '#4f46e5', color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold' }}>
                             {log.performedBy?.name?.charAt(0).toUpperCase()}
                           </div>
                           <div className="small">
@@ -155,13 +281,13 @@ const ActivityLogs = () => {
                               <div className="col-md-6">
                                 <h6 className="x-small fw-bold text-muted text-uppercase mb-3">Before Changes</h6>
                                 <pre className="p-3 bg-white border rounded x-small mb-0" style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                                  {log.changes?.before ? JSON.stringify(log.changes.before, null, 2) : 'No prior state'}
+                                  {log.before ? JSON.stringify(log.before, null, 2) : 'No prior state'}
                                 </pre>
                               </div>
                               <div className="col-md-6">
                                 <h6 className="x-small fw-bold text-muted text-uppercase mb-3">After Changes</h6>
                                 <pre className="p-3 bg-white border rounded x-small mb-0" style={{ maxHeight: '200px', overflowY: 'auto' }}>
-                                  {log.changes?.after ? JSON.stringify(log.changes.after, null, 2) : 'No state changes recorded'}
+                                  {log.after ? JSON.stringify(log.after, null, 2) : 'No state changes recorded'}
                                 </pre>
                               </div>
                             </div>
@@ -186,6 +312,52 @@ const ActivityLogs = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination UI */}
+        {totalPages > 1 && (
+          <div className="card-footer-modern p-3 d-flex justify-content-between align-items-center border-top">
+            <div className="text-muted x-small">
+              Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredLogs.length)} of {filteredLogs.length} logs
+            </div>
+            <div className="d-flex gap-2">
+              <button 
+                className="btn btn-sm btn-outline-premium p-1 px-2 d-flex align-items-center"
+                disabled={currentPage === 1}
+                onClick={() => handlePageChange(currentPage - 1)}
+              >
+                <ChevronLeft size={16} />
+              </button>
+              
+              {[...Array(totalPages)].map((_, i) => {
+                const page = i + 1;
+                // Show only 5 pages around current page
+                if (page === 1 || page === totalPages || (page >= currentPage - 1 && page <= currentPage + 1)) {
+                  return (
+                    <button 
+                      key={page}
+                      className={`btn btn-sm ${currentPage === page ? 'btn-premium' : 'btn-outline-premium'} px-3`}
+                      style={{ fontSize: '11px' }}
+                      onClick={() => handlePageChange(page)}
+                    >
+                      {page}
+                    </button>
+                  );
+                } else if (page === currentPage - 2 || page === currentPage + 2) {
+                  return <span key={page} className="text-muted align-self-center">...</span>;
+                }
+                return null;
+              })}
+
+              <button 
+                className="btn btn-sm btn-outline-premium p-1 px-2 d-flex align-items-center"
+                disabled={currentPage === totalPages}
+                onClick={() => handlePageChange(currentPage + 1)}
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -14,6 +14,7 @@ import Register from "../pages/auth/Register";
 // B2B Pages
 import ComingSoon from "../pages/common/ComingSoon";
 
+import Leads from "../pages/b2b/Leads";
 import AddPG from "../pages/b2b/AddPG";
 import EditPG from "../pages/b2b/EditPG";
 import ManageListings from "../pages/b2b/ManageListings";
@@ -32,6 +33,7 @@ import WebsiteSettings from "../pages/admin/WebsiteSettings";
 
 
 import AdminRatingsReviews from '../pages/admin/AdminRatingsReviews';
+import B2BRatingsReviews from '../pages/b2b/B2BRatingsReviews';
 import RoomManagement from '../pages/b2b/RoomManagement';
 import B2BDashboard from '../pages/b2b/B2BDashboard';
 
@@ -46,12 +48,56 @@ import Profile from "../pages/b2b/Profile";
 
 // User Pages (Removed)
 
+import HomePage from '../pages/User/HomePage';
+import ListingPage from '../pages/User/ListingPage';
+import Contact from '../pages/User/Contact';
+import AuthPage from '../pages/User/AuthPage';
+import PropertyDetails from '../pages/User/PropertyDetails';
+import propertyService from "../services/propertyService";
+
+const B2BRedirect = () => {
+  const [loading, setLoading] = React.useState(true);
+  const [hasProperties, setHasProperties] = React.useState(false);
+
+  React.useEffect(() => {
+    const checkProps = async () => {
+      try {
+        const res = await propertyService.getProperties();
+        if (res.success && res.backendCount > 0) {
+          setHasProperties(true);
+        }
+      } catch (err) {
+        console.error("Redirect check failed", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkProps();
+  }, []);
+
+  if (loading) return (
+    <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
+      <div className="spinner-border text-primary" role="status">
+        <span className="visually-hidden">Loading...</span>
+      </div>
+    </div>
+  );
+
+  return hasProperties ? <Navigate to="dashboard" replace /> : <Navigate to="add-pg" replace />;
+};
 
 const AppRoutes = () => {
   return (
     <Routes>
+      <Route path="/" element={<HomePage />} />
+      <Route path="/listings" element={<ListingPage />} />
+      <Route path="/agent/:agentName" element={<ListingPage />} />
+      <Route path="/contact" element={<Contact />} />
+      <Route path="/auth" element={<AuthPage />} />
+      <Route path="/property/:id" element={<PropertyDetails />} />
 
-      <Route path="/" element={<Register />} />
+
+      <Route path="/register" element={<Register />} />
 
 
       {/* Public Routes */}
@@ -69,16 +115,16 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to="dashboard" replace />} />
+        <Route index element={<B2BRedirect />} />
         <Route path="dashboard" element={<B2BDashboard />} />
         <Route path="add-pg" element={<AddPG />} />
         <Route path="edit-pg/:id" element={<EditPG />} />
         <Route path="listings" element={<ManageListings />} />
-        <Route path="leads" element={<ComingSoon />} />
+        <Route path="leads" element={<Leads />} />
 
         <Route path="rooms/:propertyId" element={<RoomManagement />} />
 
-        <Route path="reviews" element={<ComingSoon />} />
+        <Route path="reviews" element={<B2BRatingsReviews />} />
         <Route path="managers" element={<ComingSoon />} />
         <Route path="profile" element={<Profile />} />
       </Route>

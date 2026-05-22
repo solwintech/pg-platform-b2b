@@ -42,3 +42,30 @@ exports.authorize = (...roles) => {
     next();
   };
 };
+
+// Optional protect for public routes that can also show user-specific data
+exports.optionalProtect = async (req, res, next) => {
+  let token;
+
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    token = req.headers.authorization.split(' ')[1];
+  }
+
+  console.log(`[optionalProtect] Token: ${token ? 'Found' : 'Not Found'} for ${req.method} ${req.originalUrl}`);
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    // Verify token
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = await User.findById(decoded.id);
+    console.log(`[optionalProtect] User verified: ${req.user ? req.user.email : 'User not found in DB'}`);
+    next();
+  } catch (err) {
+    console.log(`[optionalProtect] Token verification failed: ${err.message}`);
+    // If token is invalid, just proceed as unauthenticated
+    next();
+  }
+};

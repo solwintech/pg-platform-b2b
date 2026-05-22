@@ -37,8 +37,8 @@ const ManageListings = () => {
 
   const loadListings = async () => {
     try {
-      const response = await propertyService.getProperties();
-      setListings(response.data || []);
+      const response = await propertyService.getProperties({}, false);
+      setListings(response.properties || []);
       setLoading(false);
     } catch (error) {
       console.error('Error loading listings:', error);

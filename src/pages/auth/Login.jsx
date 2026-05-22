@@ -33,20 +33,26 @@ const Login = () => {
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [otpTimer, setOtpTimer] = useState(0);
   const [rememberMe, setRememberMe] = useState(false);
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
   const [showPassword, setShowPassword] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError('');
+    const { name, value } = e.target;
+    setFormData({ ...formData, [name]: value });
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: '' });
+    }
+    if (errors.general) {
+      setErrors({ ...errors, general: '' });
+    }
   };
 
   const handleSendOTP = async () => {
     if (formData.phone && formData.phone.length === 10) {
       setIsSendingOtp(true);
-      setError('');
+      setErrors({});
       try {
         await authService.generateOtp(formData.phone);
         setOtpSent(true);
@@ -63,10 +69,10 @@ const Login = () => {
         }, 1000);
       } catch (err) {
         setIsSendingOtp(false);
-        setError(err.response?.data?.message || 'Failed to send OTP');
+        setErrors({ ...errors, phone: err.response?.data?.message || 'Failed to send OTP' });
       }
     } else {
-      setError('Please enter a valid 10-digit phone number');
+      setErrors({ ...errors, phone: 'Please enter a valid 10-digit phone number' });
     }
   };
 
@@ -106,14 +112,17 @@ const Login = () => {
   };
 
   const handleLogin = (e, role) => {
-    console.log('handleLogin triggered', { loginMethod, role, formData });
     if (e) e.preventDefault();
-    setError('');
+    setErrors({});
+    const newErrors = {};
 
     // For email login - Check manager first
     if (loginMethod === 'email') {
-      if (!formData.email || !formData.password) {
-        setError('Please enter email/username and password');
+      if (!formData.email) newErrors.email = 'Email/Username is required';
+      if (!formData.password) newErrors.password = 'Password is required';
+      
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
         return;
       }
 
@@ -124,13 +133,12 @@ const Login = () => {
 
     // For phone login - Check manager
     if (loginMethod === 'phone') {
-      if (!formData.phone) {
-        setError('Please enter phone number');
-        return;
-      }
+      if (!formData.phone) newErrors.phone = 'Phone number is required';
+      if (!otpSent) newErrors.phone = 'Please request and verify OTP';
+      if (otpSent && !formData.otp) newErrors.otp = 'OTP is required';
 
-      if (!otpSent) {
-        setError('Please verify OTP first');
+      if (Object.keys(newErrors).length > 0) {
+        setErrors(newErrors);
         return;
       }
 
@@ -145,7 +153,6 @@ const Login = () => {
   };
 
   const loginB2B = async () => {
-    console.log('loginB2B started');
     try {
       if (loginMethod === 'phone') {
         setIsVerifying(true);
@@ -153,10 +160,10 @@ const Login = () => {
         if (verifyRes.success) {
           if (verifyRes.token) {
             // User was automatically logged in
-            navigate('/b2b/add-pg');
+            navigate('/b2b');
           } else {
             // This shouldn't happen for login, but for safety:
-            setError('Account not found. Please register first.');
+            setErrors({ general: 'Account not found. Please register first.' });
           }
           return;
         }
@@ -165,17 +172,17 @@ const Login = () => {
       const identifier = loginMethod === 'email' ? formData.email : formData.phone;
       const response = await authService.login(identifier, formData.password);
       if (response.success) {
-        navigate('/b2b/add-pg');
+        navigate('/b2b');
       }
     } catch (err) {
       console.error('Login error:', err);
       if (err.response?.data?.needsVerification) {
         setLoginMethod('phone');
         setFormData({ ...formData, phone: err.response.data.mobile });
-        setError('Please verify your mobile number to continue');
+        setErrors({ general: 'Please verify your mobile number to continue' });
         handleSendOTP();
       } else {
-        setError(err.response?.data?.message || 'Invalid credentials');
+        setErrors({ general: err.response?.data?.message || 'Invalid credentials' });
       }
       setIsVerifying(false);
     }
@@ -229,10 +236,11 @@ const Login = () => {
                 <p className="text-muted small">Sign in to access your dashboard</p>
               </div>
 
-              {/* Error Message */}
-              {error && (
-                <div className="alert alert-danger py-2 px-3 mb-3" style={{ fontSize: '12px', borderRadius: '8px' }}>
-                  {error}
+              {/* General Error Message */}
+              {errors.general && (
+                <div className="alert alert-danger py-2 px-3 mb-3 d-flex align-items-center" style={{ fontSize: '12px', borderRadius: '8px' }}>
+                  <AlertCircle size={14} className="me-2 flex-shrink-0" />
+                  <span>{errors.general}</span>
                 </div>
               )}
 
@@ -259,26 +267,25 @@ const Login = () => {
                 {loginMethod === 'email' ? (
                   <>
                     <div className="form-group mb-3">
-  
                       <div className="input-icon">
                         <Mail size={16} className="icon" />
                         <input
                           type="text"
-                          className="form-control-modern"
+                          className={`form-control-modern ${errors.email ? 'is-invalid' : ''}`}
                           name="email"
                           placeholder="enter@email.com or username"
                           value={formData.email}
                           onChange={handleChange}
                         />
                       </div>
+                      {errors.email && <div className="text-danger mt-1" style={{ fontSize: '10px' }}>{errors.email}</div>}
                     </div>
                     <div className="form-group mb-3">
-  
                       <div className="input-icon">
                         <Lock size={16} className="icon" />
                         <input
                           type={showPassword ? 'text' : 'password'}
-                          className="form-control-modern"
+                          className={`form-control-modern ${errors.password ? 'is-invalid' : ''}`}
                           name="password"
                           placeholder="Enter your password"
                           value={formData.password}
@@ -305,6 +312,7 @@ const Login = () => {
                           {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                         </button>
                       </div>
+                      {errors.password && <div className="text-danger mt-1" style={{ fontSize: '10px' }}>{errors.password}</div>}
                     </div>
                     <div className="d-flex justify-content-between align-items-center mb-4">
                       <div className="form-check">
@@ -325,12 +333,11 @@ const Login = () => {
                 ) : (
                   <>
                     <div className="form-group mb-3">
-  
                       <div className="input-group-custom">
                         <span className="country-code">+91</span>
                         <input
                           type="tel"
-                          className="form-control-modern"
+                          className={`form-control-modern ${errors.phone ? 'is-invalid' : ''}`}
                           name="phone"
                           placeholder="9876543210"
                           value={formData.phone}
@@ -346,15 +353,15 @@ const Login = () => {
                           {isSendingOtp ? 'Sending...' : otpSent && otpTimer > 0 ? `Resend in ${otpTimer}s` : 'Send OTP'}
                         </button>
                       </div>
+                      {errors.phone && <div className="text-danger mt-1" style={{ fontSize: '10px' }}>{errors.phone}</div>}
                     </div>
                     {otpSent && (
                       <div className="form-group mb-4">
-  
                         <div className="input-icon">
                           <Key size={16} className="icon" />
                           <input
                             type="text"
-                            className="form-control-modern"
+                            className={`form-control-modern ${errors.otp ? 'is-invalid' : ''}`}
                             name="otp"
                             placeholder="Enter 6-digit OTP"
                             value={formData.otp}
@@ -362,6 +369,7 @@ const Login = () => {
                             maxLength="6"
                           />
                         </div>
+                        {errors.otp && <div className="text-danger mt-1" style={{ fontSize: '10px' }}>{errors.otp}</div>}
                       </div>
                     )}
                   </>

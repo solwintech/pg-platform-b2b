@@ -27,6 +27,9 @@ const PromotionalAd = ({ location, className = "" }) => {
   const ad = ads[0];
 
   const handleClick = () => {
+    if (ad._id) {
+      adService.recordClick(ad._id).catch(err => console.error('Failed to record click:', err));
+    }
     if (ad.link) {
       if (ad.link.startsWith('http')) {
         window.open(ad.link, '_blank');

@@ -22,12 +22,15 @@ import {
   Award,
   Gift,
   TrendingUp,
-  Eye
+  Eye,
+  AlertCircle
 } from 'lucide-react';
+import adminService from '../../services/adminService';
 
 const SubscriptionPlans = () => {
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -37,7 +40,7 @@ const SubscriptionPlans = () => {
     type: 'monthly',
     price: '',
     originalPrice: '',
-    discount: '',
+    discount: 0,
     currency: 'INR',
     features: [],
     propertyLimit: 5,
@@ -53,198 +56,105 @@ const SubscriptionPlans = () => {
     status: 'active',
     popular: false,
     description: '',
-    validFor: 30
+    validFor: 30,
+    color: '#4361ee'
   });
 
   const [featureInput, setFeatureInput] = useState('');
 
   useEffect(() => {
-    loadPlans();
+    fetchPlans();
   }, []);
 
-  const loadPlans = () => {
-    const storedPlans = JSON.parse(window.dummyDataStorage.getItem('subscriptionPlans') || '[]');
-    if (storedPlans.length === 0) {
-      // Add sample plans
-      const samplePlans = [
-        {
-          id: 1,
-          name: 'Basic',
-          type: 'monthly',
-          price: 499,
-          originalPrice: 999,
-          discount: 50,
-          currency: 'INR',
-          features: ['Up to 5 properties', 'Basic analytics', 'Email support', 'Lead management'],
-          propertyLimit: 5,
-          roomLimit: 20,
-          leadLimit: 50,
-          supportLevel: 'basic',
-          featuredListing: false,
-          analytics: false,
-          managerAccess: false,
-          prioritySupport: false,
-          customDomain: false,
-          apiAccess: false,
-          status: 'active',
-          popular: false,
-          description: 'Perfect for small PG owners starting out',
-          validFor: 30,
-          color: '#4361ee'
-        },
-        {
-          id: 2,
-          name: 'Professional',
-          type: 'monthly',
-          price: 999,
-          originalPrice: 1999,
-          discount: 50,
-          currency: 'INR',
-          features: ['Up to 20 properties', 'Advanced analytics', 'Priority support', 'Lead management', 'Manager access (2 managers)', 'Featured listing (monthly)'],
-          propertyLimit: 20,
-          roomLimit: 100,
-          leadLimit: 500,
-          supportLevel: 'priority',
-          featuredListing: true,
-          analytics: true,
-          managerAccess: true,
-          prioritySupport: true,
-          customDomain: false,
-          apiAccess: false,
-          status: 'active',
-          popular: true,
-          description: 'Most popular plan for growing businesses',
-          validFor: 30,
-          color: '#f59e0b'
-        },
-        {
-          id: 3,
-          name: 'Enterprise',
-          type: 'monthly',
-          price: 2499,
-          originalPrice: 4999,
-          discount: 50,
-          currency: 'INR',
-          features: ['Unlimited properties', 'Advanced analytics', '24/7 priority support', 'Lead management', 'Unlimited manager access', 'Featured listing (weekly)', 'Custom domain', 'API access'],
-          propertyLimit: -1,
-          roomLimit: -1,
-          leadLimit: -1,
-          supportLevel: 'premium',
-          featuredListing: true,
-          analytics: true,
-          managerAccess: true,
-          prioritySupport: true,
-          customDomain: true,
-          apiAccess: true,
-          status: 'active',
-          popular: false,
-          description: 'Complete solution for large property owners',
-          validFor: 30,
-          color: '#10b981'
-        },
-        {
-          id: 4,
-          name: 'Yearly Basic',
-          type: 'yearly',
-          price: 4990,
-          originalPrice: 11988,
-          discount: 58,
-          currency: 'INR',
-          features: ['Up to 5 properties', 'Basic analytics', 'Email support', 'Lead management', 'Save 58% compared to monthly'],
-          propertyLimit: 5,
-          roomLimit: 20,
-          leadLimit: 50,
-          supportLevel: 'basic',
-          featuredListing: false,
-          analytics: false,
-          managerAccess: false,
-          prioritySupport: false,
-          customDomain: false,
-          apiAccess: false,
-          status: 'active',
-          popular: false,
-          description: 'Best value for long-term commitment',
-          validFor: 365,
-          color: '#8b5cf6'
-        }
-      ];
-      window.dummyDataStorage.setItem('subscriptionPlans', JSON.stringify(samplePlans));
-      setPlans(samplePlans);
-    } else {
-      setPlans(storedPlans);
+  const fetchPlans = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await adminService.getSubscriptionPlans();
+      setPlans(response.data || []);
+      setLoading(false);
+    } catch (err) {
+      console.error('Error loading plans:', err);
+      setError('Failed to load subscription plans');
+      setLoading(false);
     }
-    setLoading(false);
-  };
-
-  const savePlans = (updatedPlans) => {
-    window.dummyDataStorage.setItem('subscriptionPlans', JSON.stringify(updatedPlans));
-    setPlans(updatedPlans);
   };
 
   const addFeature = () => {
     if (featureInput.trim()) {
-      setNewPlan({
-        ...newPlan,
-        features: [...newPlan.features, featureInput.trim()]
-      });
+      if (showEditModal) {
+        setSelectedPlan({
+          ...selectedPlan,
+          features: [...(selectedPlan.features || []), featureInput.trim()]
+        });
+      } else {
+        setNewPlan({
+          ...newPlan,
+          features: [...newPlan.features, featureInput.trim()]
+        });
+      }
       setFeatureInput('');
     }
   };
 
   const removeFeature = (index) => {
-    const updatedFeatures = newPlan.features.filter((_, i) => i !== index);
-    setNewPlan({ ...newPlan, features: updatedFeatures });
+    if (showEditModal) {
+      const updatedFeatures = selectedPlan.features.filter((_, i) => i !== index);
+      setSelectedPlan({ ...selectedPlan, features: updatedFeatures });
+    } else {
+      const updatedFeatures = newPlan.features.filter((_, i) => i !== index);
+      setNewPlan({ ...newPlan, features: updatedFeatures });
+    }
   };
 
-  const addPlan = () => {
+  const handleAddPlan = async () => {
     if (!newPlan.name || !newPlan.price) {
       alert('Please fill plan name and price');
       return;
     }
-
-    const planToAdd = {
-      id: Date.now(),
-      ...newPlan,
-      createdAt: new Date().toISOString()
-    };
-
-    const updatedPlans = [...plans, planToAdd];
-    savePlans(updatedPlans);
-    setShowAddModal(false);
-    resetNewPlan();
-    alert('Plan added successfully!');
-  };
-
-  const updatePlan = () => {
-    if (!selectedPlan) return;
-
-    const updatedPlans = plans.map(p => 
-      p.id === selectedPlan.id ? selectedPlan : p
-    );
-    savePlans(updatedPlans);
-    setShowEditModal(false);
-    alert('Plan updated successfully!');
-  };
-
-  const deletePlan = (planId) => {
-    if (window.confirm('Are you sure you want to delete this plan?')) {
-      const updatedPlans = plans.filter(p => p.id !== planId);
-      savePlans(updatedPlans);
+    try {
+      await adminService.createSubscriptionPlan(newPlan);
+      setShowAddModal(false);
+      resetNewPlan();
+      fetchPlans();
+      alert('Plan added successfully!');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error adding plan');
     }
   };
 
-  const togglePlanStatus = (planId) => {
-    const updatedPlans = plans.map(p => 
-      p.id === planId ? { ...p, status: p.status === 'active' ? 'inactive' : 'active' } : p
-    );
-    savePlans(updatedPlans);
+  const handleUpdatePlan = async () => {
+    if (!selectedPlan) return;
+    try {
+      await adminService.updateSubscriptionPlan(selectedPlan._id, selectedPlan);
+      setShowEditModal(false);
+      fetchPlans();
+      alert('Plan updated successfully!');
+    } catch (err) {
+      alert(err.response?.data?.message || 'Error updating plan');
+    }
   };
 
-  const togglePopular = (planId) => {
-    const updatedPlans = plans.map(p => 
-      p.id === planId ? { ...p, popular: !p.popular } : p
-    );
-    savePlans(updatedPlans);
+  const deletePlan = async (planId) => {
+    if (window.confirm('Are you sure you want to delete this plan?')) {
+      try {
+        await adminService.deleteSubscriptionPlan(planId);
+        fetchPlans();
+      } catch (err) {
+        alert('Error deleting plan');
+      }
+    }
+  };
+
+  const togglePlanStatus = async (plan) => {
+    try {
+      await adminService.updateSubscriptionPlan(plan._id, { 
+        status: plan.status === 'active' ? 'inactive' : 'active' 
+      });
+      fetchPlans();
+    } catch (err) {
+      alert('Error updating status');
+    }
   };
 
   const resetNewPlan = () => {
@@ -253,7 +163,7 @@ const SubscriptionPlans = () => {
       type: 'monthly',
       price: '',
       originalPrice: '',
-      discount: '',
+      discount: 0,
       currency: 'INR',
       features: [],
       propertyLimit: 5,
@@ -269,13 +179,14 @@ const SubscriptionPlans = () => {
       status: 'active',
       popular: false,
       description: '',
-      validFor: 30
+      validFor: 30,
+      color: '#4361ee'
     });
     setFeatureInput('');
   };
 
   const openEditModal = (plan) => {
-    setSelectedPlan(plan);
+    setSelectedPlan({ ...plan });
     setShowEditModal(true);
   };
 
@@ -300,74 +211,74 @@ const SubscriptionPlans = () => {
     popular: plans.filter(p => p.popular).length
   };
 
+  if (loading) {
+    return (
+      <div className="text-center py-5">
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading Plans...</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fade-in-up">
-      {/* Header */}
-      <div className="d-flex justify-content-end mb-3">
-        <button className="btn-premium btn-sm d-flex align-items-center gap-2" onClick={() => setShowAddModal(true)}>
-          <Plus size={14} /> Add New Plan
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h3 className="mb-0">Subscription Plans</h3>
+        <button className="btn-premium d-flex align-items-center gap-2" onClick={() => setShowAddModal(true)}>
+          <Plus size={18} /> Add New Plan
         </button>
       </div>
+
+      {error && (
+        <div className="alert alert-danger d-flex align-items-center gap-2 mb-4">
+          <AlertCircle size={20} /> {error}
+        </div>
+      )}
 
       {/* Stats Cards */}
       <div className="row mb-4">
         <div className="col-md-3 mb-3">
-          <div className="stats-card-small">
-            <div className="stats-card-small-content">
-              <div className="stats-card-small-left">
-                <div className="stats-icon-small" style={{ background: '#e0e7ff' }}>
-                  <Package size={14} color="#4f46e5" />
-                </div>
-                <div className="stats-info-small">
-                  <div className="stats-number-small">{stats.total}</div>
-                  <div className="stats-label-small">Total Plans</div>
-                </div>
-              </div>
+          <div className="modern-card p-3 d-flex align-items-center gap-3">
+            <div className="icon-box-small bg-primary bg-opacity-10 text-primary p-2 rounded-3">
+              <Package size={20} />
+            </div>
+            <div>
+              <div className="h4 mb-0 fw-bold">{stats.total}</div>
+              <div className="text-muted small">Total Plans</div>
             </div>
           </div>
         </div>
         <div className="col-md-3 mb-3">
-          <div className="stats-card-small">
-            <div className="stats-card-small-content">
-              <div className="stats-card-small-left">
-                <div className="stats-icon-small" style={{ background: '#d1fae5' }}>
-                  <CheckCircle size={14} color="#10b981" />
-                </div>
-                <div className="stats-info-small">
-                  <div className="stats-number-small">{stats.active}</div>
-                  <div className="stats-label-small">Active Plans</div>
-                </div>
-              </div>
+          <div className="modern-card p-3 d-flex align-items-center gap-3">
+            <div className="icon-box-small bg-success bg-opacity-10 text-success p-2 rounded-3">
+              <CheckCircle size={20} />
+            </div>
+            <div>
+              <div className="h4 mb-0 fw-bold">{stats.active}</div>
+              <div className="text-muted small">Active Plans</div>
             </div>
           </div>
         </div>
         <div className="col-md-3 mb-3">
-          <div className="stats-card-small">
-            <div className="stats-card-small-content">
-              <div className="stats-card-small-left">
-                <div className="stats-icon-small" style={{ background: '#fed7aa' }}>
-                  <Crown size={14} color="#f59e0b" />
-                </div>
-                <div className="stats-info-small">
-                  <div className="stats-number-small">{stats.popular}</div>
-                  <div className="stats-label-small">Popular Plans</div>
-                </div>
-              </div>
+          <div className="modern-card p-3 d-flex align-items-center gap-3">
+            <div className="icon-box-small bg-warning bg-opacity-10 text-warning p-2 rounded-3">
+              <Crown size={20} />
+            </div>
+            <div>
+              <div className="h4 mb-0 fw-bold">{stats.popular}</div>
+              <div className="text-muted small">Popular Plans</div>
             </div>
           </div>
         </div>
         <div className="col-md-3 mb-3">
-          <div className="stats-card-small">
-            <div className="stats-card-small-content">
-              <div className="stats-card-small-left">
-                <div className="stats-icon-small" style={{ background: '#fee2e2' }}>
-                  <XCircle size={14} color="#ef4444" />
-                </div>
-                <div className="stats-info-small">
-                  <div className="stats-number-small">{stats.inactive}</div>
-                  <div className="stats-label-small">Inactive Plans</div>
-                </div>
-              </div>
+          <div className="modern-card p-3 d-flex align-items-center gap-3">
+            <div className="icon-box-small bg-danger bg-opacity-10 text-danger p-2 rounded-3">
+              <XCircle size={20} />
+            </div>
+            <div>
+              <div className="h4 mb-0 fw-bold">{stats.inactive}</div>
+              <div className="text-muted small">Inactive Plans</div>
             </div>
           </div>
         </div>
@@ -377,84 +288,74 @@ const SubscriptionPlans = () => {
       <div className="row">
         {plans.length === 0 ? (
           <div className="col-12">
-            <div className="modern-card">
-              <div className="card-body text-center py-5">
-                <Package size={50} className="text-muted mb-3" />
-                <h6>No subscription plans</h6>
-                <p className="text-muted small">Click "Add New Plan" to create subscription plans</p>
-              </div>
+            <div className="modern-card py-5 text-center">
+              <Package size={60} className="text-muted mb-3" />
+              <h5 className="mb-2">No subscription plans found</h5>
+              <p className="text-muted">Create your first plan to start managing subscriptions</p>
             </div>
           </div>
         ) : (
           plans.map(plan => (
-            <div key={plan.id} className="col-md-6 col-lg-4 mb-4">
-              <div className={`plan-card ${plan.popular ? 'popular' : ''} ${plan.status === 'inactive' ? 'inactive' : ''}`}>
-                {plan.popular && (
-                  <div className="popular-badge">
-                    <Star size={12} /> Most Popular
+            <div key={plan._id} className="col-md-6 col-lg-4 mb-4">
+              <div className={`modern-card h-100 overflow-hidden d-flex flex-column ${plan.status === 'inactive' ? 'opacity-75' : ''}`}>
+                <div 
+                  className="p-4 text-white position-relative" 
+                  style={{ background: plan.color || '#4361ee' }}
+                >
+                  {plan.popular && (
+                    <span className="position-absolute top-0 end-0 m-2 badge bg-white text-dark shadow-sm d-flex align-items-center gap-1" style={{ fontSize: '10px' }}>
+                      <Star size={10} className="text-warning fill-warning" /> MOST POPULAR
+                    </span>
+                  )}
+                  <div className="h5 fw-bold mb-1">{plan.name}</div>
+                  <div className="d-flex align-items-baseline gap-1">
+                    <span className="h3 fw-bold mb-0">₹{plan.price.toLocaleString()}</span>
+                    <span className="small opacity-75">/{plan.type === 'monthly' ? 'mo' : plan.type === 'yearly' ? 'yr' : 'qtr'}</span>
                   </div>
-                )}
-                <div className="plan-header" style={{ background: plan.color, padding: '15px' }}>
-                  <h6 className="plan-name mb-1">{plan.name}</h6>
-                  <div className="plan-price" style={{ fontSize: '1.2rem' }}>
-                    <span className="currency">₹</span>
-                    <span className="amount">{plan.price.toLocaleString()}</span>
-                    <span className="period">/{plan.type === 'monthly' ? 'mo' : 'yr'}</span>
-                  </div>
-                  {plan.originalPrice && (
-                    <div className="plan-original-price" style={{ fontSize: '0.7rem' }}>
-                      <span className="strikethrough">₹{plan.originalPrice.toLocaleString()}</span>
-                      <span className="discount-badge ms-1" style={{ padding: '1px 4px' }}>-{plan.discount}%</span>
+                  {plan.originalPrice > plan.price && (
+                    <div className="small opacity-75 text-decoration-line-through">
+                      ₹{plan.originalPrice.toLocaleString()}
                     </div>
                   )}
                 </div>
-                <div className="plan-body" style={{ padding: '12px' }}>
-                  <div className="plan-features" style={{ fontSize: '0.8rem' }}>
-                    {plan.features.slice(0, 4).map((feature, idx) => (
-                      <div key={idx} className="feature-item mb-1">
-                        <CheckCircle size={12} className="text-success me-2" />
-                        <span>{feature}</span>
+                
+                <div className="p-4 flex-grow-1">
+                  <p className="text-muted small mb-3">{plan.description || 'Basic subscription plan features'}</p>
+                  <div className="features-list">
+                    {plan.features?.slice(0, 5).map((feature, idx) => (
+                      <div key={idx} className="d-flex align-items-center gap-2 mb-2">
+                        <CheckCircle size={14} className="text-success flex-shrink-0" />
+                        <span className="small">{feature}</span>
                       </div>
                     ))}
+                    {plan.features?.length > 5 && (
+                      <div className="text-muted small ps-4">+{plan.features.length - 5} more features</div>
+                    )}
                   </div>
                 </div>
-                <div className="plan-footer" style={{ padding: '10px' }}>
-                  <div className="plan-meta mb-2" style={{ transform: 'scale(0.9)', transformOrigin: 'left' }}>
-                    <span className={`status-badge ${plan.status === 'active' ? 'active' : 'inactive'}`} style={{ fontSize: '0.65rem' }}>
-                      {plan.status === 'active' ? 'Active' : 'Inactive'}
-                    </span>
-                    {getSupportBadge(plan.supportLevel)}
-                  </div>
-                  <div className="plan-actions d-flex flex-wrap gap-1">
-                    <button 
-                      className="btn-outline-premium btn-xs"
-                      onClick={() => openViewModal(plan)}
-                      style={{ fontSize: '0.65rem', padding: '2px 6px' }}
-                    >
-                      <Eye size={10} className="me-1" /> View
-                    </button>
-                    <button 
-                      className="btn-outline-premium btn-xs"
-                      onClick={() => openEditModal(plan)}
-                      style={{ fontSize: '0.65rem', padding: '2px 6px' }}
-                    >
-                      <Edit size={10} className="me-1" /> Edit
-                    </button>
-                    <button 
-                      className="btn-outline-premium btn-xs"
-                      onClick={() => togglePlanStatus(plan.id)}
-                      style={{ fontSize: '0.65rem', padding: '2px 6px' }}
-                    >
-                      {plan.status === 'active' ? 'Off' : 'On'}
-                    </button>
-                    <button 
-                      className="btn-outline-premium btn-xs text-danger"
-                      onClick={() => deletePlan(plan.id)}
-                      style={{ fontSize: '0.65rem', padding: '2px 4px' }}
-                    >
-                      <Trash2 size={10} />
-                    </button>
-                  </div>
+
+                <div className="p-3 bg-light border-top d-flex gap-2">
+                  <button className="btn btn-sm btn-outline-primary flex-grow-1 d-flex align-items-center justify-content-center gap-1" onClick={() => openViewModal(plan)}>
+                    <Eye size={14} /> View
+                  </button>
+                  <button className="btn btn-sm btn-outline-secondary flex-grow-1 d-flex align-items-center justify-content-center gap-1" onClick={() => openEditModal(plan)}>
+                    <Edit size={14} /> Edit
+                  </button>
+                  <button 
+                    className={`btn btn-sm ${plan.status === 'active' ? 'btn-outline-warning' : 'btn-outline-success'} flex-grow-1 d-flex align-items-center justify-content-center gap-1`} 
+                    onClick={() => togglePlanStatus(plan)}
+                    title={plan.status === 'active' ? 'Deactivate' : 'Activate'}
+                  >
+                    {plan.status === 'active' ? <XCircle size={14} /> : <CheckCircle size={14} />}
+                    {plan.status === 'active' ? 'Deactivate' : 'Activate'}
+                  </button>
+                  <button 
+                    className="btn btn-sm btn-outline-danger d-flex align-items-center justify-content-center" 
+                    onClick={() => deletePlan(plan._id)}
+                    title="Delete Plan"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
               </div>
             </div>
@@ -462,346 +363,141 @@ const SubscriptionPlans = () => {
         )}
       </div>
 
-      {/* Add Plan Modal */}
-      {showAddModal && (
-        <div className="modal-overlay" onClick={() => setShowAddModal(false)}>
-          <div className="modal-container" style={{ maxWidth: '700px' }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h5 className="modal-title">Add New Subscription Plan</h5>
-              <button className="modal-close" onClick={() => setShowAddModal(false)}>
-                <X size={18} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="row g-3">
-                <div className="col-md-6">
-                  <label className="form-label small fw-medium">Plan Name *</label>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    value={newPlan.name}
-                    onChange={(e) => setNewPlan({...newPlan, name: e.target.value})}
-                    placeholder="e.g., Basic, Professional, Enterprise"
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label small fw-medium">Plan Type</label>
-                  <select 
-                    className="form-select form-select-sm"
-                    value={newPlan.type}
-                    onChange={(e) => setNewPlan({...newPlan, type: e.target.value})}
-                  >
-                    <option value="monthly">Monthly</option>
-                    <option value="yearly">Yearly</option>
-                    <option value="quarterly">Quarterly</option>
-                  </select>
-                </div>
-                <div className="col-md-4">
-                  <label className="form-label small fw-medium">Price (₹) *</label>
-                  <input
-                    type="number"
-                    className="form-control form-control-sm"
-                    value={newPlan.price}
-                    onChange={(e) => setNewPlan({...newPlan, price: e.target.value})}
-                    placeholder="e.g., 499"
-                  />
-                </div>
-                <div className="col-md-4">
-                  <label className="form-label small fw-medium">Original Price (₹)</label>
-                  <input
-                    type="number"
-                    className="form-control form-control-sm"
-                    value={newPlan.originalPrice}
-                    onChange={(e) => setNewPlan({...newPlan, originalPrice: e.target.value})}
-                    placeholder="e.g., 999"
-                  />
-                </div>
-                <div className="col-md-4">
-                  <label className="form-label small fw-medium">Discount (%)</label>
-                  <input
-                    type="number"
-                    className="form-control form-control-sm"
-                    value={newPlan.discount}
-                    onChange={(e) => setNewPlan({...newPlan, discount: e.target.value})}
-                    placeholder="e.g., 50"
-                  />
-                </div>
-                <div className="col-md-12">
-                  <label className="form-label small fw-medium">Description</label>
-                  <textarea
-                    className="form-control form-control-sm"
-                    rows="2"
-                    value={newPlan.description}
-                    onChange={(e) => setNewPlan({...newPlan, description: e.target.value})}
-                    placeholder="Brief description of the plan"
-                  />
-                </div>
-                <div className="col-md-12">
-                  <label className="form-label small fw-medium">Features</label>
-                  <div className="d-flex gap-2 mb-2">
-                    <input
-                      type="text"
-                      className="form-control form-control-sm"
-                      value={featureInput}
-                      onChange={(e) => setFeatureInput(e.target.value)}
-                      placeholder="Add a feature (e.g., Up to 10 properties)"
-                      onKeyPress={(e) => e.key === 'Enter' && addFeature()}
-                    />
-                    <button className="btn-outline-premium btn-sm" onClick={addFeature}>Add</button>
-                  </div>
-                  <div className="border rounded p-2" style={{ minHeight: '80px' }}>
-                    {newPlan.features.map((feature, idx) => (
-                      <span key={idx} className="feature-tag">
-                        {feature}
-                        <button className="remove-feature" onClick={() => removeFeature(idx)}>×</button>
-                      </span>
-                    ))}
-                    {newPlan.features.length === 0 && (
-                      <span className="text-muted small">No features added yet</span>
-                    )}
-                  </div>
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label small fw-medium">Property Limit</label>
-                  <input
-                    type="number"
-                    className="form-control form-control-sm"
-                    value={newPlan.propertyLimit}
-                    onChange={(e) => setNewPlan({...newPlan, propertyLimit: e.target.value})}
-                    placeholder="-1 for unlimited"
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label small fw-medium">Room Limit</label>
-                  <input
-                    type="number"
-                    className="form-control form-control-sm"
-                    value={newPlan.roomLimit}
-                    onChange={(e) => setNewPlan({...newPlan, roomLimit: e.target.value})}
-                    placeholder="-1 for unlimited"
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label small fw-medium">Support Level</label>
-                  <select 
-                    className="form-select form-select-sm"
-                    value={newPlan.supportLevel}
-                    onChange={(e) => setNewPlan({...newPlan, supportLevel: e.target.value})}
-                  >
-                    <option value="basic">Basic Support</option>
-                    <option value="priority">Priority Support</option>
-                    <option value="premium">24/7 Premium Support</option>
-                  </select>
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label small fw-medium">Valid For (days)</label>
-                  <input
-                    type="number"
-                    className="form-control form-control-sm"
-                    value={newPlan.validFor}
-                    onChange={(e) => setNewPlan({...newPlan, validFor: e.target.value})}
-                    placeholder="30 for monthly, 365 for yearly"
-                  />
-                </div>
-                <div className="col-12">
-                  <div className="row">
-                    <div className="col-md-4">
-                      <div className="form-check">
-                        <input
-                          type="checkbox"
-                          className="form-check-input"
-                          checked={newPlan.featuredListing}
-                          onChange={(e) => setNewPlan({...newPlan, featuredListing: e.target.checked})}
-                        />
-                        <label className="form-check-label small">Featured Listing</label>
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <div className="form-check">
-                        <input
-                          type="checkbox"
-                          className="form-check-input"
-                          checked={newPlan.analytics}
-                          onChange={(e) => setNewPlan({...newPlan, analytics: e.target.checked})}
-                        />
-                        <label className="form-check-label small">Advanced Analytics</label>
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <div className="form-check">
-                        <input
-                          type="checkbox"
-                          className="form-check-input"
-                          checked={newPlan.managerAccess}
-                          onChange={(e) => setNewPlan({...newPlan, managerAccess: e.target.checked})}
-                        />
-                        <label className="form-check-label small">Manager Access</label>
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <div className="form-check">
-                        <input
-                          type="checkbox"
-                          className="form-check-input"
-                          checked={newPlan.prioritySupport}
-                          onChange={(e) => setNewPlan({...newPlan, prioritySupport: e.target.checked})}
-                        />
-                        <label className="form-check-label small">Priority Support</label>
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <div className="form-check">
-                        <input
-                          type="checkbox"
-                          className="form-check-input"
-                          checked={newPlan.customDomain}
-                          onChange={(e) => setNewPlan({...newPlan, customDomain: e.target.checked})}
-                        />
-                        <label className="form-check-label small">Custom Domain</label>
-                      </div>
-                    </div>
-                    <div className="col-md-4">
-                      <div className="form-check">
-                        <input
-                          type="checkbox"
-                          className="form-check-input"
-                          checked={newPlan.apiAccess}
-                          onChange={(e) => setNewPlan({...newPlan, apiAccess: e.target.checked})}
-                        />
-                        <label className="form-check-label small">API Access</label>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div className="col-md-6">
-                  <div className="form-check">
-                    <input
-                      type="checkbox"
-                      className="form-check-input"
-                      checked={newPlan.popular}
-                      onChange={(e) => setNewPlan({...newPlan, popular: e.target.checked})}
-                    />
-                    <label className="form-check-label small">Mark as Popular</label>
-                  </div>
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label small fw-medium">Plan Color</label>
-                  <input
-                    type="color"
-                    className="form-control form-control-sm"
-                    value={newPlan.color || '#4361ee'}
-                    onChange={(e) => setNewPlan({...newPlan, color: e.target.value})}
-                  />
-                </div>
+      {/* Add/Edit Modal (Simplified for common use) */}
+      {(showAddModal || showEditModal) && (
+        <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content modern-card">
+              <div className="modal-header border-0 p-4">
+                <h5 className="modal-title fw-bold">
+                  {showAddModal ? 'Create New Subscription Plan' : `Edit Plan: ${selectedPlan?.name}`}
+                </h5>
+                <button type="button" className="btn-close" onClick={() => { setShowAddModal(false); setShowEditModal(false); }}></button>
               </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-outline-premium" onClick={() => setShowAddModal(false)}>Cancel</button>
-              <button className="btn-premium" onClick={addPlan}>Create Plan</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Edit Plan Modal */}
-      {showEditModal && selectedPlan && (
-        <div className="modal-overlay" onClick={() => setShowEditModal(false)}>
-          <div className="modal-container" style={{ maxWidth: '700px' }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h5 className="modal-title">Edit Plan - {selectedPlan.name}</h5>
-              <button className="modal-close" onClick={() => setShowEditModal(false)}>
-                <X size={18} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="row g-3">
-                <div className="col-md-6">
-                  <label className="form-label small fw-medium">Plan Name</label>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm"
-                    value={selectedPlan.name}
-                    onChange={(e) => setSelectedPlan({...selectedPlan, name: e.target.value})}
-                  />
-                </div>
-                <div className="col-md-6">
-                  <label className="form-label small fw-medium">Price (₹)</label>
-                  <input
-                    type="number"
-                    className="form-control form-control-sm"
-                    value={selectedPlan.price}
-                    onChange={(e) => setSelectedPlan({...selectedPlan, price: e.target.value})}
-                  />
-                </div>
-                <div className="col-12">
-                  <div className="form-check">
-                    <input
-                      type="checkbox"
-                      className="form-check-input"
-                      checked={selectedPlan.popular}
-                      onChange={(e) => setSelectedPlan({...selectedPlan, popular: e.target.checked})}
+              <div className="modal-body p-4 pt-0">
+                <div className="row g-3">
+                  <div className="col-md-6">
+                    <label className="form-label small fw-bold">Plan Name *</label>
+                    <input 
+                      type="text" 
+                      className="form-control" 
+                      value={showAddModal ? newPlan.name : selectedPlan.name}
+                      onChange={(e) => showAddModal ? setNewPlan({...newPlan, name: e.target.value}) : setSelectedPlan({...selectedPlan, name: e.target.value})}
+                      placeholder="e.g. Professional"
                     />
-                    <label className="form-check-label small">Mark as Popular</label>
                   </div>
-                </div>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button className="btn-outline-premium" onClick={() => setShowEditModal(false)}>Cancel</button>
-              <button className="btn-premium" onClick={updatePlan}>Save Changes</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* View Plan Modal */}
-      {showViewModal && selectedPlan && (
-        <div className="modal-overlay" onClick={() => setShowViewModal(false)}>
-          <div className="modal-container" style={{ maxWidth: '500px' }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <h5 className="modal-title">Plan Details - {selectedPlan.name}</h5>
-              <button className="modal-close" onClick={() => setShowViewModal(false)}>
-                <X size={18} />
-              </button>
-            </div>
-            <div className="modal-body">
-              <div className="plan-detail-card">
-                <div className="detail-row">
-                  <span className="detail-label">Plan Type:</span>
-                  <span className="detail-value">{selectedPlan.type}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="detail-label">Price:</span>
-                  <span className="detail-value">₹{selectedPlan.price}/{selectedPlan.type === 'monthly' ? 'month' : 'year'}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="detail-label">Property Limit:</span>
-                  <span className="detail-value">{selectedPlan.propertyLimit === -1 ? 'Unlimited' : selectedPlan.propertyLimit}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="detail-label">Support Level:</span>
-                  <span className="detail-value">{selectedPlan.supportLevel}</span>
-                </div>
-                <div className="detail-row">
-                  <span className="detail-label">Status:</span>
-                  <span className={`badge-premium ${selectedPlan.status === 'active' ? 'badge-success' : 'badge-danger'}`}>
-                    {selectedPlan.status}
-                  </span>
-                </div>
-                <div className="detail-row">
-                  <span className="detail-label">Features:</span>
-                  <div className="detail-value">
-                    <ul className="mb-0">
-                      {selectedPlan.features.map((feature, idx) => (
-                        <li key={idx}>{feature}</li>
+                  <div className="col-md-6">
+                    <label className="form-label small fw-bold">Billing Cycle</label>
+                    <select 
+                      className="form-select"
+                      value={showAddModal ? newPlan.type : selectedPlan.type}
+                      onChange={(e) => showAddModal ? setNewPlan({...newPlan, type: e.target.value}) : setSelectedPlan({...selectedPlan, type: e.target.value})}
+                    >
+                      <option value="monthly">Monthly</option>
+                      <option value="yearly">Yearly</option>
+                      <option value="quarterly">Quarterly</option>
+                    </select>
+                  </div>
+                  <div className="col-md-4">
+                    <label className="form-label small fw-bold">Price (₹) *</label>
+                    <input 
+                      type="number" 
+                      className="form-control" 
+                      value={showAddModal ? newPlan.price : selectedPlan.price}
+                      onChange={(e) => showAddModal ? setNewPlan({...newPlan, price: e.target.value}) : setSelectedPlan({...selectedPlan, price: e.target.value})}
+                    />
+                  </div>
+                  <div className="col-md-4">
+                    <label className="form-label small fw-bold">Property Limit</label>
+                    <input 
+                      type="number" 
+                      className="form-control" 
+                      value={showAddModal ? newPlan.propertyLimit : selectedPlan.propertyLimit}
+                      onChange={(e) => showAddModal ? setNewPlan({...newPlan, propertyLimit: e.target.value}) : setSelectedPlan({...selectedPlan, propertyLimit: e.target.value})}
+                    />
+                  </div>
+                  <div className="col-md-4">
+                    <label className="form-label small fw-bold">Theme Color</label>
+                    <input 
+                      type="color" 
+                      className="form-control form-control-color w-100" 
+                      value={showAddModal ? newPlan.color : selectedPlan.color}
+                      onChange={(e) => showAddModal ? setNewPlan({...newPlan, color: e.target.value}) : setSelectedPlan({...selectedPlan, color: e.target.value})}
+                    />
+                  </div>
+                  <div className="col-12">
+                    <label className="form-label small fw-bold">Features</label>
+                    <div className="d-flex gap-2 mb-2">
+                      <input 
+                        type="text" 
+                        className="form-control" 
+                        placeholder="Add a feature..." 
+                        value={featureInput}
+                        onChange={(e) => setFeatureInput(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && addFeature()}
+                      />
+                      <button className="btn btn-primary" onClick={addFeature}>Add</button>
+                    </div>
+                    <div className="d-flex flex-wrap gap-2 p-2 border rounded bg-light min-vh-10">
+                      {(showAddModal ? newPlan.features : selectedPlan.features)?.map((f, i) => (
+                        <span key={i} className="badge bg-white text-dark border px-3 py-2 d-flex align-items-center gap-2">
+                          {f} <X size={12} className="cursor-pointer" onClick={() => removeFeature(i)} />
+                        </span>
                       ))}
-                    </ul>
+                    </div>
                   </div>
                 </div>
               </div>
+              <div className="modal-footer border-0 p-4 pt-0">
+                <button className="btn btn-light border px-4" onClick={() => { setShowAddModal(false); setShowEditModal(false); }}>Cancel</button>
+                <button className="btn btn-primary px-5" onClick={showAddModal ? handleAddPlan : handleUpdatePlan}>
+                  {showAddModal ? 'Create Plan' : 'Save Changes'}
+                </button>
+              </div>
             </div>
-            <div className="modal-footer">
-              <button className="btn-outline-premium" onClick={() => setShowViewModal(false)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* View Modal */}
+      {showViewModal && selectedPlan && (
+        <div className="modal show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1050 }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content modern-card">
+              <div className="modal-header border-0 p-4">
+                <h5 className="modal-title fw-bold">Plan Details</h5>
+                <button type="button" className="btn-close" onClick={() => setShowViewModal(false)}></button>
+              </div>
+              <div className="modal-body p-4 pt-0">
+                <div className="text-center p-4 rounded-4 mb-4 text-white" style={{ background: selectedPlan.color }}>
+                  <div className="h4 fw-bold mb-0">{selectedPlan.name}</div>
+                  <div className="h2 fw-bold mb-1">₹{selectedPlan.price}</div>
+                  <div className="opacity-75 small">Billed {selectedPlan.type}</div>
+                </div>
+                
+                <div className="row g-3">
+                  <div className="col-6">
+                    <div className="text-muted small">Property Limit</div>
+                    <div className="fw-bold">{selectedPlan.propertyLimit === -1 ? 'Unlimited' : selectedPlan.propertyLimit}</div>
+                  </div>
+                  <div className="col-6">
+                    <div className="text-muted small">Support Level</div>
+                    <div className="fw-bold text-capitalize">{selectedPlan.supportLevel}</div>
+                  </div>
+                  <div className="col-12 mt-3">
+                    <div className="text-muted small mb-2">Included Features</div>
+                    {selectedPlan.features?.map((f, i) => (
+                      <div key={i} className="d-flex align-items-center gap-2 mb-2">
+                        <CheckCircle size={16} className="text-success" />
+                        <span>{f}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer border-0">
+                <button className="btn btn-primary w-100" onClick={() => setShowViewModal(false)}>Close</button>
+              </div>
             </div>
           </div>
         </div>

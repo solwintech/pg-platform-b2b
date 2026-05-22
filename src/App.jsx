@@ -1,15 +1,18 @@
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import AppRoutes from './routes/AppRoutes';
-import 'bootstrap/dist/css/bootstrap.min.css'; // Add Bootstrap CSS
-import './theme/custom.css'; // Changed from custom.scss to custom.css
+import { GoogleMapsProvider } from './context/GoogleMapsContext';
+import 'bootstrap/dist/css/bootstrap.min.css'; 
+import './theme/custom.css'; 
 import './index.css';
 
 function App() {
   return (
-    <BrowserRouter basename="/staynest">
-      <AppRoutes />
-    </BrowserRouter>
+    <GoogleMapsProvider>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </GoogleMapsProvider>
   );
 }
 

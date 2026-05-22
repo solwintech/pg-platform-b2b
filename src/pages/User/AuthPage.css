@@ -1,0 +1,212 @@
+/* AuthPage.css - Premium Real Estate Theme */
+
+.auth-hero {
+  min-height: calc(100vh - 140px);
+  background: #f8f9fc;
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.auth-hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 40%;
+  background: #122b46;
+  z-index: 0;
+}
+
+.auth-card-container {
+  position: relative;
+  z-index: 1;
+}
+
+/* Shadow Utilities */
+.shadow-xxl {
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Brand Section */
+.auth-brand-section {
+  background: #122b46;
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-brand-section::after {
+  content: '';
+  position: absolute;
+  bottom: -50px;
+  right: -50px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: rgba(241, 90, 41, 0.1);
+  z-index: 1;
+}
+
+.auth-brand-section > div {
+  position: relative;
+  z-index: 2;
+}
+
+.brand-icon {
+  width: 70px;
+  height: 70px;
+  background: #f15a29;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.3s ease;
+  color: white;
+}
+
+.brand-icon:hover {
+  transform: scale(1.05);
+}
+
+.feature-check {
+  width: 28px;
+  height: 28px;
+  background: #10b981;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition: transform 0.3s ease;
+}
+
+.feature-check:hover {
+  transform: scale(1.1);
+}
+
+/* Toggle Buttons */
+.toggle-wrapper {
+  background: #f1f5f9;
+  padding: 5px;
+  border-radius: 60px;
+}
+
+.toggle-buttons {
+  gap: 8px;
+}
+
+.toggle-btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  background: transparent;
+  border-radius: 60px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  color: #64748b;
+}
+
+.toggle-btn:hover {
+  background: rgba(241, 90, 41, 0.1);
+}
+
+.toggle-btn.active {
+  background: #f15a29;
+  color: white;
+  box-shadow: 0 4px 10px rgba(241, 90, 41, 0.3);
+}
+
+/* Auth Primary Text */
+.auth-primary-text {
+  color: #f15a29 !important;
+}
+
+/* Submit Button */
+.submit-btn {
+  background: #f15a29;
+  border: none;
+  transition: all 0.3s ease;
+  color: white;
+}
+
+.submit-btn:hover:not(:disabled) {
+  background: #d94b1e;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(241, 90, 41, 0.3);
+}
+
+.submit-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+/* Links */
+.resend-link,
+.back-link {
+  color: #f15a29;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.resend-link:hover,
+.back-link:hover {
+  text-decoration: underline;
+  color: #d94b1e;
+}
+
+/* Form Control Focus */
+.form-control:focus,
+.form-select:focus {
+  border-color: #f15a29;
+  box-shadow: 0 0 0 0.2rem rgba(241, 90, 41, 0.25);
+}
+
+/* Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.card {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Responsive Design */
+@media (max-width: 992px) {
+  .auth-brand-section {
+    display: none;
+  }
+  
+  .auth-hero {
+    min-height: auto;
+    padding: 40px 0;
+  }
+  .auth-hero::before {
+    height: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .form-wrapper {
+    padding: 0 10px;
+  }
+  
+  .submit-btn {
+    padding: 12px !important;
+  }
+  
+  .toggle-btn {
+    padding: 10px;
+    font-size: 0.9rem;
+  }
+}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Edit, 
   Trash2, 
@@ -14,16 +14,16 @@ import {
   TrendingUp,
   Eye,
   Building2,
-  UserPlus
+  UserPlus,
+  RefreshCw,
+  AlertCircle
 } from 'lucide-react';
 import { formatDate } from '../../utils/dateFormatter';
-import { mockUsers } from '../../utils/mockData';
+import adminService from '../../services/adminService';
 
 const ManageUsers = () => {
-  const [users, setUsers] = useState(() => {
-    const stored = window.dummyDataStorage.getItem('mockUsers');
-    return stored ? JSON.parse(stored) : mockUsers;
-  });
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -32,13 +32,12 @@ const ManageUsers = () => {
   const [showAddUserModal, setShowAddUserModal] = useState(false);
   const [showEditUserModal, setShowEditUserModal] = useState(false);
   const [editUser, setEditUser] = useState({
-    id: null,
+    _id: null,
     name: '',
     email: '',
     phone: '',
     businessName: '',
     role: 'b2b',
-    username: '',
     password: ''
   });
   const [newUser, setNewUser] = useState({
@@ -47,9 +46,24 @@ const ManageUsers = () => {
     phone: '',
     businessName: '',
     role: 'b2b',
-    username: '',
     password: ''
   });
+
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    setLoading(true);
+    try {
+      const response = await adminService.getUsers();
+      setUsers(response.data || []);
+      setLoading(false);
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      setLoading(false);
+    }
+  };
 
   const generatePassword = () => {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$';
@@ -60,83 +74,67 @@ const ManageUsers = () => {
     setNewUser(prev => ({ ...prev, password }));
   };
 
-  const handleCreateUser = () => {
-    if (!newUser.name || !newUser.email || !newUser.username || !newUser.password) {
+  const handleCreateUser = async () => {
+    if (!newUser.name || !newUser.email || !newUser.password) {
       alert('Please fill all required fields');
       return;
     }
-    const newId = users.length > 0 ? Math.max(...users.map(u => u.id)) + 1 : Date.now();
-    
-    const createdUser = {
-      id: newId,
-      name: newUser.name,
-      email: newUser.email,
-      phone: newUser.phone,
-      role: newUser.role,
-      status: 'active',
-      businessName: newUser.role === 'b2b' ? newUser.businessName : '',
-      username: newUser.username,
-      password: newUser.password,
-      joinedDate: new Date().toISOString().split('T')[0]
-    };
-
-    const updatedUsers = [...users, createdUser];
-    setUsers(updatedUsers);
-    window.dummyDataStorage.setItem('mockUsers', JSON.stringify(updatedUsers));
-    
-    setShowAddUserModal(false);
-    setNewUser({ name: '', email: '', phone: '', businessName: '', role: 'b2b', username: '', password: '' });
-    alert('User created successfully!');
+    try {
+      await adminService.createUser(newUser);
+      setShowAddUserModal(false);
+      setNewUser({ name: '', email: '', phone: '', businessName: '', role: 'b2b', password: '' });
+      fetchUsers();
+      alert('User created successfully!');
+    } catch (error) {
+      alert(error.response?.data?.message || 'Error creating user');
+    }
   };
 
   const openEditUserModal = (user) => {
     setEditUser({
       ...user,
-      name: user.name || '',
-      email: user.email || '',
-      phone: user.phone || '',
-      businessName: user.businessName || '',
-      role: user.role || 'b2b',
-      username: user.username || '',
-      password: user.password || ''
+      password: '' // Don't show password
     });
     setShowEditUserModal(true);
   };
 
-  const generateEditPassword = () => {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$';
-    let password = '';
-    for (let i = 0; i < 8; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    setEditUser(prev => ({ ...prev, password }));
-  };
-
-  const handleUpdateUser = () => {
-    if (!editUser.name || !editUser.email || !editUser.username || !editUser.password) {
+  const handleUpdateUser = async () => {
+    if (!editUser.name || !editUser.email) {
       alert('Please fill all required fields');
       return;
     }
-    const updatedUsers = users.map(u => u.id === editUser.id ? { ...u, ...editUser, businessName: editUser.role === 'b2b' ? editUser.businessName : '' } : u);
-    setUsers(updatedUsers);
-    window.dummyDataStorage.setItem('mockUsers', JSON.stringify(updatedUsers));
-    setShowEditUserModal(false);
-    alert('User updated successfully!');
+    try {
+      // If password is empty, don't send it
+      const dataToUpdate = { ...editUser };
+      if (!dataToUpdate.password) delete dataToUpdate.password;
+
+      await adminService.updateUser(editUser._id, dataToUpdate);
+      setShowEditUserModal(false);
+      fetchUsers();
+      alert('User updated successfully!');
+    } catch (error) {
+      alert(error.response?.data?.message || 'Error updating user');
+    }
   };
 
-  const toggleUserStatus = (id) => {
-    const updated = users.map(user =>
-      user.id === id ? { ...user, status: user.status === 'active' ? 'blocked' : 'active' } : user
-    );
-    setUsers(updated);
-    window.dummyDataStorage.setItem('mockUsers', JSON.stringify(updated));
+  const toggleUserStatus = async (id, currentStatus) => {
+    try {
+      await adminService.updateUserStatus(id, !currentStatus);
+      fetchUsers();
+    } catch (error) {
+      alert('Error updating status');
+    }
   };
 
-  const deleteUser = (id) => {
+  const deleteUser = async (id) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
-      const updated = users.filter(user => user.id !== id);
-      setUsers(updated);
-      window.dummyDataStorage.setItem('mockUsers', JSON.stringify(updated));
+      try {
+        await adminService.deleteUser(id);
+        fetchUsers();
+        alert('User deleted successfully!');
+      } catch (error) {
+        alert('Error deleting user');
+      }
     }
   };
 
@@ -146,32 +144,34 @@ const ManageUsers = () => {
   };
 
   const filteredUsers = users.filter(user => {
-    const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         user.phone.includes(searchTerm);
+    const matchesSearch = user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         user.phone?.includes(searchTerm);
     const matchesRole = roleFilter === 'all' ? true : user.role === roleFilter;
-    const matchesStatus = statusFilter === 'all' ? true : user.status === statusFilter;
+    const matchesStatus = statusFilter === 'all' ? true : (statusFilter === 'active' ? user.active : !user.active);
     return matchesSearch && matchesRole && matchesStatus;
   });
 
-  const stats = {
-    total: users.length,
-    active: users.filter(u => u.status === 'active').length,
-    blocked: users.filter(u => u.status === 'blocked').length,
-    b2b: users.filter(u => u.role === 'b2b').length,
-    admin: users.filter(u => u.role === 'admin').length,
-    newThisMonth: users.filter(u => new Date(u.joinedDate) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)).length
-  };
-
   const getInitials = (name) => {
-    return name.split(' ').map(n => n[0]).join('').toUpperCase();
+    if (!name) return 'U';
+    return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
   };
 
   const getRandomColor = (name) => {
     const colors = ['#4361ee', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-    const index = name.length % colors.length;
+    const index = (name?.length || 0) % colors.length;
     return colors[index];
   };
+
+  if (loading) {
+    return (
+      <div className="text-center py-5">
+        <div className="spinner-border text-primary" role="status">
+          <span className="visually-hidden">Loading...</span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fade-in-up">
@@ -218,7 +218,7 @@ const ManageUsers = () => {
               >
                 <option value="all">All Status</option>
                 <option value="active">Active</option>
-                <option value="blocked">Blocked</option>
+                <option value="inactive">Inactive</option>
               </select>
             </div>
             <div className="col-md-2">
@@ -227,7 +227,7 @@ const ManageUsers = () => {
                 setRoleFilter('all');
                 setStatusFilter('all');
               }}>
-                Clear Filters
+                Clear
               </button>
             </div>
           </div>
@@ -261,7 +261,7 @@ const ManageUsers = () => {
                 </tr>
               ) : (
                 filteredUsers.map(user => (
-                  <tr key={user.id}>
+                  <tr key={user._id}>
                     <td>
                       <div className="d-flex align-items-center gap-3">
                         <div 
@@ -277,14 +277,14 @@ const ManageUsers = () => {
                         </div>
                         <div>
                           <div className="fw-600">{user.name}</div>
-                          <div className="text-xs text-muted">ID: #{user.id}</div>
+                          <div className="text-xs text-muted">ID: #{user._id.substring(user._id.length - 6)}</div>
                         </div>
                       </div>
                     </td>
                     <td>
                       <div className="text-sm">{user.email}</div>
                       <div className="text-xs text-muted d-flex align-items-center gap-1 mt-1">
-                        <Phone size={12} /> {user.phone}
+                        <Phone size={12} /> {user.phone || 'N/A'}
                       </div>
                     </td>
                     <td>
@@ -294,13 +294,13 @@ const ManageUsers = () => {
                       </span>
                     </td>
                     <td>
-                      <span className={`badge-premium ${user.status === 'active' ? 'badge-success' : 'badge-warning'}`}>
-                        {user.status === 'active' ? <CheckCircle size={12} className="me-1" /> : <Ban size={12} className="me-1" />}
-                        {user.status === 'active' ? 'Active' : 'Blocked'}
+                      <span className={`badge-premium ${user.active ? 'badge-success' : 'badge-warning'}`}>
+                        {user.active ? <CheckCircle size={12} className="me-1" /> : <Ban size={12} className="me-1" />}
+                        {user.active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                     <td>
-                      <div className="text-sm">{formatDate(user.createdAt || user.joinedDate)}</div>
+                      <div className="text-sm">{formatDate(user.createdAt)}</div>
                       <div className="text-xs text-muted d-flex align-items-center gap-1 mt-1">
                         <Calendar size={12} /> Member
                       </div>
@@ -324,17 +324,17 @@ const ManageUsers = () => {
                           <Edit size={14} className="me-1" /> Edit
                         </button>
                         <button 
-                          className={`btn-sm ${user.status === 'active' ? 'btn-outline-warning' : 'btn-outline-success'}`}
-                          onClick={() => toggleUserStatus(user.id)}
-                          title={user.status === 'active' ? 'Block User' : 'Unblock User'}
+                          className={`btn-sm ${user.active ? 'btn-outline-warning' : 'btn-outline-success'}`}
+                          onClick={() => toggleUserStatus(user._id, user.active)}
+                          title={user.active ? 'Deactivate User' : 'Activate User'}
                           style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', border: '1px solid', background: 'transparent' }}
                         >
-                          {user.status === 'active' ? <Ban size={14} className="me-1" /> : <CheckCircle size={14} className="me-1" />}
-                          {user.status === 'active' ? 'Block' : 'Unblock'}
+                          {user.active ? <Ban size={14} className="me-1" /> : <CheckCircle size={14} className="me-1" />}
+                          {user.active ? 'Deactivate' : 'Activate'}
                         </button>
                         <button 
                           className="btn-sm text-danger"
-                          onClick={() => deleteUser(user.id)}
+                          onClick={() => deleteUser(user._id)}
                           title="Delete User"
                           style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', border: '1px solid #ef4444', background: 'transparent', color: '#ef4444' }}
                         >
@@ -390,21 +390,21 @@ const ManageUsers = () => {
                   <div className="row mb-3">
                     <div className="col-4 text-muted">Phone:</div>
                     <div className="col-8">
-                      <Phone size={14} className="me-1" /> {selectedUser.phone}
+                      <Phone size={14} className="me-1" /> {selectedUser.phone || 'N/A'}
                     </div>
                   </div>
                   <div className="row mb-3">
                     <div className="col-4 text-muted">Status:</div>
                     <div className="col-8">
-                      <span className={`badge-premium ${selectedUser.status === 'active' ? 'badge-success' : 'badge-warning'}`}>
-                        {selectedUser.status === 'active' ? 'Active' : 'Blocked'}
+                      <span className={`badge-premium ${selectedUser.active ? 'badge-success' : 'badge-warning'}`}>
+                        {selectedUser.active ? 'Active' : 'Inactive'}
                       </span>
                     </div>
                   </div>
                   <div className="row mb-3">
                     <div className="col-4 text-muted">Registered:</div>
                     <div className="col-8">
-                      <Calendar size={14} className="me-1" /> {formatDate(selectedUser.createdAt || selectedUser.joinedDate)}
+                      <Calendar size={14} className="me-1" /> {formatDate(selectedUser.createdAt)}
                     </div>
                   </div>
                 </div>
@@ -416,12 +416,12 @@ const ManageUsers = () => {
                 <button 
                   className="btn-premium"
                   onClick={() => {
-                    toggleUserStatus(selectedUser.id);
+                    toggleUserStatus(selectedUser._id, selectedUser.active);
                     setShowModal(false);
                   }}
                 >
-                  {selectedUser.status === 'active' ? <Ban size={16} className="me-1" /> : <CheckCircle size={16} className="me-1" />}
-                  {selectedUser.status === 'active' ? 'Block User' : 'Unblock User'}
+                  {selectedUser.active ? <Ban size={16} className="me-1" /> : <CheckCircle size={16} className="me-1" />}
+                  {selectedUser.active ? 'Deactivate User' : 'Activate User'}
                 </button>
               </div>
             </div>
@@ -455,7 +455,6 @@ const ManageUsers = () => {
                     >
                       <option value="b2b">PG Owner (B2B)</option>
                       <option value="admin">Admin</option>
-                      <option value="manager">Manager</option>
                     </select>
                   </div>
                   
@@ -492,32 +491,8 @@ const ManageUsers = () => {
                     />
                   </div>
 
-                  {newUser.role === 'b2b' && (
-                    <div className="col-12">
-                      <label className="form-label small">Business / PG Name</label>
-                      <input 
-                        type="text" 
-                        className="form-control-modern" 
-                        value={newUser.businessName}
-                        onChange={(e) => setNewUser({...newUser, businessName: e.target.value})}
-                        placeholder="e.g. Sharma PG"
-                      />
-                    </div>
-                  )}
-
                   <hr className="my-3"/>
                   
-                  <div className="col-12">
-                    <label className="form-label small">Username (User ID) *</label>
-                    <input 
-                      type="text" 
-                      className="form-control-modern" 
-                      value={newUser.username}
-                      onChange={(e) => setNewUser({...newUser, username: e.target.value})}
-                      placeholder="e.g. rahul123"
-                    />
-                  </div>
-
                   <div className="col-12">
                     <label className="form-label small" style={{ display: 'flex', justifyContent: 'space-between' }}>
                       Password *
@@ -578,7 +553,6 @@ const ManageUsers = () => {
                     >
                       <option value="b2b">PG Owner (B2B)</option>
                       <option value="admin">Admin</option>
-                      <option value="manager">Manager</option>
                     </select>
                   </div>
                   
@@ -612,47 +586,16 @@ const ManageUsers = () => {
                     />
                   </div>
 
-                  {editUser.role === 'b2b' && (
-                    <div className="col-12">
-                      <label className="form-label small">Business / PG Name</label>
-                      <input 
-                        type="text" 
-                        className="form-control-modern" 
-                        value={editUser.businessName}
-                        onChange={(e) => setEditUser({...editUser, businessName: e.target.value})}
-                      />
-                    </div>
-                  )}
-
                   <hr className="my-3"/>
                   
                   <div className="col-12">
-                    <label className="form-label small">Username (User ID) *</label>
-                    <input 
-                      type="text" 
-                      className="form-control-modern" 
-                      value={editUser.username}
-                      onChange={(e) => setEditUser({...editUser, username: e.target.value})}
-                    />
-                  </div>
-
-                  <div className="col-12">
-                    <label className="form-label small" style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      Password *
-                      <span 
-                        className="text-primary cursor-pointer text-decoration-underline" 
-                        onClick={generateEditPassword}
-                        style={{ fontSize: '11px', cursor: 'pointer' }}
-                      >
-                        Generate Random
-                      </span>
-                    </label>
+                    <label className="form-label small">New Password (leave blank to keep current)</label>
                     <input 
                       type="text" 
                       className="form-control-modern" 
                       value={editUser.password}
                       onChange={(e) => setEditUser({...editUser, password: e.target.value})}
-                      placeholder="Enter or generate new password"
+                      placeholder="Enter new password"
                     />
                   </div>
                 </div>
