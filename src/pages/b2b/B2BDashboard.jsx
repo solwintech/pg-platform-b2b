@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Building2,
   Phone,
@@ -21,6 +22,7 @@ import propertyService from '../../services/propertyService';
 import leadService from '../../services/leadService';
 
 const B2BDashboard = () => {
+  const navigate = useNavigate();
   const [timeRange, setTimeRange] = useState('monthly');
   const [selectedProperty, setSelectedProperty] = useState('all');
   const [loading, setLoading] = useState(true);
@@ -71,15 +73,15 @@ const B2BDashboard = () => {
 
   // Stats Cards - Focus only on Clicks & Leads (No Revenue)
   const statsRow1 = [
-    { title: "Total Properties", value: properties.length.toString(), icon: Building2, color: "primary", trend: properties.length > 0 ? 12 : 0, subtext: properties.length > 0 ? "+2 this month" : "No properties added" },
-    { title: "Active Listings", value: properties.length.toString(), icon: Users, color: "success", trend: properties.length > 0 ? 8 : 0, subtext: properties.length > 0 ? "All properties active" : "Add listing to start" },
-    { title: "Total Clicks (Views)", value: totalStats.totalViews.toLocaleString(), icon: Eye, color: "info", trend: properties.length > 0 ? 24 : 0, subtext: properties.length > 0 ? "↑ 1,240 from last month" : "No views yet" }
+    { title: "Total Properties", value: properties.length.toString(), icon: Building2, color: "primary", trend: properties.length > 0 ? 12 : 0, subtext: properties.length > 0 ? "+2 this month" : "No properties added", onClick: () => navigate('/b2b/listings') },
+    { title: "Active Listings", value: properties.length.toString(), icon: Users, color: "success", trend: properties.length > 0 ? 8 : 0, subtext: properties.length > 0 ? "All properties active" : "Add listing to start", onClick: () => navigate('/b2b/listings') },
+    { title: "Total Clicks (Views)", value: totalStats.totalViews.toLocaleString(), icon: Eye, color: "info", trend: properties.length > 0 ? 24 : 0, subtext: properties.length > 0 ? "↑ 1,240 from last month" : "No views yet", onClick: () => navigate('/b2b/listings') }
   ];
 
   const statsRow2 = [
-    { title: "Total Leads", value: totalStats.totalLeads.toString(), icon: Phone, color: "warning", trend: recentLeads.length > 0 ? 18 : 0, subtext: recentLeads.length > 0 ? "45 this month" : "Waiting for leads" },
-    { title: "Click → Lead Rate", value: `${totalStats.avgConversion}%`, icon: Target, color: "success", trend: properties.length > 0 ? 5 : 0, subtext: properties.length > 0 ? "↑ 0.5% improvement" : "N/A" },
-    { title: "Occupancy Rate", value: properties.length > 0 ? "78%" : "0%", icon: Activity, color: "info", trend: properties.length > 0 ? 8 : 0, subtext: properties.length > 0 ? "↑ 12% from last quarter" : "No data" }
+    { title: "Total Leads", value: totalStats.totalLeads.toString(), icon: Phone, color: "warning", trend: recentLeads.length > 0 ? 18 : 0, subtext: recentLeads.length > 0 ? "45 this month" : "Waiting for leads", onClick: () => navigate('/b2b/leads') },
+    { title: "Click → Lead Rate", value: `${totalStats.avgConversion}%`, icon: Target, color: "success", trend: properties.length > 0 ? 5 : 0, subtext: properties.length > 0 ? "↑ 0.5% improvement" : "N/A", onClick: () => navigate('/b2b/leads') },
+    { title: "Occupancy Rate", value: properties.length > 0 ? "78%" : "0%", icon: Activity, color: "info", trend: properties.length > 0 ? 8 : 0, subtext: properties.length > 0 ? "↑ 12% from last quarter" : "No data", onClick: () => navigate('/b2b/listings') }
   ];
 
   // Weekly Trends Data (Zeroed out)
@@ -121,7 +123,7 @@ const B2BDashboard = () => {
       <div className="modern-card mb-4">
         <div className="card-header-modern d-flex justify-content-between align-items-center">
           <span className="fw-semibold">Recent Leads</span>
-          <button className="btn-outline-premium btn-sm">View All</button>
+          <button className="btn-outline-premium btn-sm" onClick={() => navigate('/b2b/leads')}>View All</button>
         </div>
         <div className="table-responsive">
           <table className="table-modern">
@@ -226,7 +228,7 @@ const B2BDashboard = () => {
                         <Building2 size={32} className="opacity-20 mb-3" />
                         <h5>No Properties Yet</h5>
                         <p className="small">Add your first property to start seeing performance data.</p>
-                        <button className="btn-premium btn-sm mt-2">Add Property</button>
+                        <button className="btn-premium btn-sm mt-2" onClick={() => navigate('/b2b/add-pg')}>Add Property</button>
                       </div>
                     </td>
                   </tr>
@@ -442,10 +444,10 @@ const B2BDashboard = () => {
               <p className="text-muted small mb-0">Keep your listings up to date to attract more customers</p>
             </div>
             <div className="col-md-4 text-md-end mt-3 mt-md-0">
-              <button className="btn-premium me-2">
+              <button className="btn-premium me-2" onClick={() => navigate('/b2b/add-pg')}>
                 <PlusCircle size={16} className="me-1" /> Add Property
               </button>
-              <button className="btn-outline-premium">
+              <button className="btn-outline-premium" onClick={() => navigate('/b2b/listings')}>
                 <Filter size={16} className="me-1" /> Manage
               </button>
             </div>

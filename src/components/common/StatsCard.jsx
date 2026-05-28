@@ -1,7 +1,7 @@
 import React from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 
-const StatsCard = ({ title, value, icon: Icon, color, trend }) => {
+const StatsCard = ({ title, value, icon: Icon, color, trend, onClick }) => {
   const colors = {
     primary: { bg: '#e0e7ff', color: '#4f46e5' },
     success: { bg: '#d1fae5', color: '#10b981' },
@@ -13,7 +13,11 @@ const StatsCard = ({ title, value, icon: Icon, color, trend }) => {
   const currentColor = colors[color] || colors.primary;
 
   return (
-    <div className="stats-card-small">
+    <div 
+      className="stats-card-small" 
+      onClick={onClick} 
+      style={{ cursor: onClick ? 'pointer' : 'default' }}
+    >
       <div className="stats-card-small-content">
         <div className="stats-card-small-left">
           <div className="stats-icon-small" style={{ background: currentColor.bg }}>

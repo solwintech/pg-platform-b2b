@@ -7,30 +7,89 @@ const SubmissionTermsModal = ({ isOpen, onConfirm, onCancel, isSubmitting }) => 
   if (!isOpen) return null;
 
   const termsPoints = [
-    { title: "Acceptance of Terms", content: "By submitting a property listing on SORTIFY Stays, you (“Property Owner/Host”) agree to comply with these Terms & Conditions. If you do not agree, you should not proceed with listing your property." },
-    { title: "Platform Role", content: "SORTIFY Stays acts only as an aggregator platform that connects property owners with potential tenants. The platform only provides discovery, listing visibility, and lead generation services. SORTIFY Stays does not own, manage, operate, or control any property." },
-    { title: "No Rental Agreement Involvement", content: "SORTIFY Stays is not a party to any rental agreement, lease, or contract between property owner and tenant. All agreements are directly executed between the Property Owner and the Tenant." },
-    { title: "Listing Authorization", content: "By submitting your property, you grant SORTIFY Stays the right to publish, display, and promote your property details, images/videos, pricing, and location across our website, app, and marketing channels." },
-    { title: "Accuracy of Information", content: "You confirm that all information provided is true, accurate, and complete. SORTIFY Stays is not responsible for incorrect or outdated information provided by owners." },
-    { title: "Owner Responsibility", content: "The entire responsibility lies solely with the Property Owner, including property condition, maintenance, tenant safety, rent agreements, and services like food/cleaning." },
-    { title: "Dispute Resolution", content: "All disputes must be resolved directly between the Property Owner and the Tenant. SORTIFY Stays will not mediate or be held liable for payment issues, refunds, or behavioral disputes." },
-    { title: "No Control Over Listings", content: "SORTIFY Stays does not control real-time availability or pricing. Owners are fully responsible for managing availability and tenant communication." },
-    { title: "Verification Disclaimer", content: "While SORTIFY Stays may perform basic checks, verification is limited and not a legal certification. It does not guarantee authenticity or compliance." },
-    { title: "Payments & Plans", content: "SORTIFY Stays may offer paid subscription plans for visibility. All payments are non-refundable unless explicitly stated. We are not responsible for rent transactions." },
-    { title: "Content Rights", content: "You confirm that you own all uploaded content. SORTIFY Stays may edit listings for optimization and use content for marketing." },
-    { title: "Prohibited Listings", content: "You must NOT list illegal properties, misleading information, or properties without necessary approvals." },
-    { title: "Suspension / Removal", content: "SORTIFY Stays reserves the right to remove or suspend listings without notice if terms are violated or complaints arise." },
-    { title: "Limitation of Liability", content: "SORTIFY Stays shall not be liable for business loss, tenant disputes, property-related incidents, or any indirect damages." },
-    { title: "Indemnification", content: "You agree to indemnify and hold SORTIFY Stays harmless from legal claims or damages arising from your property, listing, or services." },
-    { title: "Modifications", content: "SORTIFY Stays may update these Terms at any time. Continued use implies acceptance." },
-    { title: "Governing Law", content: "These terms shall be governed by the laws of India." }
+    {
+      title: "Acceptance of Terms",
+      content: "By submitting a property listing on SORTIFY Stays, you (“Property Owner/Host”) agree to comply with these Terms & Conditions. If you do not agree, you should not proceed with listing your property."
+    },
+    {
+      title: "Platform Role",
+      content: "SORTIFY Stays acts only as an aggregator platform that connects property owners with potential tenants.\nThe platform only provides discovery, listing visibility, and lead generation services\nSORTIFY Stays does not own, manage, operate, or control any property\nSORTIFY Stays is not involved in the stay experience or service delivery"
+    },
+    {
+      title: "No Rental Agreement Involvement",
+      content: "SORTIFY Stays is not a party to any rental agreement, lease, or contract between property owner and tenant\nAll agreements are directly executed between the Property Owner and the Tenant\nSORTIFY Stays has no role in drafting, enforcing, or monitoring such agreements"
+    },
+    {
+      title: "Listing Authorization",
+      content: "By submitting your property:\nYou grant SORTIFY Stays the right to publish, display, and promote your property\nThis includes:\nProperty details\nImages/videos\nPricing and amenities\nLocation information\nAcross:\nWebsite\nMobile app\nMarketing and promotional channels"
+    },
+    {
+      title: "Accuracy of Information",
+      content: "You confirm that:\nAll information provided is true, accurate, and complete\nImages represent the actual property condition\nPricing, facilities, and policies are correct and regularly updated\nSORTIFY Stays is not responsible for incorrect or outdated information"
+    },
+    {
+      title: "Owner Responsibility",
+      content: "The entire responsibility lies solely with the Property Owner, including:\nProperty condition & maintenance\nTenant safety & security\nLegal compliance (licenses, permissions, local laws)\nRent agreements and enforcement\nServices like food, cleaning, utilities\nSORTIFY Stays has no responsibility for:\nProperty quality or services\nTenant satisfaction or complaints\nAny damages, losses, or incidents"
+    },
+    {
+      title: "Dispute Resolution",
+      content: "All disputes must be resolved directly between the Property Owner and the Tenant\nSORTIFY Stays will not mediate, intervene, or be held liable for:\nPayment issues\nRefunds\nService complaints\nBehavioral disputes"
+    },
+    {
+      title: "No Control Over Listings",
+      content: "SORTIFY Stays:\nDoes not control real-time availability, pricing, or updates\nDoes not guarantee:\nOccupancy\nBookings\nTenant quality\nOwners are fully responsible for managing:\nAvailability\nPricing\nTenant communication"
+    },
+    {
+      title: "Verification Disclaimer",
+      content: "While SORTIFY Stays may perform basic checks:\nVerification is limited and not a legal certification\nIt does not guarantee:\nAuthenticity\nQuality\nCompliance"
+    },
+    {
+      title: "Payments & Plans",
+      content: "SORTIFY Stays may offer paid subscription plans for visibility and features\nAll payments are non-refundable unless explicitly stated\nSORTIFY Stays is not responsible for any rent/payment transactions between owner and tenant"
+    },
+    {
+      title: "Content Rights",
+      content: "You confirm that:\nYou own or have rights to all uploaded content\nContent does not violate third-party rights\nSORTIFY Stays may:\nEdit listings for optimization\nUse content for marketing"
+    },
+    {
+      title: "Prohibited Listings",
+      content: "You must NOT list:\nIllegal or unauthorized properties\nMisleading or false information\nProperties without necessary approvals\nDiscriminatory or unethical conditions"
+    },
+    {
+      title: "Suspension / Removal",
+      content: "SORTIFY Stays reserves the right to:\nRemove or suspend listings without prior notice if:\nTerms are violated\nComplaints arise\nInformation is misleading"
+    },
+    {
+      title: "Limitation of Liability",
+      content: "SORTIFY Stays shall not be liable for:\nBusiness loss or revenue loss\nTenant disputes or damages\nProperty-related incidents\nAny indirect or consequential damages"
+    },
+    {
+      title: "Indemnification",
+      content: "You agree to indemnify and hold SORTIFY Stays harmless from:\nLegal claims\nDisputes\nDamages\narising from:\nYour property\nYour listing\nYour services"
+    },
+    {
+      title: "Modifications",
+      content: "SORTIFY Stays may update these Terms at any time. Continued use implies acceptance."
+    },
+    {
+      title: "Governing Law",
+      content: "These terms shall be governed by the laws of India."
+    },
+    {
+      title: "Additional Listing Condition",
+      content: "By listing your property on SORTIFY Stays, you agree that the same property shall not be actively listed, promoted, or published on competing property listing platforms or portals during the active subscription/listing period with SORTIFY Stays, unless otherwise approved in writing by SORTIFY Stays."
+    }
   ];
 
   const summaryPoints = [
-    { icon: <Shield size={18} className="text-primary" />, text: "SORTIFY Stays is only a discovery and lead generation platform." },
-    { icon: <User size={18} className="text-primary" />, text: "SORTIFY Stays is not a party to any rental agreement." },
-    { icon: <FileText size={18} className="text-primary" />, text: "All agreements and disputes are handled directly between you and the tenant." },
-    { icon: <AlertTriangle size={18} className="text-primary" />, text: "You accept full responsibility for property condition and tenant interactions." }
+    { icon: <Shield size={18} className="text-primary" />, text: "SORTIFYStays is only a discovery and lead generation platform" },
+    { icon: <User size={18} className="text-primary" />, text: "SORTIFYStays is not a party to any rental agreement" },
+    { icon: <FileText size={18} className="text-primary" />, text: "All agreements are directly between you and the tenant" },
+    { icon: <Shield size={18} className="text-primary" />, text: "You allow us to publish and promote your property details" },
+    { icon: <AlertTriangle size={18} className="text-primary" />, text: "You confirm that this property will not be actively listed on other competing portals during the active listing period on SORTIFY Stays" },
+    { icon: <Shield size={18} className="text-primary" />, text: "You confirm all information provided is accurate and genuine" },
+    { icon: <User size={18} className="text-primary" />, text: "You accept full responsibility for:\n• Property condition\n• Services\n• Tenant interactions" },
+    { icon: <FileText size={18} className="text-primary" />, text: "All disputes will be handled directly between you and the tenant" }
   ];
 
   return (
@@ -78,14 +137,15 @@ const SubmissionTermsModal = ({ isOpen, onConfirm, onCancel, isSubmitting }) => 
           <hr className="my-1 opacity-25" />
 
           <div className="summary-section mt-4">
-            <h6 className="fw-bold mb-3">Key Summary</h6>
+            <h6 className="fw-bold mb-2">Key Summary</h6>
+            <p className="text-muted small mb-3">Before proceeding, please confirm:</p>
             <div className="summary-list">
               {summaryPoints.map((p, i) => (
                 <div key={i} className="summary-item d-flex align-items-center gap-3 mb-3">
                   <div className="summary-icon-box">
                     {p.icon}
                   </div>
-                  <p className="small mb-0 text-dark fw-medium">{p.text}</p>
+                  <p className="small mb-0 text-dark fw-medium" style={{ whiteSpace: 'pre-line' }}>{p.text}</p>
                 </div>
               ))}
             </div>
@@ -93,6 +153,10 @@ const SubmissionTermsModal = ({ isOpen, onConfirm, onCancel, isSubmitting }) => 
         </div>
 
         <div className="modal-actions-area">
+          <div className="declaration-header d-flex align-items-center gap-2 mb-2">
+            <span role="img" aria-label="check">✅</span>
+            <h6 className="fw-bold mb-0 text-dark" style={{ fontSize: '13px' }}>Declaration</h6>
+          </div>
           <div className="form-check custom-terms-check mb-4">
             <input
               className="form-check-input"
@@ -101,9 +165,8 @@ const SubmissionTermsModal = ({ isOpen, onConfirm, onCancel, isSubmitting }) => 
               checked={agreed}
               onChange={(e) => setAgreed(e.target.checked)}
             />
-            <label className="form-check-label small fw-semibold text-dark" htmlFor="acceptTerms">
-              I acknowledge and agree
-              <span className="d-block text-muted x-small fw-normal mt-1">I have read, understood, and agree to the SORTIFY Stays Property Owner Terms & Conditions.</span>
+            <label className="form-check-label small fw-semibold text-dark" htmlFor="acceptTerms" style={{ cursor: 'pointer' }}>
+              I agree to the Terms & Conditions and confirm the above
             </label>
           </div>
 
@@ -279,6 +342,7 @@ const SubmissionTermsModal = ({ isOpen, onConfirm, onCancel, isSubmitting }) => 
         .term-point-item p {
           font-size: 11px;
           line-height: 1.4;
+          white-space: pre-line;
         }
 
         .summary-icon-box {

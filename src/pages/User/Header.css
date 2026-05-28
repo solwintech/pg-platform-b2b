@@ -178,6 +178,10 @@
     padding-left: 16px !important;
     padding-right: 16px !important;
   }
+
+  .navbar-brand img {
+    height: 32px !important;
+  }
 }
 
 /* Animation for Mobile Menu */

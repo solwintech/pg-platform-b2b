@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Container, Row, Col, Form, Button, InputGroup } from 'react-bootstrap';
+import logo from '../../assets/logo-white.png';
 import './Footer.css';
 
 const Footer = () => {
@@ -42,7 +43,7 @@ const Footer = () => {
   };
 
   return (
-    <footer className="footer-modern mt-5">
+    <footer className="footer-modern mt-1">
       <div className="footer-top-accent"></div>
       
       {/* Top Banner (App Download & Newsletter) */}
@@ -104,15 +105,8 @@ const Footer = () => {
           <Row className="g-5">
             <Col lg={4} md={12}>
               <div className="footer-brand mb-4">
-                <div className="logo-wrapper mb-2">
-                  <div className="logo-icon-premium">
-                    <i className="fas fa-home"></i>
-                    <div className="logo-pulse"></div>
-                  </div>
-                  <div className="logo-text-container">
-                    <span className="logo-brand text-white">Stay<span className="brand-accent">Nest</span></span>
-                    <span className="logo-tagline text-muted">PREMIUM STAYS</span>
-                  </div>
+                <div className="mb-3">
+                  <img src={logo} alt="StayNest Logo" height="55" style={{ objectFit: 'contain' }} />
                 </div>
               </div>
               <p className="text-footer-desc mb-4">

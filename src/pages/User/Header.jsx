@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Navbar, Nav, Container, Button, Dropdown } from 'react-bootstrap';
 import authService from '../../services/authService';
+import logo from '../../assets/logo.png';
 import './Header.css';
 
 const Header = () => {
@@ -20,6 +21,11 @@ const Header = () => {
     };
 
     checkAuth();
+
+    window.addEventListener('auth-change', checkAuth);
+    return () => {
+      window.removeEventListener('auth-change', checkAuth);
+    };
   }, [location]);
 
   const navLinks = [
@@ -103,16 +109,7 @@ const Header = () => {
     >
       <Container fluid className="px-3 px-lg-4 position-relative">
         <Navbar.Brand as={Link} to="/" className="py-2">
-          <div className="logo-wrapper">
-            <div className="logo-icon-premium">
-              <i className="fas fa-home"></i>
-              <div className="logo-pulse"></div>
-            </div>
-            <div className="logo-text-container">
-              <span className="logo-brand">Stay<span className="brand-accent">Nest</span></span>
-              <span className="logo-tagline">PREMIUM STAYS</span>
-            </div>
-          </div>
+          <img src={logo} alt="StayNest Logo" height="40" style={{ objectFit: 'contain' }} />
         </Navbar.Brand>
 
         <Navbar.Toggle

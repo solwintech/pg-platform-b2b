@@ -18,7 +18,7 @@ const HomePage = () => {
     propertyType: 'all',
     budget: 'any',
     occupancy: 'any',
-    gender: 'any'
+    gender: 'all'
   });
   const [locationLoading, setLocationLoading] = useState(false);
 
@@ -122,7 +122,7 @@ const HomePage = () => {
       maxPrice = 100000;
     }
     
-    let genderMap = { boys: 'male', girls: 'female', 'co-ed': 'any', any: 'any' };
+    let genderMap = { boys: 'male', girls: 'female', 'co-ed': 'any', all: 'any' };
     
     navigate('/listings', { 
       state: {

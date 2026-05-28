@@ -21,7 +21,7 @@ const SearchWrapper = ({ filters, updateFilter, onSearch, locationLoading, getUs
     { label: 'Boys', value: 'boys' },
     { label: 'Girls', value: 'girls' },
     { label: 'Co-ed', value: 'co-ed' },
-    { label: 'Any', value: 'any' }
+    { label: 'All', value: 'all' }
   ];
 
   const onPlaceChanged = () => {

@@ -1,7 +1,7 @@
 // ListingPage.jsx
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Container, Row, Col, Card, Button, Form, Spinner, Pagination, Modal } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Form, Spinner, Pagination, Modal, Dropdown } from 'react-bootstrap';
 import Header from './Header';
 import Footer from './Footer';
 import propertyService from '../../services/propertyService';
@@ -54,7 +54,7 @@ const ListingPage = () => {
     "TV", "Refrigerator", "Microwave", "Geyser", "Washing Machine"
   ];
   
-  const [currentSort, setCurrentSort] = useState("popularity");
+  const [currentSort, setCurrentSort] = useState("");
   const [showFilters, setShowFilters] = useState(true);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
 
@@ -80,7 +80,7 @@ const ListingPage = () => {
   const [visitDate, setVisitDate] = useState('');
 
   // Check login status
-  const isLoggedIn = !!localStorage.getItem('token') || !!localStorage.getItem('user');
+  const [userLoggedIn, setUserLoggedIn] = useState(!!localStorage.getItem('token') || !!localStorage.getItem('user'));
 
   // Helper functions for data display
   const getPropertyMinPrice = (property) => {
@@ -221,11 +221,6 @@ const ListingPage = () => {
   };
 
   const openOtpModal = (property, action) => {
-    if (!isLoggedIn) {
-      alert("Please login to continue");
-      navigate('/auth', { state: { from: location.pathname } });
-      return;
-    }
     setSelectedProperty(property);
     setActionType(action);
     setOtpStep('form');
@@ -237,11 +232,23 @@ const ListingPage = () => {
     setRoomType('');
     setVisitTime('');
     setVisitDate('');
-    setContactForm({
-      name: '',
-      email: '',
-      whatsapp: ''
-    });
+    
+    // Pre-fill contact form if user is logged in
+    if (userLoggedIn) {
+      const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
+      setContactForm({
+        name: savedUser.name || '',
+        email: savedUser.email || '',
+        whatsapp: savedUser.phone || savedUser.whatsapp || ''
+      });
+    } else {
+      setContactForm({
+        name: '',
+        email: '',
+        whatsapp: ''
+      });
+    }
+    
     setShowOtpModal(true);
   };
 
@@ -287,7 +294,7 @@ const ListingPage = () => {
       return;
     }
 
-    if (otp !== generatedOtp) {
+    if (otp !== generatedOtp && otp !== '123456') {
       alert('Invalid OTP. Please try again.');
       return;
     }
@@ -322,6 +329,20 @@ const ListingPage = () => {
       }
 
       await leadService.createLead(leadData);
+      
+      // Auto-login client side if user is not already logged in
+      if (!userLoggedIn) {
+        localStorage.setItem('token', 'dummy-token-123456');
+        localStorage.setItem('user', JSON.stringify({
+          _id: 'dummy-user-id',
+          name: contactForm.name || 'Enquiry User',
+          email: contactForm.email,
+          phone: contactForm.whatsapp,
+          role: 'user'
+        }));
+        setUserLoggedIn(true);
+        window.dispatchEvent(new Event('auth-change'));
+      }
       
       setOtpStep('success');
       setIsLoading(false);
@@ -412,7 +433,7 @@ const ListingPage = () => {
     <div className="listing-page">
       <Header />
       
-      <Container fluid className="px-lg-4 py-3">
+      <Container fluid className="px-lg-4 py-3 listing-layout-container">
         <Button 
           variant="warning" 
           className="d-lg-none mb-2 w-100"
@@ -422,7 +443,7 @@ const ListingPage = () => {
           {showFilters ? 'Hide Filters' : 'Show Filters'}
         </Button>
 
-        <Row className="g-3 align-items-start">
+        <Row className="g-3 align-items-start listing-layout-row">
           {!urlAgentName && (
             <Col lg={3} md={4} className={`filter-sidebar ${showFilters ? 'd-block' : 'd-none d-lg-block'}`}>
               <Card className="filter-card overflow-hidden">
@@ -565,7 +586,7 @@ const ListingPage = () => {
             </Col>
           )}
 
-          <Col lg={urlAgentName ? 10 : 9} md={urlAgentName ? 12 : 8} className={urlAgentName ? "mx-auto" : ""}>
+          <Col lg={urlAgentName ? 9 : 7} md={urlAgentName ? 12 : 8} className={urlAgentName ? "mx-auto" : 'listing-scroll-col'}>
             {urlAgentName ? (
               <div className="agent-header mb-4 p-4 bg-white rounded-3 shadow-sm border-start border-warning border-5">
                 <div className="d-flex align-items-center justify-content-between">
@@ -580,58 +601,54 @@ const ListingPage = () => {
               </div>
             ) : (
               <Card className="sorting-card mb-3">
-                <Card.Body className="d-flex justify-content-between align-items-center flex-wrap gap-3">
-                  <div className="d-flex gap-2 flex-wrap">
-                    <span className="fw-semibold">Sort by:</span>
-                    <button 
-                      className={`sort-btn ${currentSort === 'price_asc' ? 'sort-btn-active' : ''}`}
-                      onClick={() => handleSortChange('price_asc')}
-                    >
-                      Price: Low to High
-                    </button>
-                    <button 
-                      className={`sort-btn ${currentSort === 'price_desc' ? 'sort-btn-active' : ''}`}
-                      onClick={() => handleSortChange('price_desc')}
-                    >
-                      Price: High to Low
-                    </button>
-                    <button 
-                      className={`sort-btn ${currentSort === 'popularity' ? 'sort-btn-active' : ''}`}
-                      onClick={() => handleSortChange('popularity')}
-                    >
-                      Most Viewed
-                    </button>
-                    <button 
-                      className={`sort-btn ${currentSort === 'rating' ? 'sort-btn-active' : ''}`}
-                      onClick={() => handleSortChange('rating')}
-                    >
-                      Top Rated
-                    </button>
-                    <button 
-                      className={`sort-btn ${currentSort === 'recent' ? 'sort-btn-active' : ''}`}
-                      onClick={() => handleSortChange('recent')}
-                    >
-                      Recently Added
-                    </button>
+                <Card.Body className="d-flex justify-content-between align-items-center gap-2 p-2 px-3">
+                  <div className="flex-grow-1" style={{ maxWidth: '300px' }}>
+                    <Dropdown className="w-100">
+                      <Dropdown.Toggle 
+                        variant={currentSort ? "warning" : "outline-warning"} 
+                        size="sm" 
+                        className={`rounded-pill fw-semibold shadow-sm d-flex justify-content-between align-items-center w-100 ${currentSort ? 'text-white' : ''}`}
+                        style={{ fontSize: '0.8rem', padding: '0.4rem 1rem' }}
+                      >
+                        <span className="text-truncate">
+                          <span className="d-none d-sm-inline me-1 text-muted">Sort:</span>
+                          {!currentSort ? 'Select Sorting' : 
+                           currentSort === 'popularity' ? 'Most Viewed' :
+                           currentSort === 'rating' ? 'Top Rated' :
+                           currentSort === 'price_asc' ? 'Price: Low to High' :
+                           currentSort === 'price_desc' ? 'Price: High to Low' :
+                           currentSort === 'recent' ? 'Recently Added' : 'Select Sorting'}
+                        </span>
+                      </Dropdown.Toggle>
+                      <Dropdown.Menu style={{ fontSize: '0.85rem' }} className="shadow border-0 rounded-3 mt-1 w-100">
+                        <Dropdown.Item onClick={() => handleSortChange('popularity')} active={currentSort === 'popularity'}>Most Viewed</Dropdown.Item>
+                        <Dropdown.Item onClick={() => handleSortChange('rating')} active={currentSort === 'rating'}>Top Rated</Dropdown.Item>
+                        <Dropdown.Item onClick={() => handleSortChange('price_asc')} active={currentSort === 'price_asc'}>Price: Low to High</Dropdown.Item>
+                        <Dropdown.Item onClick={() => handleSortChange('price_desc')} active={currentSort === 'price_desc'}>Price: High to Low</Dropdown.Item>
+                        <Dropdown.Item onClick={() => handleSortChange('recent')} active={currentSort === 'recent'}>Recently Added</Dropdown.Item>
+                      </Dropdown.Menu>
+                    </Dropdown>
                   </div>
                   
-                  <div className="d-flex align-items-center gap-3">
+                  <div className="d-flex align-items-center gap-2 flex-shrink-0">
                     <div className="view-toggle-btns d-flex bg-light p-1 rounded-3">
                       <button 
                         className={`btn btn-sm ${viewMode === 'list' ? 'btn-warning shadow-sm' : 'btn-light'}`}
                         onClick={() => setViewMode('list')}
+                        style={{ padding: '0.35rem 0.6rem' }}
                       >
-                        <i className="fas fa-list me-1"></i> List
+                        <i className="fas fa-list"></i><span className="d-none d-sm-inline ms-1">List</span>
                       </button>
                       <button 
                         className={`btn btn-sm ${viewMode === 'map' ? 'btn-warning shadow-sm' : 'btn-light'}`}
                         onClick={() => setViewMode('map')}
+                        style={{ padding: '0.35rem 0.6rem' }}
                       >
-                        <i className="fas fa-map-marked-alt me-1"></i> Map
+                        <i className="fas fa-map-marked-alt"></i><span className="d-none d-sm-inline ms-1">Map</span>
                       </button>
                     </div>
-                    <div className="result-count">
-                      <i className="fas fa-building me-1"></i> {total} properties
+                    <div className="result-count d-none d-md-block" style={{ padding: '0.4rem 0.8rem', fontSize: '0.8rem' }}>
+                      <i className="fas fa-building me-1"></i>{total} properties
                     </div>
                   </div>
                 </Card.Body>
@@ -660,120 +677,125 @@ const ListingPage = () => {
                 </Card>
               ) : (
                 properties.map(property => (
-                  <Card key={property._id} className="property-card ho-dense-card">
-                    <div className="d-flex flex-column flex-md-row p-3 gap-3">
-                      
-                      {/* Left: Image Container */}
-                      <div className="dense-image-container">
-                        <div 
-                          className="dense-image"
-                          style={{ 
-                            backgroundImage: `url(${property.images?.[0]?.url || property.coverImage || 'https://placehold.co/400x300/FFF3E0/FF8C42?text=Property'})`,
-                          }}
-                        >
-                          <span className="dense-image-badge">{getDisplayType(property)}</span>
-                        </div>
-                        <div className="dense-photo-count">
-                          <i className="fas fa-camera"></i> {property.images?.length || 1}
-                        </div>
+                  <Card key={property._id} className="pc-card">
+                    <div className="pc-body">
+
+                      {/* ── Image ── */}
+                      <div className="pc-img-wrap">
+                        <div
+                          className="pc-img"
+                          style={{ backgroundImage: `url(${property.images?.[0]?.url || property.coverImage || 'https://placehold.co/400x300/FFF3E0/FF8C42?text=Property'})` }}
+                        />
+                        <span className="pc-type-badge">{getDisplayType(property)}</span>
+                        <span className="pc-photo-count">
+                          <i className="fas fa-camera" /> {property.images?.length || 1}
+                        </span>
                       </div>
 
-                      {/* Right: Details Container */}
-                      <div className="dense-details-container flex-grow-1">
-                        
-                        {/* Top Row: Title & Price */}
-                        <div className="d-flex justify-content-between align-items-start mb-2">
-                          <div className="pe-3">
-                            <h5 className="dense-title mb-1 text-truncate" title={getDisplayName(property)}>
+                      {/* ── Details ── */}
+                      <div className="pc-details">
+
+                        {/* Row 1: Title + Price */}
+                        <div className="pc-title-row">
+                          <div className="pc-title-block">
+                            <h6 className="pc-title" title={getDisplayName(property)}>
                               {getDisplayName(property)}
-                            </h5>
-                            <div className="dense-sub-title text-truncate">
-                              {property.pgName ? `PG Name: ${property.pgName}` : `Location: ${property.location?.area || property.location?.city}`}
+                            </h6>
+                            <div className="pc-location">
+                              <i className="fas fa-map-marker-alt me-1" style={{color:'#f97316'}}/>
+                              {property.location?.area && `${property.location.area}, `}{property.location?.city || '—'}
                             </div>
                           </div>
-                          <div className="text-end shrink-0">
-                            <div className="dense-price">₹ {getPropertyMinPrice(property).toLocaleString()}</div>
-                            <div className="dense-price-sub">per month <a href="#" className="small-link ms-1">Charges</a></div>
+                          <div className="pc-price-block">
+                            <div className="pc-price">₹{getPropertyMinPrice(property).toLocaleString()}</div>
+                            <div className="pc-price-label">/ month</div>
                           </div>
                         </div>
 
-                        {/* Info Grid Bar */}
-                        <div className="dense-info-bar mb-3">
-                          <div className="info-cell">
-                            <span className="info-label">Total Rooms</span>
-                            <span className="info-value">{property.totalRooms || 1} Units</span>
+                        {/* Row 2: Quick Info Grid */}
+                        <div className="pc-info-grid">
+                          <div className="pc-info-item">
+                            <i className="fas fa-door-open pc-info-icon"/>
+                            <div>
+                              <div className="pc-info-label">Rooms</div>
+                              <div className="pc-info-val">{property.totalRooms || 1}</div>
+                            </div>
                           </div>
-                          <div className="info-cell">
-                            <span className="info-label">Status</span>
-                            <span className="info-value text-dark">Available</span>
+                          <div className="pc-info-item">
+                            <i className="fas fa-venus-mars pc-info-icon"/>
+                            <div>
+                              <div className="pc-info-label">Gender</div>
+                              <div className="pc-info-val">{getDisplayGender(property)}</div>
+                            </div>
                           </div>
-                          <div className="info-cell">
-                            <span className="info-label">Gender</span>
-                            <span className="info-value">{getDisplayGender(property)}</span>
+                          <div className="pc-info-item">
+                            <i className="fas fa-couch pc-info-icon"/>
+                            <div>
+                              <div className="pc-info-label">Furnish</div>
+                              <div className="pc-info-val">{property.furnishingStatus || 'Semi'}</div>
+                            </div>
                           </div>
-                          <div className="info-cell">
-                            <span className="info-label">Food Included</span>
-                            <span className="info-value">{property.amenities?.includes('Meals') ? 'Yes' : 'No'}</span>
+                          <div className="pc-info-item">
+                            <i className="fas fa-snowflake pc-info-icon"/>
+                            <div>
+                              <div className="pc-info-label">AC</div>
+                              <div className="pc-info-val">{property.acStatus || 'Non-AC'}</div>
+                            </div>
                           </div>
-                          <div className="info-cell">
-                            <span className="info-label">Furnishing</span>
-                            <span className="info-value">{property.furnishingStatus || 'Semi'}</span>
+                          <div className="pc-info-item">
+                            <i className="fas fa-utensils pc-info-icon"/>
+                            <div>
+                              <div className="pc-info-label">Food</div>
+                              <div className="pc-info-val">{property.amenities?.includes('Meals') ? 'Included' : 'No'}</div>
+                            </div>
                           </div>
-                          <div className="info-cell">
-                            <span className="info-label">Air Conditioning</span>
-                            <span className="info-value">{property.acStatus || 'Non AC'}</span>
+                          <div className="pc-info-item">
+                            <i className="fas fa-check-circle pc-info-icon" style={{color:'#10b981'}}/>
+                            <div>
+                              <div className="pc-info-label">Status</div>
+                              <div className="pc-info-val" style={{color:'#10b981'}}>Available</div>
+                            </div>
                           </div>
                         </div>
 
-                        {/* Description Text */}
-                        <div className="dense-desc-text text-truncate mb-2">
-                          This {getDisplayType(property)} located in {property.location?.area}, {property.location?.city} offers great amenities including {(property.amenities || []).slice(0,3).join(', ')}... <span className="dense-more-link" onClick={() => handleViewDetails(property._id)}>More</span>
-                        </div>
+                        {/* Row 3: Amenity pills */}
+                        {property.amenities?.length > 0 && (
+                          <div className="pc-amenities">
+                            {(property.amenities || []).slice(0, 5).map(a => (
+                              <span key={a} className="pc-amenity-pill">{a}</span>
+                            ))}
+                            {property.amenities?.length > 5 && (
+                              <span className="pc-amenity-pill pc-amenity-more">+{property.amenities.length - 5}</span>
+                            )}
+                          </div>
+                        )}
 
                       </div>
                     </div>
 
-                    {/* Full Width Footer */}
-                    <div className="dense-card-footer">
-                      <div className="footer-date">
-                        Posted on {new Date(property.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </div>
-                      
-                      <div className="footer-actions d-flex align-items-center gap-2 gap-md-3">
-                        <span className="footer-owner-name" onClick={() => handleAgentClick(property.agentName)}>
-                          Posted by: <u style={{ color: '#f15a29' }}>{property.agentName || 'Arjun Rao'}</u>
+                    {/* ── Footer ── */}
+                    <div className="pc-footer">
+                      <div className="pc-footer-left">
+                        <span className="pc-posted-date">
+                          <i className="fas fa-clock me-1"/>
+                          {new Date(property.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                         </span>
-                        
-                        <div className="d-flex gap-2 ms-auto flex-wrap justify-content-end">
-                          <button 
-                            className="dense-btn-outline d-none d-lg-inline-block"
-                            onClick={() => handleViewDetails(property._id)}
-                          >
-                            View Details
-                          </button>
-                          <button 
-                            className="dense-btn-outline"
-                            onClick={() => openOtpModal(property, 'enquiry')}
-                          >
-                            Enquire Now
-                          </button>
-                          <button 
-                            className="dense-btn-outline"
-                            onClick={() => openOtpModal(property, 'visit')}
-                          >
-                            Schedule Visit
-                          </button>
-                          <button 
-                            className="dense-btn-solid"
-                            onClick={() => openOtpModal(property, 'call')}
-                          >
-                            Contact Now
-                          </button>
-                        </div>
+                        <span className="pc-agent" onClick={() => handleAgentClick(property.agentName)}>
+                          By <u style={{color:'#f15a29'}}>{property.agentName || 'Agent'}</u>
+                        </span>
+                      </div>
+                      <div className="pc-footer-actions">
+                        <button className="pc-btn-ghost" onClick={() => handleViewDetails(property._id)}>Details</button>
+                        <button className="pc-btn-ghost" onClick={() => openOtpModal(property, 'enquiry')}>Enquire</button>
+                        <button className="pc-btn-ghost" onClick={() => openOtpModal(property, 'visit')}>Visit</button>
+                        <button className="pc-btn-solid" onClick={() => openOtpModal(property, 'call')}>
+                          <i className="fas fa-phone-alt me-1"/>Contact
+                        </button>
                       </div>
                     </div>
                   </Card>
                 ))
+
               )}
               
               <PromotionalAd location="listing_bottom" className="mt-4" />
@@ -792,7 +814,32 @@ const ListingPage = () => {
 
             <PromotionalAd location="listing_bottom" className="mt-5" />
           </Col>
+
+          {/* Right-side Banner Column */}
+          {!urlAgentName && (
+            <Col lg={2} className="d-none d-lg-block right-banner-col">
+              <div className="right-banner-sticky">
+                {/* Single Advertisement Banner */}
+                <div className="right-banner-card ad-banner-card">
+                  <div 
+                    className="ad-banner-image"
+                    style={{ backgroundImage: "url('https://placehold.co/300x400/FFF3E0/FF8C42?text=Premium+Ad')" }}
+                  >
+                    <span className="ad-badge">SPONSORED</span>
+                  </div>
+                  <div className="ad-banner-content text-center">
+                    <h5 className="ad-headline">List Your Property Free</h5>
+                    <p className="ad-subtext">Reach thousands of genuine tenants directly.</p>
+                    <button className="ad-btn" onClick={() => navigate('/agent/login')}>
+                      Post Property →
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </Col>
+          )}
         </Row>
+
       </Container>
 
       <Modal show={showOtpModal} onHide={handleCloseModal} centered>
@@ -933,6 +980,9 @@ const ListingPage = () => {
                 ) : (
                   <button className="btn-resend" onClick={handleResendOtp}>Resend OTP</button>
                 )}
+                <span className="small text-warning d-block mt-2">
+                  <i className="fas fa-info-circle me-1"></i> Use dummy OTP <strong>123456</strong> to verify.
+                </span>
               </div>
               <button className="btn-otp-verify w-100" onClick={handleVerifyOtp} disabled={isLoading || otp.length !== 6}>
                 {isLoading ? 'Verifying...' : 'Verify & Continue'}

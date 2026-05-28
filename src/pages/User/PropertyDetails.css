@@ -941,4 +941,39 @@ body {
   }
 }
 
+/* Visiting Availability Styles */
+.visiting-availability-wrapper {
+  padding: 5px 0;
+}
+
+.visiting-days-container,
+.visiting-hours-container {
+  transition: all 0.3s ease;
+}
+
+.visiting-days-container i,
+.visiting-hours-container i {
+  font-size: 1.1rem;
+}
+
+.visiting-days-container .badge {
+  box-shadow: 0 2px 5px rgba(241, 90, 41, 0.04);
+  transition: all 0.2s ease;
+}
+
+.visiting-days-container .badge:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(241, 90, 41, 0.08);
+}
+
+@media (max-width: 768px) {
+  .visiting-hours-container {
+    border-left: none !important;
+    border-top: 1px dashed #e2e8f0;
+    padding-left: 0 !important;
+    padding-top: 20px;
+    margin-top: 5px;
+  }
+}
+
 

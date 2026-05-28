@@ -32,9 +32,10 @@ import {
 import StatsCard from '../../components/common/StatsCard';
 import adminService from '../../services/adminService';
 import { formatDate } from '../../utils/dateFormatter';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 const AdminDashboard = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [statsData, setStatsData] = useState(null);
   const [error, setError] = useState(null);
@@ -90,7 +91,8 @@ const AdminDashboard = () => {
       icon: Users, 
       color: "primary", 
       trend: statsData?.newUsersThisMonth > 0 ? 100 : 0, 
-      subtext: `+${statsData?.newUsersThisMonth || 0} this month` 
+      subtext: `+${statsData?.newUsersThisMonth || 0} this month`,
+      onClick: () => navigate('/admin/users')
     },
     { 
       title: "Total Listings", 
@@ -98,7 +100,8 @@ const AdminDashboard = () => {
       icon: Building2, 
       color: "success", 
       trend: statsData?.newPropertiesThisMonth > 0 ? 100 : 0, 
-      subtext: `+${statsData?.newPropertiesThisMonth || 0} new listings` 
+      subtext: `+${statsData?.newPropertiesThisMonth || 0} new listings`,
+      onClick: () => navigate('/admin/properties')
     },
     { 
       title: "Approved Properties", 
@@ -106,7 +109,8 @@ const AdminDashboard = () => {
       icon: CheckCircle, 
       color: "info", 
       trend: 0, 
-      subtext: "Verified on platform" 
+      subtext: "Verified on platform",
+      onClick: () => navigate('/admin/properties')
     },
     { 
       title: "Pending Approvals", 
@@ -114,7 +118,8 @@ const AdminDashboard = () => {
       icon: Clock, 
       color: "danger", 
       trend: 0, 
-      subtext: "Requires review" 
+      subtext: "Requires review",
+      onClick: () => navigate('/admin/properties')
     }
   ];
 

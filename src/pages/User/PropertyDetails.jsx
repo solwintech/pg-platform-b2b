@@ -12,6 +12,22 @@ import PropertyMap from '../../components/MapComponent';
 import PromotionalAd from '../../components/PromotionalAd';
 import './PropertyDetails.css';
 
+const formatTime12hr = (timeStr) => {
+  if (!timeStr) return '--:-- --';
+  try {
+    const [hoursStr, minutesStr] = timeStr.split(':');
+    let hours = parseInt(hoursStr, 10);
+    const minutes = minutesStr;
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12;
+    hours = hours ? hours : 12;
+    const formattedHours = hours < 10 ? `0${hours}` : hours;
+    return `${formattedHours}:${minutes} ${ampm}`;
+  } catch (error) {
+    return timeStr || '--:-- --';
+  }
+};
+
 const PropertyDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -39,7 +55,21 @@ const PropertyDetails = () => {
   const [allProperties, setAllProperties] = useState([]);
   const [showLargeMap, setShowLargeMap] = useState(false);
 
-  const isLoggedIn = authService.isAuthenticated();
+  const [userLoggedIn, setUserLoggedIn] = useState(authService.isAuthenticated());
+  
+  const [showEnquiryModal, setShowEnquiryModal] = useState(false);
+  const [enquiryForm, setEnquiryForm] = useState({
+    mobile: '',
+    email: '',
+    otp: ''
+  });
+  const [otpSent, setOtpSent] = useState(false);
+  const [verifyingOtp, setVerifyingOtp] = useState(false);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+
+  const handleSelectImage = (selectedIndex) => {
+    setActiveImageIndex(selectedIndex);
+  };
 
   useEffect(() => {
     fetchPropertyDetails();
@@ -74,7 +104,7 @@ const PropertyDetails = () => {
 
   const handleAddReview = async (e) => {
     e.preventDefault();
-    if (!isLoggedIn) {
+    if (!userLoggedIn) {
       navigate('/auth');
       return;
     }
@@ -150,8 +180,64 @@ const PropertyDetails = () => {
     });
   };
 
-  const handleSubmitContact = async (e) => {
+  const handleSendOtp = (e) => {
     e.preventDefault();
+    if (!enquiryForm.mobile || !enquiryForm.email) {
+      alert("Please enter Mobile number and Email ID.");
+      return;
+    }
+    setOtpSent(true);
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    if (enquiryForm.otp !== '123456') {
+      alert("Invalid OTP! Please enter 123456 to verify.");
+      return;
+    }
+    
+    setVerifyingOtp(true);
+    
+    // Simulate dummy login
+    localStorage.setItem('token', 'dummy-token-123456');
+    localStorage.setItem('user', JSON.stringify({
+      _id: 'dummy-user-id',
+      name: contactForm.name || 'Enquiry User',
+      email: enquiryForm.email,
+      phone: enquiryForm.mobile,
+      role: 'user'
+    }));
+    
+    setUserLoggedIn(true);
+    window.dispatchEvent(new Event('auth-change'));
+    setVerifyingOtp(false);
+    setShowEnquiryModal(false);
+    
+    setContactForm(prev => ({
+      ...prev,
+      mobile: enquiryForm.mobile,
+      email: enquiryForm.email
+    }));
+    
+    setTimeout(() => {
+      handleSubmitContact();
+    }, 100);
+  };
+
+  const handleSubmitContact = async (e) => {
+    if (e) e.preventDefault();
+
+    if (!userLoggedIn) {
+      setEnquiryForm({
+        mobile: contactForm.mobile,
+        email: contactForm.email,
+        otp: ''
+      });
+      setOtpSent(false);
+      setShowEnquiryModal(true);
+      return;
+    }
+
     if (!contactForm.name || !contactForm.mobile) {
       alert("Please enter Name and Mobile number.");
       return;
@@ -217,22 +303,56 @@ const PropertyDetails = () => {
         {/* Hero Card */}
         <div className="ho-hero-card">
           <div className="ho-hero-row">
-            <div className="ho-hero-gallery">
-              <Carousel interval={null} indicators={getImagesArray().length > 1} className="ho-image-carousel">
-                {getImagesArray().slice(0, 4).map((img, idx) => (
-                  <Carousel.Item key={idx}>
-                    <img src={img.url} alt={`${getDisplayName()} - ${idx + 1}`} className="ho-main-img" />
-                  </Carousel.Item>
-                ))}
-                {getImagesArray().length === 0 && (
-                  <Carousel.Item>
-                    <img src={coverImage} alt={getDisplayName()} className="ho-main-img" />
-                  </Carousel.Item>
-                )}
-              </Carousel>
-              <div className="ho-photo-badge">
-                <i className="fas fa-camera"></i> {getImagesArray().length || 1} Photos
+            <div className="ho-hero-gallery flex-column">
+              <div className="position-relative">
+                <Carousel 
+                  interval={null} 
+                  indicators={false} 
+                  className="ho-image-carousel"
+                  activeIndex={activeImageIndex}
+                  onSelect={handleSelectImage}
+                >
+                  {getImagesArray().map((img, idx) => (
+                    <Carousel.Item key={idx}>
+                      <img src={img.url} alt={`${getDisplayName()} - ${idx + 1}`} className="ho-main-img" />
+                    </Carousel.Item>
+                  ))}
+                  {getImagesArray().length === 0 && (
+                    <Carousel.Item>
+                      <img src={coverImage} alt={getDisplayName()} className="ho-main-img" />
+                    </Carousel.Item>
+                  )}
+                </Carousel>
+                <div className="ho-photo-badge">
+                  <i className="fas fa-camera"></i> {getImagesArray().length || 1} Photos
+                </div>
               </div>
+
+              {/* Thumbnails */}
+              {getImagesArray().length > 1 && (
+                <div className="ho-hero-thumbnails mt-2 d-flex gap-2 overflow-x-auto hide-scrollbar pb-2 pt-1 px-1">
+                  {getImagesArray().map((img, idx) => (
+                    <img 
+                      key={idx} 
+                      src={img.url} 
+                      alt={`Thumbnail ${idx + 1}`} 
+                      onClick={() => handleSelectImage(idx)}
+                      className="shadow-sm"
+                      style={{ 
+                        width: '80px', 
+                        height: '60px', 
+                        minWidth: '80px',
+                        objectFit: 'cover', 
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        border: activeImageIndex === idx ? '2px solid #f97316' : '2px solid transparent',
+                        opacity: activeImageIndex === idx ? 1 : 0.6,
+                        transition: 'all 0.2s ease'
+                      }}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
             
             <div className="ho-hero-details">
@@ -379,6 +499,71 @@ const PropertyDetails = () => {
                     </div>
                   ))
                 )}
+              </div>
+            </div>
+
+            {/* Visiting Availability Section */}
+            <div className="ho-section-card" id="visiting-availability">
+              <h3 className="ho-section-title">Visiting Availability</h3>
+              <div className="visiting-availability-wrapper">
+                <div className="row align-items-center">
+                  <div className="col-md-6 mb-4 mb-md-0">
+                    <div className="visiting-days-container">
+                      <div className="d-flex align-items-center gap-2 mb-2">
+                        <i className="fas fa-calendar-alt text-warning"></i>
+                        <span className="fw-bold text-muted small text-uppercase" style={{ letterSpacing: '0.5px' }}>Available Days</span>
+                      </div>
+                      <div className="d-flex flex-wrap gap-2 mt-3">
+                        {(() => {
+                          const displayDays = property.visitingHours?.availableDays && property.visitingHours.availableDays.length > 0
+                            ? property.visitingHours.availableDays
+                            : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+                          return displayDays.map((day) => (
+                            <span 
+                              key={day} 
+                              className="badge bg-warning bg-opacity-10 text-warning px-3 py-2 rounded-pill fw-semibold border border-warning border-opacity-25" 
+                              style={{ fontSize: '0.85rem' }}
+                            >
+                              {day}
+                            </span>
+                          ));
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="col-md-6">
+                    <div className="visiting-hours-container border-start ps-md-4">
+                      <div className="d-flex align-items-center gap-2 mb-2">
+                        <i className="fas fa-clock text-warning"></i>
+                        <span className="fw-bold text-muted small text-uppercase" style={{ letterSpacing: '0.5px' }}>Visiting Hours</span>
+                      </div>
+                      <div className="d-flex align-items-center gap-3 mt-3">
+                        {(() => {
+                          const displayStartTime = property.visitingHours?.startTime || '09:00';
+                          const displayEndTime = property.visitingHours?.endTime || '19:00';
+                          return (
+                            <>
+                              <div>
+                                <small className="text-muted d-block" style={{ fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 500 }}>Start Time</small>
+                                <span className="fw-bold text-dark" style={{ fontSize: '1.2rem' }}>
+                                  {formatTime12hr(displayStartTime)}
+                                </span>
+                              </div>
+                              <div className="text-muted fw-light" style={{ fontSize: '1.5rem', alignSelf: 'flex-end', paddingBottom: '2px' }}>—</div>
+                              <div>
+                                <small className="text-muted d-block" style={{ fontSize: '0.75rem', textTransform: 'uppercase', fontWeight: 500 }}>End Time</small>
+                                <span className="fw-bold text-dark" style={{ fontSize: '1.2rem' }}>
+                                  {formatTime12hr(displayEndTime)}
+                                </span>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -763,6 +948,98 @@ const PropertyDetails = () => {
               {submittingReview ? <Spinner size="sm" /> : 'SUBMIT REVIEW'}
             </button>
           </form>
+        </Modal.Body>
+      </Modal>
+
+      {/* OTP Verification Modal */}
+      <Modal show={showEnquiryModal} onHide={() => setShowEnquiryModal(false)} centered>
+        <Modal.Header closeButton className="border-0 pb-0">
+          <Modal.Title className="fw-bold text-dark d-flex align-items-center gap-2">
+            <i className="fas fa-shield-alt text-warning"></i> Secure Verification
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="pt-3">
+          <p className="text-muted small mb-4">
+            Verify your mobile number and email to securely access owner contact information and complete your enquiry.
+          </p>
+
+          {!otpSent ? (
+            <form onSubmit={handleSendOtp}>
+              <div className="mb-3">
+                <label className="form-label small fw-bold text-dark">Mobile Number *</label>
+                <div className="input-group">
+                  <span className="input-group-text bg-light border-end-0">
+                    <i className="fas fa-phone-alt text-muted"></i>
+                  </span>
+                  <input 
+                    type="tel" 
+                    className="form-control border-start-0 ho-input" 
+                    placeholder="Enter 10-digit number"
+                    maxLength="10"
+                    value={enquiryForm.mobile}
+                    onChange={e => setEnquiryForm({ ...enquiryForm, mobile: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label small fw-bold text-dark">Email ID *</label>
+                <div className="input-group">
+                  <span className="input-group-text bg-light border-end-0">
+                    <i className="fas fa-envelope text-muted"></i>
+                  </span>
+                  <input 
+                    type="email" 
+                    className="form-control border-start-0 ho-input" 
+                    placeholder="Enter your email address"
+                    value={enquiryForm.email}
+                    onChange={e => setEnquiryForm({ ...enquiryForm, email: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+
+              <button type="submit" className="ho-btn-primary w-100 mt-2">
+                SEND VERIFICATION OTP
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyOtp}>
+              <div className="bg-light p-3 rounded-3 mb-4 border border-dashed border-warning">
+                <small className="text-muted d-block mb-1">Verification details:</small>
+                <div className="d-flex justify-content-between small mb-1">
+                  <span className="text-muted">Mobile:</span>
+                  <span className="fw-bold text-dark">{enquiryForm.mobile}</span>
+                </div>
+                <div className="d-flex justify-content-between small">
+                  <span className="text-muted">Email:</span>
+                  <span className="fw-bold text-dark">{enquiryForm.email}</span>
+                </div>
+              </div>
+
+              <div className="mb-4 text-center">
+                <label className="form-label small fw-bold text-dark d-block mb-2">Enter Verification Code</label>
+                <input 
+                  type="text" 
+                  className="form-control text-center fw-bold fs-4 ho-input" 
+                  placeholder="------" 
+                  maxLength="6"
+                  style={{ letterSpacing: '8px' }}
+                  value={enquiryForm.otp}
+                  onChange={e => setEnquiryForm({ ...enquiryForm, otp: e.target.value })}
+                  required
+                />
+                <span className="small text-warning d-block mt-2">
+                  <i className="fas fa-info-circle me-1"></i> Use dummy OTP <strong>123456</strong> to verify.
+                </span>
+              </div>
+
+              <button type="submit" className="ho-btn-primary w-100" disabled={verifyingOtp}>
+                {verifyingOtp ? <Spinner size="sm" /> : 'VERIFY & SUBMIT ENQUIRY'}
+              </button>
+            </form>
+          )}
         </Modal.Body>
       </Modal>
 
