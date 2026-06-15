@@ -12,8 +12,17 @@
 
 /* Import Bootstrap CSS instead of SCSS */
 /* Remove the @import line */
-
 /* Custom Classes */
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+  width: 100%;
+}
+#root {
+  overflow-x: hidden;
+  max-width: 100%;
+  width: 100%;
+}
 .dashboard-wrapper {
   min-height: 100vh;
   background: linear-gradient(135deg, #f5f7fb 0%, #f0f2f8 100%);

@@ -1,5 +1,7 @@
 const Lead = require('../models/Lead');
 const Property = require('../models/Property');
+const Notification = require('../models/Notification');
+const sendEmail = require('../utils/sendEmail');
 const logActivity = require('../utils/logger');
 
 // @desc    Create a new lead
@@ -7,7 +9,22 @@ const logActivity = require('../utils/logger');
 // @access  Public
 exports.createLead = async (req, res, next) => {
   try {
-    const { propertyId, name, email, phone, type, message } = req.body;
+    const { propertyId, name, email, phone, type, actionType, message, enquiryMessage, visitDate, visitTime, enquiryFor, moveInDate } = req.body;
+    const finalMessage = message || enquiryMessage;
+    
+    // Map to allowed enums: ['Enquiry', 'Contact', 'WhatsApp']
+    
+    let finalType = 'Enquiry';
+    const inputType = (type || actionType || '').toLowerCase();
+    
+    if (inputType === 'contact') {
+      finalType = 'Contact';
+    } else if (inputType === 'whatsapp') {
+      finalType = 'WhatsApp';
+    } else if (type) {
+      // In case another valid enum was passed directly
+      finalType = type;
+    }
 
     const property = await Property.findById(propertyId);
     if (!property) {
@@ -20,8 +37,12 @@ exports.createLead = async (req, res, next) => {
       name,
       email,
       phone,
-      type: type || 'Enquiry',
-      message
+      type: finalType,
+      message: finalMessage,
+      enquiryFor,
+      moveInDate,
+      visitDate,
+      visitTime
     };
 
     // If user is logged in, link to user
@@ -30,6 +51,87 @@ exports.createLead = async (req, res, next) => {
     }
 
     const lead = await Lead.create(leadData);
+
+    // Create a notification for the property owner
+    if (property.owner) {
+      const newNotif = await Notification.create({
+        user: property.owner,
+        message: `New ${type || 'Enquiry'} from ${name} for ${property.pgName}`,
+        type: 'lead',
+        relatedId: lead._id
+      });
+      
+      const io = req.app.get('io');
+      const connectedUsers = req.app.get('connectedUsers');
+      if (io && connectedUsers) {
+        const ownerSocketId = connectedUsers.get(property.owner.toString());
+        if (ownerSocketId) {
+          io.to(ownerSocketId).emit('new_notification', newNotif);
+        }
+      }
+    }
+
+    // Send email to the manager if managerEmail is provided
+    if (property.managerEmail) {
+      let emailMessage = '';
+      let emailSubject = '';
+
+      if (finalType === 'Contact') {
+        emailSubject = `New Contact Request for ${property.pgName}`;
+        emailMessage = `Hello Team,
+
+A prospective lead has requested to be contacted regarding ${property.pgName}.
+
+Contact Details:
+- Name: ${name || 'N/A'}
+- Phone: ${phone || 'N/A'}
+- Email: ${email || 'N/A'}
+- Date & Time: ${new Date().toLocaleString()}
+
+Message:
+"${finalMessage || 'Please contact me regarding this property.'}"
+
+Please reach out to the customer soon.
+
+Best regards,
+Sorting Stays`;
+      } else {
+        emailSubject = `New Lead Generated: ${property.pgName}`;
+        emailMessage = `Hello Team,
+
+A new inquiry has been received through Sorting Stays.
+
+Inquiry Details
+
+- Name: ${name || 'N/A'}
+- Email: ${email || 'N/A'}
+- Phone: ${phone || 'N/A'}
+- Property Type Interested In: ${property.pgName || 'N/A'}
+- Preferred Location: ${property.city ? property.city + (property.area ? ', ' + property.area : '') : 'N/A'}
+- Budget Range: ${property.minPrice ? `₹${property.minPrice}` : 'N/A'}${property.maxPrice ? ` - ₹${property.maxPrice}` : ''}
+- Move-in Date: ${moveInDate ? new Date(moveInDate).toLocaleDateString() : 'N/A'}
+- Inquiry Date & Time: ${new Date().toLocaleString()}
+- Source: Web Platform
+
+Customer Message
+${finalMessage || 'No message provided'}
+
+Please review the inquiry and reach out to the customer at the earliest.
+
+Regards,
+Sorting Stays`;
+      }
+
+      try {
+        await sendEmail({
+          email: property.managerEmail,
+          subject: emailSubject,
+          message: emailMessage,
+        });
+      } catch (err) {
+        console.error('Email could not be sent', err);
+      }
+    }
 
     res.status(201).json({
       success: true,

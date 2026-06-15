@@ -101,12 +101,7 @@ const SubmissionTermsModal = ({ isOpen, onConfirm, onCancel, isSubmitting }) => 
 
         <div className="modal-header-centered">
           <div className="icon-badge-outer">
-            <div className="icon-badge-inner">
-              <FileText size={32} className="text-success" />
-              <div className="check-sub-badge">
-                <CheckCircle size={14} className="text-success fill-white" />
-              </div>
-            </div>
+            
           </div>
           <h4 className="mt-3 fw-bold text-dark">Review & Accept Our Terms</h4>
           <p className="text-muted small">Please read the terms carefully before continuing.</p>
@@ -153,10 +148,7 @@ const SubmissionTermsModal = ({ isOpen, onConfirm, onCancel, isSubmitting }) => 
         </div>
 
         <div className="modal-actions-area">
-          <div className="declaration-header d-flex align-items-center gap-2 mb-2">
-            <span role="img" aria-label="check">✅</span>
-            <h6 className="fw-bold mb-0 text-dark" style={{ fontSize: '13px' }}>Declaration</h6>
-          </div>
+          
           <div className="form-check custom-terms-check mb-4">
             <input
               className="form-check-input"
@@ -170,16 +162,19 @@ const SubmissionTermsModal = ({ isOpen, onConfirm, onCancel, isSubmitting }) => 
             </label>
           </div>
 
-          <button
-            className={`btn-submit-premium ${(!agreed || isSubmitting) ? 'disabled' : ''}`}
-            onClick={onConfirm}
-            disabled={!agreed || isSubmitting}
-          >
-            {isSubmitting ? (
-              <span className="spinner-border spinner-border-sm me-2"></span>
-            ) : null}
-            {isSubmitting ? 'Submitting...' : 'Submit'}
-          </button>
+          <div className="d-flex justify-content-end">
+            <button
+              className={`btn btn-primary btn-sm px-4 rounded-pill shadow-sm ${(!agreed || isSubmitting) ? 'disabled' : ''}`}
+              onClick={onConfirm}
+              disabled={!agreed || isSubmitting}
+              style={{ minWidth: '100px' }}
+            >
+              {isSubmitting ? (
+                <span className="spinner-border spinner-border-sm me-2"></span>
+              ) : null}
+              {isSubmitting ? 'Submitting...' : 'Submit'}
+            </button>
+          </div>
 
 
         </div>
@@ -243,7 +238,7 @@ const SubmissionTermsModal = ({ isOpen, onConfirm, onCancel, isSubmitting }) => 
         }
 
         .modal-header-centered {
-          padding: 20px 32px 8px;
+          // padding: 20px 32px 8px;
           text-align: center;
         }
 
@@ -317,7 +312,7 @@ const SubmissionTermsModal = ({ isOpen, onConfirm, onCancel, isSubmitting }) => 
           border-radius: 12px;
           padding: 12px;
           background: #fafafa;
-          max-height: 300px;
+          max-height: 230px;
           overflow-y: auto;
         }
 

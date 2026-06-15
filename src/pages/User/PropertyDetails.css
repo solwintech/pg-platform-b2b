@@ -6,13 +6,13 @@ body {
 .ho-property-details {
   font-family: 'Open Sans', 'Roboto', sans-serif;
   color: #333333;
-  padding-bottom: 50px;
+  /* padding-bottom: 50px; */
 }
 
 .ho-container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0 15px;
+  padding: 0 8px;
 }
 
 /* Sub-Header Navigation */
@@ -116,6 +116,38 @@ body {
   align-items: center;
   gap: 5px;
   z-index: 10;
+}
+
+/* Gallery Grid Sizing */
+.ho-hero-images-grid {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+}
+
+.gallery-main-img-container {
+  flex: 1.5;
+  height: 200px; 
+}
+
+.gallery-side-grid {
+  flex: 1;
+  height: 160px;
+}
+
+@media (min-width: 768px) {
+  .ho-hero-images-grid {
+    flex-direction: row !important;
+    height: 300px; 
+  }
+  .gallery-main-img-container {
+    height: 100%;
+    flex: 1.5 !important;
+  }
+  .gallery-side-grid {
+    height: 100%;
+    flex: 1 !important;
+  }
 }
 
 /* Carousel Customization */
@@ -439,15 +471,15 @@ body {
 .ho-main-layout {
   display: flex;
   flex-wrap: wrap;
-  gap: 20px;
+  gap: 5px;
 }
 
 .ho-left-column {
-  width: calc(70% - 10px);
+  width: 100%;
 }
 
 .ho-right-column {
-  width: calc(30% - 10px);
+  display: none;
 }
 
 /* Sections */
@@ -977,3 +1009,108 @@ body {
 }
 
 
+
+/* GLOBAL TEXT REDUCTION overrides */
+.ho-property-details {
+  font-size: 0.85rem !important;
+}
+
+.ho-property-details h1, 
+.ho-property-details .ho-title { 
+  font-size: 1.25rem !important; 
+}
+
+.ho-property-details h2, 
+.ho-property-details .ho-price { 
+  font-size: 1.2rem !important; 
+}
+
+.ho-property-details h3, 
+.ho-property-details .ho-section-title { 
+  font-size: 1.05rem !important; 
+}
+
+.ho-property-details h4, 
+.ho-property-details .ho-form-title { 
+  font-size: 0.95rem !important; 
+}
+
+.ho-property-details h5 { 
+  font-size: 0.85rem !important; 
+}
+
+.ho-property-details h6 { 
+  font-size: 0.8rem !important; 
+}
+
+.ho-property-details .ho-desc-text,
+.ho-property-details .ho-overview-text p,
+.ho-property-details .ho-detail-value,
+.ho-property-details .ho-amenity-name {
+  font-size: 0.85rem !important;
+}
+
+.ho-property-details .small,
+.ho-property-details .text-muted.small,
+.ho-property-details .badge {
+  font-size: 0.75rem !important;
+}
+
+/* Ensure inline styles are also scaled down */
+.ho-property-details [style*="fontSize: 1.6rem"],
+.ho-property-details [style*="font-size: 1.6rem"] {
+  font-size: 1.2rem !important;
+}
+
+.ho-property-details [style*="fontSize: 0.9rem"],
+.ho-property-details [style*="font-size: 0.9rem"] {
+  font-size: 0.8rem !important;
+}
+
+/* Utilities */
+.transition-all {
+  transition: all 0.3s ease;
+}
+
+.hover-shadow:hover {
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1) !important;
+  transform: translateY(-2px);
+  border-color: #ffedd5 !important;
+}
+
+@media (min-width: 768px) {
+  .border-start-md {
+    border-left: 1px solid #e2e8f0 !important;
+  }
+  .border-top-md-0 {
+    border-top: none !important;
+  }
+}
+
+.hover-bg-orange:hover {
+  background-color: #ea580c !important;
+}
+
+.hover-text-white:hover {
+  color: white !important;
+}
+
+/* Custom Thin Scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #cbd5e1;
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #94a3b8;
+}
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}

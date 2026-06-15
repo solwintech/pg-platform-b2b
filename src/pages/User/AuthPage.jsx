@@ -4,6 +4,7 @@ import { Container, Row, Col, Card, Form, Button, Alert } from 'react-bootstrap'
 import Header from './Header';
 import Footer from './Footer';
 import authService from '../../services/authService';
+import logo from '../../assets/logo.png';
 import './AuthPage.css';
 
 const AuthPage = () => {
@@ -37,14 +38,12 @@ const AuthPage = () => {
 
   const validateIdentifier = () => {
     if (!formData.identifier) {
-      setErrors({ identifier: 'Mobile number or Email is required' });
+      setErrors({ identifier: 'Mobile number is required' });
       return false;
     }
     const isPhone = /^\d{10}$/.test(formData.identifier);
-    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.identifier);
-    
-    if (!isPhone && !isEmail) {
-      setErrors({ identifier: 'Please enter a valid 10-digit mobile number or email address' });
+    if (!isPhone) {
+      setErrors({ identifier: 'Please enter a valid 10-digit mobile number' });
       return false;
     }
     return true;
@@ -54,15 +53,12 @@ const AuthPage = () => {
     if (e) e.preventDefault();
     if (!validateIdentifier()) return;
     
-    const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.identifier);
-    const method = isEmail ? 'email' : 'sms';
-    setOtpMethod(method);
-
+    setOtpMethod('sms');
     setIsLoading(true);
     try {
-      await authService.sendOTP(formData.identifier, isLogin ? 'login' : 'signup', method);
+      await authService.generateOtp(formData.identifier);
       setStep('otp');
-      showAlert(`OTP sent successfully via ${method.toUpperCase()}!`, 'success');
+      showAlert('OTP sent successfully via SMS! (Use 123456 in dev)', 'success');
     } catch (error) {
       showAlert(error.response?.data?.message || 'Failed to send OTP');
     } finally {
@@ -83,21 +79,42 @@ const AuthPage = () => {
     
     setIsLoading(true);
     try {
-      const response = await authService.verifyOTP(
-        formData.identifier,
-        formData.otp,
-        formData.name || null,
-        formData.email || null,
-        formData.userType
-      );
+      const res = await authService.verifyOtp(formData.identifier, formData.otp);
       
-      showAlert(`${isLogin ? 'Login' : 'Registration'} successful!`, 'success');
-      
-      setTimeout(() => {
-        navigate('/');
-      }, 1500);
+      if (res.success) {
+        // Validation: Only user role can login from here
+        if (res.user && res.user.role !== 'user') {
+          authService.logout();
+          throw new Error('Access Denied. B2B Owners and Admins cannot log in from this page.');
+        }
+
+        if (!isLogin) {
+          // Complete registration by calling authService.register
+          const regResponse = await authService.register({
+            name: formData.name || 'User',
+            email: formData.email || `${formData.identifier}@staynest.com`,
+            phone: formData.identifier,
+            password: 'password123', // Dummy password for passwordless OTP auth
+            isMobileVerified: true,
+            role: 'user'
+          });
+          
+          if (!regResponse.success) {
+            throw new Error(regResponse.message || 'Registration failed');
+          }
+        }
+        
+        showAlert(`${isLogin ? 'Login' : 'Registration'} successful!`, 'success');
+        
+        // Notify header to update state
+        window.dispatchEvent(new Event('auth-change'));
+        
+        setTimeout(() => {
+          navigate('/');
+        }, 1500);
+      }
     } catch (error) {
-      showAlert(error.response?.data?.message || 'Invalid OTP. Please try again.');
+      showAlert(error.response?.data?.message || error.message || 'Invalid OTP. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -107,10 +124,10 @@ const AuthPage = () => {
     setOtpMethod(method);
     setIsLoading(true);
     try {
-      await authService.sendOTP(formData.identifier, isLogin ? 'login' : 'signup', method);
-      showAlert(`OTP resent successfully via ${method.toUpperCase()}!`, 'success');
+      await authService.generateOtp(formData.identifier);
+      showAlert('OTP resent successfully!', 'success');
     } catch (error) {
-      showAlert(error.response?.data?.message || `Failed to resend OTP via ${method}`);
+      showAlert(error.response?.data?.message || 'Failed to resend OTP');
     } finally {
       setIsLoading(false);
     }
@@ -143,10 +160,9 @@ const AuthPage = () => {
                   {/* Left Side - Brand Section */}
                   <Col lg={5} className="auth-brand-section p-5 text-white">
                     <div className="h-100 d-flex flex-column justify-content-center">
-                      <div className="brand-icon mb-4">
-                        <i className="fas fa-home fa-3x"></i>
+                      <div className="mb-4">
+                        <img src={logo} alt="Logo" height="60" style={{ objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
                       </div>
-                      <h2 className="display-6 fw-bold mb-3">StayNest</h2>
                       <p className="lead mb-4">Find your perfect home away from home</p>
                       <div className="feature-list mt-3">
                         {[
@@ -175,7 +191,7 @@ const AuthPage = () => {
                         </h2>
                         <p className="text-muted">
                           {step === 'phone' 
-                            ? (isLogin ? 'Login to access your account' : 'Join StayNest to find your perfect PG')
+                            ? (isLogin ? 'Login to access your account' : 'Join us to find your perfect PG')
                             : `We've sent a 6-digit code to ${formData.identifier}`}
                         </p>
                       </div>
@@ -209,14 +225,14 @@ const AuthPage = () => {
                         <Form onSubmit={handleSendOTP}>
                           <Form.Group className="mb-4">
                             <Form.Label className="fw-semibold">
-                              <i className="fas fa-user-circle auth-primary-text me-2"></i>Mobile Number or Email
+                              <i className="fas fa-user-circle auth-primary-text me-2"></i>Mobile Number
                             </Form.Label>
                             <Form.Control
                               type="text"
                               name="identifier"
                               value={formData.identifier}
                               onChange={handleChange}
-                              placeholder="Enter mobile number or email"
+                              placeholder="Enter 10-digit mobile number"
                               isInvalid={!!errors.identifier}
                               className="form-control-lg"
                               disabled={isLoading}
@@ -259,21 +275,7 @@ const AuthPage = () => {
                                 />
                               </Form.Group>
 
-                              <Form.Group className="mb-4">
-                                <Form.Label className="fw-semibold">
-                                  <i className="fas fa-user-tag auth-primary-text me-2"></i>I am a
-                                </Form.Label>
-                                <Form.Select
-                                  name="userType"
-                                  value={formData.userType}
-                                  onChange={handleChange}
-                                  className="form-control-lg"
-                                  disabled={isLoading}
-                                >
-                                  <option value="customer">Tenant - Looking for PG/Hostel</option>
-                                  <option value="b2b_owner">Property Owner - Want to list property</option>
-                                </Form.Select>
-                              </Form.Group>
+
                             </>
                           )}
 

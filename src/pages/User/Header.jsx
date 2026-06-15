@@ -1,16 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Navbar, Nav, Container, Button, Dropdown } from 'react-bootstrap';
 import authService from '../../services/authService';
 import logo from '../../assets/logo.png';
 import './Header.css';
+import { useAuthModal } from '../../context/AuthModalContext';
+import { useGoogleMaps } from '../../context/GoogleMapsContext';
+import { Autocomplete } from '@react-google-maps/api';
 
 const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { openAuthModal } = useAuthModal();
   const [expanded, setExpanded] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
+  const { isLoaded } = useGoogleMaps();
+  const cityAutocompleteRef = useRef(null);
+  const megaMenuRef = useRef(null);
+  const [citySearchQuery, setCitySearchQuery] = useState('');
 
   useEffect(() => {
     const checkAuth = () => {
@@ -35,7 +43,7 @@ const Header = () => {
   ];
 
   const handleAuthClick = () => {
-    navigate('/auth');
+    openAuthModal();
     setExpanded(false);
   };
 
@@ -52,16 +60,34 @@ const Header = () => {
     setExpanded(false);
   };
 
-  const [currentCity, setCurrentCity] = useState('All India');
+  const [currentCity, setCurrentCity] = useState(() => localStorage.getItem('selected_city') || 'All India');
   const [showMegaMenu, setShowMegaMenu] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
 
   useEffect(() => {
-    // Automatically detect location to show in navbar
-    detectLocation();
-  }, []);
+    // Automatically detect location if no city is manually selected
+    if (!localStorage.getItem('selected_city')) {
+      detectLocation();
+    }
 
-  const detectLocation = () => {
+    const handleCityChange = (e) => {
+      if (e.detail && e.detail !== currentCity) {
+        setCurrentCity(e.detail);
+      }
+    };
+    window.addEventListener('city-changed', handleCityChange);
+    return () => window.removeEventListener('city-changed', handleCityChange);
+  }, [currentCity]);
+
+  const handleCitySelect = (city) => {
+    setCurrentCity(city);
+    setShowMegaMenu(false);
+    localStorage.setItem('selected_city', city);
+    window.dispatchEvent(new CustomEvent('city-changed', { detail: city }));
+  };
+
+  const detectLocation = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
     if ("geolocation" in navigator) {
       setLocationLoading(true);
       navigator.geolocation.getCurrentPosition(
@@ -70,11 +96,18 @@ const Header = () => {
             const { latitude, longitude } = position.coords;
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
             const data = await res.json();
-            const city = data.address.city || data.address.town || data.address.state_district;
+            const city = data.address.city || data.address.town || data.address.village || data.address.district || data.address.county || data.address.state_district;
             if (city) {
-              setCurrentCity(city.replace(/ City$/, ''));
+              const detectedCity = city.replace(/ City$/, '');
+              setCurrentCity(detectedCity);
+              localStorage.setItem('selected_city', detectedCity);
+              window.dispatchEvent(new CustomEvent('city-changed', { detail: detectedCity }));
+              setShowMegaMenu(false);
             } else {
               setCurrentCity('All India');
+              localStorage.setItem('selected_city', 'All India');
+              window.dispatchEvent(new CustomEvent('city-changed', { detail: 'All India' }));
+              setShowMegaMenu(false);
             }
           } catch (error) {
             console.error("Location error", error);
@@ -97,6 +130,37 @@ const Header = () => {
       result[index % cols].push(item);
     });
     return result;
+  };
+
+  const filteredPopularCities = popularCities.filter(c => c.toLowerCase().includes(citySearchQuery.toLowerCase()));
+  const filteredOtherCities = otherCities.filter(c => c.toLowerCase().includes(citySearchQuery.toLowerCase()));
+
+  const onCityPlaceChanged = () => {
+    if (cityAutocompleteRef.current !== null) {
+      const place = cityAutocompleteRef.current.getPlace();
+      if (place && place.name) {
+        handleCitySelect(place.name);
+        setCitySearchQuery(''); // Clear after selection
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (megaMenuRef.current && !megaMenuRef.current.contains(event.target)) {
+        if (event.target.closest('.pac-container')) return;
+        setShowMegaMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleMouseLeave = () => {
+    if (document.activeElement && document.activeElement.placeholder === 'Search City') {
+      return;
+    }
+    setShowMegaMenu(false);
   };
 
   return (
@@ -126,8 +190,9 @@ const Header = () => {
             {/* Mega Menu Location Selector */}
             <div
               className="nav-item position-relative location-mega-wrapper"
+              ref={megaMenuRef}
               onMouseEnter={() => setShowMegaMenu(true)}
-              onMouseLeave={() => setShowMegaMenu(false)}
+              onMouseLeave={handleMouseLeave}
             >
               <button className="location-nav-btn">
                 <i className="fas fa-map-marker-alt text-warning me-1"></i>
@@ -139,11 +204,31 @@ const Header = () => {
                 <div className="mega-menu-dropdown shadow-lg">
                   <div className="mega-menu-header">
                     <div className="d-flex align-items-center gap-3">
-                      <button className="all-india-btn" onClick={() => setCurrentCity('All India')}>
+                      <button className="all-india-btn" onClick={() => handleCitySelect('All India')}>
                         <i className={`fas fa-check-circle ${currentCity === 'All India' ? 'text-warning' : 'text-muted'}`}></i> All India
                       </button>
                       <div className="mega-search-box">
-                        <input type="text" placeholder="Search City" />
+                        {isLoaded ? (
+                          <Autocomplete
+                            onLoad={ref => cityAutocompleteRef.current = ref}
+                            onPlaceChanged={onCityPlaceChanged}
+                            options={{ types: ['(cities)'], componentRestrictions: { country: 'in' } }}
+                          >
+                            <input 
+                              type="text" 
+                              placeholder="Search City" 
+                              value={citySearchQuery}
+                              onChange={(e) => setCitySearchQuery(e.target.value)}
+                            />
+                          </Autocomplete>
+                        ) : (
+                          <input 
+                            type="text" 
+                            placeholder="Search City" 
+                            value={citySearchQuery}
+                            onChange={(e) => setCitySearchQuery(e.target.value)}
+                          />
+                        )}
                         <i className="fas fa-search"></i>
                       </div>
                       <button className="location-detect-btn ms-2" onClick={detectLocation} title="Detect my location">
@@ -157,9 +242,9 @@ const Header = () => {
                     <div className="mega-menu-col popular-cities-sec">
                       <h6 className="mega-col-title">Popular Cities</h6>
                       <div className="mega-list-grid popup-grid-3">
-                        <span className="city-link" onClick={() => setCurrentCity('All India')}>All India</span>
-                        {popularCities.map(city => (
-                          <span key={city} className="city-link" onClick={() => setCurrentCity(city)}>{city}</span>
+                        <span className="city-link" onClick={() => handleCitySelect('All India')}>All India</span>
+                        {filteredPopularCities.map(city => (
+                          <span key={city} className="city-link" onClick={() => handleCitySelect(city)}>{city}</span>
                         ))}
                       </div>
                     </div>
@@ -169,8 +254,8 @@ const Header = () => {
                     <div className="mega-menu-col other-cities-sec">
                       <h6 className="mega-col-title">Other Cities</h6>
                       <div className="mega-list-grid popup-grid-4">
-                        {otherCities.map(city => (
-                          <span key={city} className="city-link" onClick={() => setCurrentCity(city)}>{city}</span>
+                        {filteredOtherCities.map(city => (
+                          <span key={city} className="city-link" onClick={() => handleCitySelect(city)}>{city}</span>
                         ))}
                       </div>
                     </div>

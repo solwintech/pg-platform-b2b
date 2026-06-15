@@ -1,6 +1,7 @@
 const Property = require('../models/Property');
+const notifyAdmins = require('../utils/notifyAdmins');
 const logActivity = require('../utils/logger');
-
+const { broadcastEvent, sendEventToUser } = require('../utils/sse');
 // @desc    Get all properties for the logged in user
 // @route   GET /api/v1/properties
 // @access  Private
@@ -12,7 +13,7 @@ exports.getProperties = async (req, res, next) => {
     const reqQuery = { ...req.query };
 
     // Fields to exclude from direct matching
-    const removeFields = ['select', 'sort', 'page', 'limit'];
+    const removeFields = ['select', 'sort', 'page', 'limit', 'minPrice', 'maxPrice', 'gender', 'public'];
     removeFields.forEach(param => delete reqQuery[param]);
 
     // Create query string for advanced operators
@@ -21,18 +22,49 @@ exports.getProperties = async (req, res, next) => {
 
     const baseFilter = JSON.parse(queryStr);
 
+    // Manually handle Price filter
+    if (req.query.minPrice || req.query.maxPrice) {
+      const priceQuery = {};
+      if (req.query.minPrice && Number(req.query.minPrice) > 0) {
+        priceQuery.$gte = Number(req.query.minPrice);
+      }
+      if (req.query.maxPrice && Number(req.query.maxPrice) < 50000) {
+        priceQuery.$lte = Number(req.query.maxPrice);
+      }
+      if (Object.keys(priceQuery).length > 0) {
+        baseFilter['roomTypes.price'] = priceQuery;
+      }
+    }
+
+    // Manually handle Gender filter
+    if (req.query.gender && req.query.gender !== 'all') {
+      const g = req.query.gender.toLowerCase();
+      if (g === 'male' || g === 'boys') {
+        baseFilter.genderAllowed = 'Boys';
+      } else if (g === 'female' || g === 'girls') {
+        baseFilter.genderAllowed = 'Girls';
+      } else if (g === 'any' || g === 'unisex' || g === 'co-ed') {
+        baseFilter.genderAllowed = 'Unisex';
+      }
+    }
+
     // Role-based logic
-    if (!req.user) {
-      // Public: Only approved and published
+    if (req.query.public === 'true' || !req.user || req.user.role === 'user') {
+      // Public / Customer User: Only approved and published properties
       baseFilter.status = 'approved';
       baseFilter.isPublished = true;
       query = Property.find(baseFilter);
     } else if (req.user.role === 'admin') {
       // Admin: All properties
       query = Property.find(baseFilter).populate('owner', 'name email');
-    } else {
-      // B2B: Only their own
+    } else if (req.user.role === 'b2b') {
+      // B2B Owner: Only their own properties
       baseFilter.owner = req.user.id;
+      query = Property.find(baseFilter);
+    } else {
+      // Fallback: Default to approved/published properties
+      baseFilter.status = 'approved';
+      baseFilter.isPublished = true;
       query = Property.find(baseFilter);
     }
 
@@ -57,7 +89,7 @@ exports.getProperties = async (req, res, next) => {
     const endIndex = page * limit;
     const total = await Property.countDocuments(baseFilter);
 
-    query = query.skip(startIndex).limit(limit);
+    query = query.skip(startIndex).limit(limit).populate('owner', 'name email profileImage role');
 
     const properties = await query;
 
@@ -83,22 +115,24 @@ exports.getProperties = async (req, res, next) => {
 // @access  Private
 exports.getProperty = async (req, res, next) => {
   try {
-    const property = await Property.findById(req.params.id);
+    const idOrSlug = req.params.id;
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(idOrSlug);
+    const query = isObjectId ? { _id: idOrSlug } : { slug: idOrSlug };
+    
+    const property = await Property.findOne(query).populate('owner', 'name email profileImage role');
 
     if (!property) {
       return res.status(404).json({ success: false, message: 'Property not found' });
     }
 
-    // Public access: allow if published and approved
-    if (!req.user) {
-      if (property.status !== 'approved' || !property.isPublished) {
-        return res.status(401).json({ success: false, message: 'Not authorized to access this property' });
-      }
+    // Public / Shared Access: Allow anyone to view if property is approved and published
+    if (property.status === 'approved' && property.isPublished) {
       return res.status(200).json({ success: true, data: property });
     }
 
-    // Auth access: Make sure user is property owner or admin
-    if (property.owner.toString() !== req.user.id && req.user.role !== 'admin') {
+    // Restrict access to unpublished/unapproved properties to only the owner or an admin
+    const ownerId = property.owner?._id || property.owner;
+    if (!req.user || (ownerId.toString() !== req.user.id && req.user.role !== 'admin')) {
       return res.status(401).json({ success: false, message: 'Not authorized to access this property' });
     }
 
@@ -106,6 +140,20 @@ exports.getProperty = async (req, res, next) => {
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }
+};
+
+const fs = require('fs');
+const path = require('path');
+
+const deleteFiles = (files) => {
+  files.forEach(file => {
+    if (file && file.startsWith('uploads/')) {
+      const p = path.join(__dirname, '../public', file);
+      if (fs.existsSync(p)) {
+        try { fs.unlinkSync(p); } catch (e) { console.error('Error deleting file:', e); }
+      }
+    }
+  });
 };
 
 // @desc    Create new property
@@ -117,7 +165,48 @@ exports.createProperty = async (req, res, next) => {
     req.body.owner = req.user.id;
     req.body.status = 'pending'; // New properties are always pending
 
+    // Parse JSON fields from formData
+    const jsonFields = ['roomTypes', 'amenities', 'nearbyPlaces', 'visitingHours', 'galleryImages'];
+    jsonFields.forEach(field => {
+      if (req.body[field] && typeof req.body[field] === 'string') {
+        try { req.body[field] = JSON.parse(req.body[field]); } catch (e) { }
+      }
+    });
+
+    // Handle uploaded files
+    if (req.files) {
+      if (req.files.coverImage) {
+        req.body.coverImage = `uploads/properties/${req.files.coverImage[0].filename}`;
+      }
+      if (req.files.galleryImages) {
+        // If frontend passes galleryTags as JSON array corresponding to files
+        let galleryTags = [];
+        if (req.body.galleryTags) {
+          try { galleryTags = JSON.parse(req.body.galleryTags); } catch (e) {}
+        }
+        
+        const newGallery = req.files.galleryImages.map((file, index) => ({
+          url: `uploads/properties/${file.filename}`,
+          tag: galleryTags[index] || ''
+        }));
+        
+        req.body.galleryImages = [...(req.body.galleryImages || []), ...newGallery];
+      }
+      if (req.files.roomImages && req.body.roomTypes) {
+        let fileIndex = 0;
+        req.body.roomTypes.forEach(rt => {
+          if (rt.hasNewImage && fileIndex < req.files.roomImages.length) {
+            rt.image = `uploads/properties/${req.files.roomImages[fileIndex].filename}`;
+            fileIndex++;
+          }
+          delete rt.hasNewImage;
+        });
+      }
+    }
+
     const property = await Property.create(req.body);
+
+    await notifyAdmins(req, `New property "${property.pgName}" submitted for approval.`, 'property', property._id);
 
     res.status(201).json({ success: true, data: property });
     
@@ -152,7 +241,65 @@ exports.updateProperty = async (req, res, next) => {
       return res.status(401).json({ success: false, message: 'Not authorized to update this property' });
     }
 
+    // Prevent owner field from being overwritten or causing cast errors
+    if (req.body.owner) {
+      delete req.body.owner;
+    }
+
     const before = property.toObject();
+
+    // Parse JSON fields from formData
+    const jsonFields = ['roomTypes', 'amenities', 'nearbyPlaces', 'visitingHours', 'galleryImages'];
+    jsonFields.forEach(field => {
+      if (req.body[field] && typeof req.body[field] === 'string') {
+        try { req.body[field] = JSON.parse(req.body[field]); } catch (e) { }
+      }
+    });
+
+    let filesToDelete = [];
+
+    // Handle files
+    if (req.files) {
+      if (req.files.coverImage) {
+        if (property.coverImage) filesToDelete.push(property.coverImage);
+        req.body.coverImage = `uploads/properties/${req.files.coverImage[0].filename}`;
+      }
+      if (req.files.galleryImages) {
+        let galleryTags = [];
+        if (req.body.galleryTags) {
+          try { galleryTags = JSON.parse(req.body.galleryTags); } catch (e) {}
+        }
+        
+        const newGallery = req.files.galleryImages.map((file, index) => ({
+          url: `uploads/properties/${file.filename}`,
+          tag: galleryTags[index] || ''
+        }));
+        
+        req.body.galleryImages = [...(req.body.galleryImages || []), ...newGallery];
+      }
+      if (req.files.roomImages && req.body.roomTypes) {
+        let fileIndex = 0;
+        req.body.roomTypes.forEach(rt => {
+          if (rt.hasNewImage && fileIndex < req.files.roomImages.length) {
+            // Delete old image if it exists
+            if (rt.image) filesToDelete.push(rt.image);
+            rt.image = `uploads/properties/${req.files.roomImages[fileIndex].filename}`;
+            fileIndex++;
+          }
+          delete rt.hasNewImage;
+        });
+      }
+    }
+
+    // Delete removed gallery images
+    if (req.body.galleryImages) {
+      const retainedUrls = req.body.galleryImages.map(g => g.url);
+      property.galleryImages.forEach(g => {
+        if (!retainedUrls.includes(g.url)) {
+          filesToDelete.push(g.url);
+        }
+      });
+    }
     
     // If not admin, check if restricted fields were changed
     if (req.user.role !== 'admin') {
@@ -207,6 +354,35 @@ exports.updateProperty = async (req, res, next) => {
       runValidators: true
     });
 
+    // Handle Admin Approval
+    if (before.status !== 'approved' && property.status === 'approved') {
+      // Broadcast to all connected clients (e.g., public users)
+      broadcastEvent(req, 'property_approved', property);
+      
+      if (property.owner) {
+        const Notification = require('../models/Notification');
+        const newNotif = await Notification.create({
+          user: property.owner,
+          message: `Your property "${property.pgName}" has been approved and is now live!`,
+          type: 'property',
+          relatedId: property._id
+        });
+        
+        sendEventToUser(req, property.owner, 'new_notification', newNotif);
+        sendEventToUser(req, property.owner, 'property_status_updated', property);
+      }
+    }
+
+    // Only notify admins if the property requires approval
+    if (property.status === 'pending' && req.user.role !== 'admin') {
+      await notifyAdmins(req, `Property "${property.pgName}" was edited and requires re-approval.`, 'property', property._id);
+    }
+
+    // Actually delete the files from disk
+    if (filesToDelete.length > 0) {
+      deleteFiles(filesToDelete);
+    }
+
     res.status(200).json({ success: true, data: property });
     
     // Log update
@@ -242,7 +418,38 @@ exports.deleteProperty = async (req, res, next) => {
     }
 
     const before = property.toObject();
+    
+    let filesToDelete = [];
+    if (property.coverImage) filesToDelete.push(property.coverImage);
+    if (property.galleryImages && property.galleryImages.length > 0) {
+      property.galleryImages.forEach(g => filesToDelete.push(g.url));
+    }
+    if (property.roomTypes && property.roomTypes.length > 0) {
+      property.roomTypes.forEach(rt => {
+        if (rt.image) filesToDelete.push(rt.image);
+      });
+    }
+
     await property.deleteOne();
+
+    if (filesToDelete.length > 0) {
+      deleteFiles(filesToDelete);
+    }
+
+    // Delete related data
+    try {
+      const Review = require('../models/Review');
+      const Lead = require('../models/Lead');
+      const Notification = require('../models/Notification');
+      const ActivityLog = require('../models/ActivityLog');
+      
+      await Review.deleteMany({ property: property._id });
+      await Lead.deleteMany({ property: property._id });
+      await Notification.deleteMany({ type: 'property', relatedId: property._id });
+      await ActivityLog.deleteMany({ targetModel: 'Property', targetId: property._id });
+    } catch (e) {
+      console.error('Error deleting related data for property:', e);
+    }
 
     res.status(200).json({ success: true, data: {} });
     
@@ -336,6 +543,38 @@ exports.toggleRoomAvailability = async (req, res, next) => {
 
     res.status(200).json({ success: true, data: property });
 
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Increment property views/clicks
+// @route   PUT /api/v1/properties/:id/click
+// @access  Public
+exports.incrementPropertyViews = async (req, res, next) => {
+  try {
+    const idOrSlug = req.params.id;
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(idOrSlug);
+    const query = isObjectId ? { _id: idOrSlug } : { slug: idOrSlug };
+
+    const property = await Property.findOneAndUpdate(
+      query,
+      { $inc: { views: 1 } },
+      { new: true }
+    );
+
+    if (!property) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+
+    if (property.owner) {
+      sendEventToUser(req, property.owner, 'property_viewed', {
+        propertyId: property._id,
+        views: property.views
+      });
+    }
+
+    res.status(200).json({ success: true, data: { views: property.views } });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });
   }

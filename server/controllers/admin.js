@@ -24,7 +24,10 @@ exports.updatePropertyStatus = async (req, res, next) => {
 
     const before = property.toObject();
 
-    const updateFields = { status };
+    const updateFields = {};
+    if (status !== undefined) updateFields.status = status;
+    if (isFeatured !== undefined) updateFields.isFeatured = isFeatured;
+    
     if (status === 'approved') {
       updateFields.isReapproval = false;
       updateFields.changedFields = [];
@@ -40,6 +43,34 @@ exports.updatePropertyStatus = async (req, res, next) => {
       new: true,
       runValidators: true
     });
+
+    if (status === 'approved' && before.status !== 'approved') {
+      const io = req.app.get('io');
+      const connectedUsers = req.app.get('connectedUsers');
+      
+      if (io) {
+        io.emit('property_approved', property);
+      }
+      
+      if (property.owner) {
+        const Notification = require('../models/Notification');
+        const ownerId = property.owner._id || property.owner;
+        const newNotif = await Notification.create({
+          user: ownerId,
+          message: `Your property "${property.pgName}" has been approved and is now live!`,
+          type: 'property',
+          relatedId: property._id
+        });
+        
+        if (io && connectedUsers) {
+          const ownerSocketId = connectedUsers.get(ownerId.toString());
+          if (ownerSocketId) {
+            io.to(ownerSocketId).emit('new_notification', newNotif);
+            io.to(ownerSocketId).emit('property_status_updated', property);
+          }
+        }
+      }
+    }
 
     res.status(200).json({ success: true, data: property });
 
@@ -236,6 +267,70 @@ exports.deleteUser = async (req, res, next) => {
     const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ success: false, message: 'User not found' });
+    }
+
+    const fs = require('fs');
+    const path = require('path');
+    const deleteFiles = (files) => {
+      files.forEach(file => {
+        if (file && file.startsWith('uploads/')) {
+          const p = path.join(__dirname, '../public', file);
+          if (fs.existsSync(p)) {
+            try { fs.unlinkSync(p); } catch (e) { console.error('Error deleting file:', e); }
+          }
+        }
+      });
+    };
+
+    // If B2B, delete their properties and related data
+    if (user.role === 'b2b') {
+      const properties = await Property.find({ owner: user._id });
+      for (const property of properties) {
+        let filesToDelete = [];
+        if (property.coverImage) filesToDelete.push(property.coverImage);
+        if (property.galleryImages && property.galleryImages.length > 0) {
+          property.galleryImages.forEach(g => filesToDelete.push(g.url));
+        }
+        if (property.roomTypes && property.roomTypes.length > 0) {
+          property.roomTypes.forEach(rt => {
+            if (rt.image) filesToDelete.push(rt.image);
+          });
+        }
+        await property.deleteOne();
+        if (filesToDelete.length > 0) {
+          deleteFiles(filesToDelete);
+        }
+
+        // Delete property related data
+        try {
+          const Review = require('../models/Review');
+          const Lead = require('../models/Lead');
+          const Notification = require('../models/Notification');
+          const ActivityLog = require('../models/ActivityLog');
+          
+          await Review.deleteMany({ property: property._id });
+          await Lead.deleteMany({ property: property._id });
+          await Notification.deleteMany({ type: 'property', relatedId: property._id });
+          await ActivityLog.deleteMany({ targetModel: 'Property', targetId: property._id });
+        } catch (e) {
+          console.error('Error deleting related data for property:', e);
+        }
+      }
+    }
+
+    // Delete user related data
+    try {
+      const Review = require('../models/Review');
+      const Lead = require('../models/Lead');
+      const Notification = require('../models/Notification');
+      const ActivityLog = require('../models/ActivityLog');
+
+      await Review.deleteMany({ user: user._id });
+      await Lead.deleteMany({ user: user._id });
+      await Notification.deleteMany({ user: user._id });
+      await ActivityLog.deleteMany({ performedBy: user._id });
+    } catch (e) {
+      console.error('Error deleting user related data:', e);
     }
 
     await user.deleteOne();

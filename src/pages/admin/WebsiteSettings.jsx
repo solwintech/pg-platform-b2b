@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Globe,
   Mail,
@@ -12,6 +12,8 @@ import {
   Home,
   FileText
 } from 'lucide-react';
+import settingsService from '../../services/settingsService';
+import Compressor from 'compressorjs';
 
 const WebsiteSettings = () => {
   const [activeTab, setActiveTab] = useState('general');
@@ -25,9 +27,6 @@ const WebsiteSettings = () => {
     siteEmail: 'info@sortifystays.com',
     sitePhone: '+91 98765 43210',
     siteAddress: 'Bangalore, Karnataka, India',
-    timezone: 'Asia/Kolkata',
-    dateFormat: 'DD/MM/YYYY',
-    currency: 'INR',
     siteLogo: null,
     favicon: null
   });
@@ -60,6 +59,41 @@ const WebsiteSettings = () => {
     contact: 'Contact us content here...'
   });
 
+  const [loading, setLoading] = useState(true);
+  const siteLogoRef = useRef(null);
+  const faviconRef = useRef(null);
+  const [logoFile, setLogoFile] = useState(null);
+  const [faviconFile, setFaviconFile] = useState(null);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await settingsService.getSettings();
+        if (response.success && response.data) {
+          const data = response.data;
+          setGeneralSettings(prev => ({
+            ...prev,
+            siteName: data.siteName || prev.siteName,
+            siteTagline: data.siteTagline || prev.siteTagline,
+            siteEmail: data.siteEmail || prev.siteEmail,
+            sitePhone: data.sitePhone || prev.sitePhone,
+            siteAddress: data.siteAddress || prev.siteAddress,
+            siteLogo: data.siteLogo || prev.siteLogo,
+            favicon: data.favicon || prev.favicon
+          }));
+          if (data.socialLinks) setSocialLinks(data.socialLinks);
+          if (data.homepageSections) setHomepageSections(data.homepageSections);
+          if (data.legalPages) setLegalPages(data.legalPages);
+        }
+      } catch (err) {
+        console.error('Error fetching settings:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchSettings();
+  }, []);
+
   const handleGeneralChange = (e) => {
     setGeneralSettings({ ...generalSettings, [e.target.name]: e.target.value });
   };
@@ -77,13 +111,57 @@ const WebsiteSettings = () => {
     setLegalPages({ ...legalPages, [e.target.name]: e.target.value });
   };
 
-  const handleSave = () => {
+  const handleFileChange = (e, type) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    new Compressor(file, {
+      quality: 0.8, // Slightly higher quality for logos
+      maxWidth: 800,
+      success(result) {
+        const imageUrl = URL.createObjectURL(result);
+        if (type === 'siteLogo') {
+          setLogoFile(result);
+          setGeneralSettings(prev => ({ ...prev, siteLogo: imageUrl }));
+        } else {
+          setFaviconFile(result);
+          setGeneralSettings(prev => ({ ...prev, favicon: imageUrl }));
+        }
+      },
+      error(err) {
+        console.error('Compression error:', err);
+      }
+    });
+  };
+
+  const handleSave = async () => {
     setSaving(true);
-    setTimeout(() => {
-      setSaving(false);
+    try {
+      const payload = {
+        siteName: generalSettings.siteName,
+        siteTagline: generalSettings.siteTagline,
+        siteEmail: generalSettings.siteEmail,
+        sitePhone: generalSettings.sitePhone,
+        siteAddress: generalSettings.siteAddress,
+        socialLinks,
+        homepageSections,
+        legalPages
+      };
+
+      const files = {};
+      if (logoFile) files.siteLogo = logoFile;
+      if (faviconFile) files.favicon = faviconFile;
+
+      await settingsService.updateSettings(payload, files);
+      
       setSuccess('Settings saved successfully!');
       setTimeout(() => setSuccess(''), 3000);
-    }, 1000);
+    } catch (err) {
+      console.error('Error saving settings:', err);
+      alert('Failed to save settings');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const tabs = [
@@ -203,44 +281,48 @@ const WebsiteSettings = () => {
                     />
                   </div>
                 </div>
-                <div className="col-md-4">
-                  <label className="form-label small fw-medium">Timezone</label>
-                  <select name="timezone" className="form-control-modern" value={generalSettings.timezone} onChange={handleGeneralChange}>
-                    <option value="Asia/Kolkata">Asia/Kolkata (IST)</option>
-                    <option value="Asia/Dubai">Asia/Dubai (GST)</option>
-                    <option value="America/New_York">America/New_York (EST)</option>
-                  </select>
-                </div>
-                <div className="col-md-4">
-                  <label className="form-label small fw-medium">Date Format</label>
-                  <select name="dateFormat" className="form-control-modern" value={generalSettings.dateFormat} onChange={handleGeneralChange}>
-                    <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                    <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                    <option value="YYYY-MM-DD">YYYY-MM-DD</option>
-                  </select>
-                </div>
-                <div className="col-md-4">
-                  <label className="form-label small fw-medium">Currency</label>
-                  <select name="currency" className="form-control-modern" value={generalSettings.currency} onChange={handleGeneralChange}>
-                    <option value="INR">INR (₹)</option>
-                    <option value="USD">USD ($)</option>
-                    <option value="EUR">EUR (€)</option>
-                  </select>
-                </div>
                 <div className="col-md-6">
                   <label className="form-label small fw-medium">Site Logo</label>
-                  <div className="border rounded p-3 text-center bg-light">
-                    <ImageIcon size={32} className="text-muted mb-2" />
-                    <p className="small text-muted">Upload your site logo</p>
-                    <button className="btn-outline-premium btn-sm">Upload Logo</button>
+                  <div 
+                    className="border rounded p-3 text-center bg-light" 
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => siteLogoRef.current?.click()}
+                  >
+                    {generalSettings.siteLogo ? (
+                      <img src={generalSettings.siteLogo} alt="Logo" style={{ maxHeight: '60px', marginBottom: '10px' }} />
+                    ) : (
+                      <ImageIcon size={32} className="text-muted mb-2" />
+                    )}
+                    <p className="small text-muted mb-0">Click to upload your site logo</p>
+                    <input 
+                      type="file" 
+                      className="d-none" 
+                      ref={siteLogoRef}
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, 'siteLogo')}
+                    />
                   </div>
                 </div>
                 <div className="col-md-6">
                   <label className="form-label small fw-medium">Favicon</label>
-                  <div className="border rounded p-3 text-center bg-light">
-                    <ImageIcon size={32} className="text-muted mb-2" />
-                    <p className="small text-muted">Upload favicon (16x16 or 32x32)</p>
-                    <button className="btn-outline-premium btn-sm">Upload Favicon</button>
+                  <div 
+                    className="border rounded p-3 text-center bg-light"
+                    style={{ cursor: 'pointer' }}
+                    onClick={() => faviconRef.current?.click()}
+                  >
+                    {generalSettings.favicon ? (
+                      <img src={generalSettings.favicon} alt="Favicon" style={{ maxHeight: '60px', marginBottom: '10px' }} />
+                    ) : (
+                      <ImageIcon size={32} className="text-muted mb-2" />
+                    )}
+                    <p className="small text-muted mb-0">Click to upload favicon (16x16 or 32x32)</p>
+                    <input 
+                      type="file" 
+                      className="d-none" 
+                      ref={faviconRef}
+                      accept="image/*"
+                      onChange={(e) => handleFileChange(e, 'favicon')}
+                    />
                   </div>
                 </div>
               </div>

@@ -32,7 +32,8 @@ const EditPG = () => {
       } catch (error) {
         console.error('Error fetching property:', error);
         alert('Failed to load property data');
-        navigate('/b2b/listings');
+        const isAdmin = window.location.pathname.includes('/admin');
+        navigate(isAdmin ? '/admin/properties' : '/b2b/listings');
       }
     };
 
@@ -119,6 +120,8 @@ const EditPG = () => {
     setSubmitting(true);
     setShowTermsModal(false);
     const formData = pendingFormData;
+    const isAdmin = window.location.pathname.includes('/admin');
+
     try {
       // Define restricted fields that require admin re-approval
       const restrictedFields = ['pgName', 'address', 'area', 'city', 'pinCode', 'landmark', 'latitude', 'longitude'];
@@ -126,10 +129,12 @@ const EditPG = () => {
       let needsReapproval = false;
       
       // Check if any restricted field has changed compared to initialData
-      for (const field of restrictedFields) {
-        if (formData[field] !== initialData[field]) {
-          needsReapproval = true;
-          break;
+      if (!isAdmin) {
+        for (const field of restrictedFields) {
+          if (formData[field] !== initialData[field]) {
+            needsReapproval = true;
+            break;
+          }
         }
       }
 
@@ -145,10 +150,14 @@ const EditPG = () => {
       if (needsReapproval) {
         alert('Your property has been updated. Since critical details (Name or Location) were changed, it is now pending admin re-approval.');
       } else {
-        alert('Success! Your property details have been updated.');
+        alert('Success! Property details have been updated.');
       }
       
-      navigate('/b2b/listings');
+      if (isAdmin) {
+        navigate('/admin/properties');
+      } else {
+        navigate('/b2b/listings');
+      }
     } catch (error) {
       console.error('Error updating property:', error);
       setSubmitting(false);

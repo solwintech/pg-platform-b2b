@@ -9,7 +9,6 @@ const userSchema = new mongoose.Schema({
   email: {
     type: String,
     required: [true, 'Please add an email'],
-    unique: true,
     match: [
       /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/,
       'Please add a valid email'
@@ -17,8 +16,8 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['b2b', 'admin'],
-    default: 'b2b'
+    enum: ['b2b', 'admin', 'user'],
+    default: 'user'
   },
   password: {
     type: String,
@@ -29,7 +28,6 @@ const userSchema = new mongoose.Schema({
   phone: {
     type: String,
     required: [true, 'Please add a phone number'],
-    unique: true,
     match: [/^\d{10}$/, 'Please add a valid 10-digit phone number']
   },
   alternatePhone: {
@@ -72,5 +70,8 @@ userSchema.pre('save', async function() {
 userSchema.methods.matchPassword = async function(enteredPassword) {
   return await bcrypt.compare(enteredPassword, this.password);
 };
+
+userSchema.index({ phone: 1, role: 1 }, { unique: true });
+userSchema.index({ email: 1, role: 1 }, { unique: true });
 
 module.exports = mongoose.model('User', userSchema);

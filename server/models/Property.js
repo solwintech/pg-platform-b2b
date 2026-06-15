@@ -29,6 +29,10 @@ const propertySchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  views: {
+    type: Number,
+    default: 0
+  },
   // Basic Info
   managerName: String,
   managerPhone: String,
@@ -48,8 +52,8 @@ const propertySchema = new mongoose.Schema({
   genderAllowed: String,
   totalBeds: Number,
   totalRooms: Number,
-  floorNumber: Number,
-  totalFloors: Number,
+  floorNumber: String,
+  totalFloors: mongoose.Schema.Types.Mixed,
   
   // Amenities & Config
   roomTypes: [Object], // Store array of room type objects
@@ -92,12 +96,42 @@ const propertySchema = new mongoose.Schema({
   previousValues: {
     type: Map,
     of: mongoose.Schema.Types.Mixed
+  },
+  slug: {
+    type: String,
+    unique: true,
+    sparse: true
   }
 });
 
-// Update the updatedAt field on save
-propertySchema.pre('save', function() {
+// Update the updatedAt field on save and generate slug
+propertySchema.pre('save', async function() {
   this.updatedAt = Date.now();
+
+  if (this.isModified('pgName') || this.isModified('city') || !this.slug) {
+    let baseSlug = `${this.pgName || 'property'} ${this.city || ''}`.trim()
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^\w\-]+/g, '')
+      .replace(/\-\-+/g, '-')
+      .replace(/^-+/, '')
+      .replace(/-+$/, '');
+      
+    if (!baseSlug) baseSlug = 'property';
+    
+    let uniqueSlug = baseSlug;
+    let count = 1;
+    const PropertyModel = mongoose.models.Property || this.constructor;
+    
+    while (true) {
+      const existing = await PropertyModel.findOne({ slug: uniqueSlug, _id: { $ne: this._id } });
+      if (!existing) break;
+      uniqueSlug = `${baseSlug}-${count}`;
+      count++;
+    }
+    
+    this.slug = uniqueSlug;
+  }
 });
 
 module.exports = mongoose.model('Property', propertySchema);

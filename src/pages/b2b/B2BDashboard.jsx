@@ -15,11 +15,14 @@ import {
   Clock,
   CheckCircle,
   Activity,
-  Target
+  Target,
+  MessageCircle,
+  Star
 } from 'lucide-react';
 import StatsCard from '../../components/common/StatsCard';
 import propertyService from '../../services/propertyService';
 import leadService from '../../services/leadService';
+import reviewService from '../../services/reviewService';
 
 const B2BDashboard = () => {
   const navigate = useNavigate();
@@ -28,9 +31,24 @@ const B2BDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [properties, setProperties] = useState([]);
   const [recentLeads, setRecentLeads] = useState([]);
+  const [recentReviews, setRecentReviews] = useState([]);
 
   useEffect(() => {
     fetchDashboardData();
+
+    const handlePropertyViewed = (e) => {
+      const { propertyId, views } = e.detail;
+      setProperties(prev => prev.map(p => {
+        if (p.id === propertyId) {
+          const newConversion = views > 0 ? ((p.leads / views) * 100).toFixed(1) : 0;
+          return { ...p, views, conversion: newConversion };
+        }
+        return p;
+      }));
+    };
+
+    window.addEventListener('property_viewed', handlePropertyViewed);
+    return () => window.removeEventListener('property_viewed', handlePropertyViewed);
   }, []);
 
   const fetchDashboardData = async () => {
@@ -54,6 +72,19 @@ const B2BDashboard = () => {
       const leadsRes = await leadService.getB2BLeads();
       if (leadsRes.success) {
         setRecentLeads(leadsRes.data || []);
+      }
+
+      // Fetch Reviews
+      try {
+        const reviewsRes = await reviewService.getReviews();
+        const allReviews = reviewsRes.success ? reviewsRes.data : (Array.isArray(reviewsRes) ? reviewsRes : []);
+        const myPropertyIds = response.success ? (response.properties || []).map(p => p._id) : [];
+        const myReviews = allReviews.filter(r => r.property && myPropertyIds.includes(r.property._id));
+        // Sort descending by date
+        myReviews.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setRecentReviews(myReviews);
+      } catch (err) {
+        console.error('Failed to fetch reviews:', err);
       }
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error);
@@ -132,7 +163,7 @@ const B2BDashboard = () => {
                 <th>Name</th>
                 <th>Property</th>
                 <th>Date</th>
-                <th>Type</th>
+                <th>Visit Details</th>
                 <th>Status</th>
               </tr>
             </thead>
@@ -142,11 +173,30 @@ const B2BDashboard = () => {
                   <tr key={lead._id}>
                     <td className="small fw-600">{lead.name}</td>
                     <td className="small">{lead.property?.pgName || 'N/A'}</td>
-                    <td className="small">{new Date(lead.createdAt).toLocaleDateString()}</td>
                     <td>
-                      <span className={`badge-premium ${lead.type === 'Call' ? 'badge-success' : 'badge-info'}`}>
-                        {lead.type === 'Call' ? '📞 Call' : lead.type === 'WhatsApp' ? '💬 WA' : '✉️ Enquiry'}
-                      </span>
+                      <div className="small fw-600 d-flex align-items-center gap-1">
+                        <Calendar size={10} className="text-muted" />
+                        {new Date(lead.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                      <div className="text-muted mt-1 d-flex align-items-center gap-1" style={{ fontSize: '10px' }}>
+                        <Clock size={10} />
+                        {new Date(lead.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </td>
+                    <td>
+                      {lead.visitDate ? (
+                        <div style={{ background: '#f0fdfa', padding: '6px 8px', borderRadius: '6px', border: '1px solid #ccfbf1', display: 'inline-block' }}>
+                           <div className="fw-bold d-flex align-items-center gap-1 mb-1" style={{ fontSize: '9px', color: '#0f766e', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                             <Calendar size={10} /> Scheduled Visit
+                           </div>
+                           <div className="d-flex align-items-center gap-1" style={{ fontSize: '10px', color: '#115e59' }}>
+                             <span className="fw-600">{new Date(lead.visitDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                             {lead.visitTime && <><span className="mx-1 opacity-50">|</span><Clock size={10} /> <span className="fw-600">{lead.visitTime}</span></>}
+                           </div>
+                        </div>
+                      ) : (
+                        <span className="text-muted opacity-50" style={{ fontSize: '12px' }}>-</span>
+                      )}
                     </td>
                     <td>
                       <span className={`badge-premium ${lead.status === 'New' ? 'badge-warning' : lead.status === 'Contacted' ? 'badge-info' : 'badge-success'}`}>
@@ -170,6 +220,67 @@ const B2BDashboard = () => {
           </table>
         </div>
       </div>
+
+      {/* Recent Reviews (Latest 10) */}
+      <div className="modern-card mb-4">
+        <div className="card-header-modern d-flex justify-content-between align-items-center">
+          <span className="fw-semibold">Recent Reviews</span>
+          <button className="btn-outline-premium btn-sm" onClick={() => navigate('/b2b/reviews')}>View All</button>
+        </div>
+        <div className="table-responsive">
+          <table className="table-modern">
+            <thead>
+              <tr>
+                <th>Reviewer</th>
+                <th>Property</th>
+                <th>Rating</th>
+                <th>Review</th>
+                <th>Date</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentReviews.length > 0 ? (
+                recentReviews.slice(0, 10).map(review => (
+                  <tr key={review._id}>
+                    <td className="small fw-600">{review.user?.name || 'Anonymous'}</td>
+                    <td className="small">{review.property?.pgName || 'N/A'}</td>
+                    <td>
+                      <div className="d-flex align-items-center text-warning" style={{ gap: '2px' }}>
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} size={12} fill={i < review.rating ? "currentColor" : "none"} strokeWidth={i < review.rating ? 0 : 2} />
+                        ))}
+                      </div>
+                    </td>
+                    <td>
+                      <div className="text-truncate small" style={{ maxWidth: '250px' }}>
+                        {review.title && <span className="fw-bold me-1">{review.title}</span>}
+                        <span className="text-muted">{review.comment}</span>
+                      </div>
+                    </td>
+                    <td>
+                      <div className="small fw-600 d-flex align-items-center gap-1">
+                        <Calendar size={10} className="text-muted" />
+                        {new Date(review.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="5" className="text-center py-5">
+                    <div className="text-muted mb-2">
+                      <MessageCircle size={32} className="opacity-20 mb-3" />
+                      <h5>No Reviews Yet</h5>
+                      <p className="small">Reviews from your residents will appear here.</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Property Performance Table - Focus on Clicks & Leads */}
       <div className="modern-card mb-4">
         <div className="card-header-modern d-flex justify-content-between align-items-center">

@@ -185,4 +185,23 @@
   .footer-cta-bar {
     text-align: center;
   }
+  .footer-links-section {
+    text-align: center;
+  }
+  .contact-pill {
+    margin: 0 auto;
+  }
+  .fancy-divider {
+    margin: 0 auto 15px auto;
+  }
+  .social-grid {
+    justify-content: center;
+  }
+  .modern-link-list a {
+    justify-content: center;
+  }
+  .footer-brand img {
+    margin: 0 auto;
+    display: block;
+  }
 }

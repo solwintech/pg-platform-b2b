@@ -13,6 +13,8 @@ import Register from "../pages/auth/Register";
 
 // B2B Pages
 import ComingSoon from "../pages/common/ComingSoon";
+import NotificationsPage from "../pages/common/NotificationsPage";
+
 
 import Leads from "../pages/b2b/Leads";
 import AddPG from "../pages/b2b/AddPG";
@@ -62,7 +64,7 @@ const B2BRedirect = () => {
   React.useEffect(() => {
     const checkProps = async () => {
       try {
-        const res = await propertyService.getProperties();
+        const res = await propertyService.getProperties({}, false);
         if (res.success && res.backendCount > 0) {
           setHasProperties(true);
         }
@@ -125,6 +127,7 @@ const AppRoutes = () => {
         <Route path="rooms/:propertyId" element={<RoomManagement />} />
 
         <Route path="reviews" element={<B2BRatingsReviews />} />
+        <Route path="notifications" element={<NotificationsPage />} />
         <Route path="managers" element={<ComingSoon />} />
         <Route path="profile" element={<Profile />} />
       </Route>
@@ -146,8 +149,10 @@ const AppRoutes = () => {
           <Route path="registrations" element={<ManageRegistrations />} />
           <Route path="settings" element={<WebsiteSettings />} />
           <Route path="reviews" element={<AdminRatingsReviews />} />
+          <Route path="notifications" element={<NotificationsPage />} />
           <Route path="subscription-plans" element={<SubscriptionPlans />} />
           <Route path="properties" element={<AdminProperties />} />
+          <Route path="edit-pg/:id" element={<EditPG />} />
           <Route path="ads" element={<ManageAdvertisements />} />
           <Route path="logs" element={<ActivityLogs />} />
         </Route>

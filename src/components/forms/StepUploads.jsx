@@ -1,5 +1,21 @@
 import React, { useState } from 'react';
 import { Upload, X, Image, Camera, Plus } from 'lucide-react';
+import Compressor from 'compressorjs';
+
+const getBaseImageUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api/v1' : 'http://localhost:5000/api/v1');
+  return apiUrl.replace('/api/v1', '');
+};
+
+const resolveImageUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')) return url;
+  const baseUrl = getBaseImageUrl();
+  if (url.startsWith('/uploads/')) return `${baseUrl}${url}`;
+  if (url.startsWith('uploads/')) return `${baseUrl}/${url}`;
+  return `${baseUrl}/${url}`;
+};
+
 
 const StepUploads = ({ data, updateData }) => {
   const [coverImage, setCoverImage] = useState(data.coverImage || null);
@@ -8,16 +24,45 @@ const StepUploads = ({ data, updateData }) => {
   const handleCoverUpload = (e) => {
     const file = e.target.files[0];
     if (file) {
-      const imageUrl = URL.createObjectURL(file);
-      setCoverImage(imageUrl);
-      updateData({ coverImage: imageUrl });
+      new Compressor(file, {
+        quality: 0.6, // Compress to 60% quality
+        maxWidth: 1920,
+        success(result) {
+          const imageUrl = URL.createObjectURL(result);
+          setCoverImage(imageUrl);
+          updateData({ coverImage: imageUrl, coverImageFile: result });
+        },
+        error(err) {
+          console.error('Cover image compression error:', err.message);
+          const imageUrl = URL.createObjectURL(file);
+          setCoverImage(imageUrl);
+          updateData({ coverImage: imageUrl, coverImageFile: file });
+        },
+      });
     }
   };
 
-  const handleGalleryUpload = (e) => {
+  const handleGalleryUpload = async (e) => {
     const files = Array.from(e.target.files);
-    const imageUrls = files.map(file => URL.createObjectURL(file));
-    const newGallery = [...galleryImages, ...imageUrls];
+    
+    const compressPromises = files.map(file => {
+      return new Promise((resolve) => {
+        new Compressor(file, {
+          quality: 0.6,
+          maxWidth: 1920,
+          success(result) {
+            resolve({ url: URL.createObjectURL(result), file: result, tag: '' });
+          },
+          error(err) {
+            console.error('Gallery image compression error:', err.message);
+            resolve({ url: URL.createObjectURL(file), file: file, tag: '' });
+          }
+        });
+      });
+    });
+
+    const newImages = await Promise.all(compressPromises);
+    const newGallery = [...galleryImages, ...newImages];
     setGalleryImages(newGallery);
     updateData({ galleryImages: newGallery });
   };
@@ -39,7 +84,7 @@ const StepUploads = ({ data, updateData }) => {
           {coverImage ? (
             <div className="position-relative d-inline-block">
               <img
-                src={coverImage}
+                src={resolveImageUrl(coverImage)}
                 alt="Cover"
                 style={{ maxWidth: '300px', maxHeight: '200px', objectFit: 'cover' }}
                 className="rounded shadow-sm"
@@ -78,7 +123,7 @@ const StepUploads = ({ data, updateData }) => {
               <div key={index} className="col-md-4">
                 <div className="bg-white border rounded p-2 position-relative shadow-sm">
                   <img
-                    src={typeof imgObj === 'string' ? imgObj : imgObj.url}
+                    src={resolveImageUrl(typeof imgObj === 'string' ? imgObj : imgObj.url)}
                     alt={`Gallery ${index + 1}`}
                     style={{ width: '100%', height: '120px', objectFit: 'cover' }}
                     className="rounded mb-2"
@@ -154,16 +199,7 @@ const StepUploads = ({ data, updateData }) => {
             id="galleryUpload"
             accept="image/*"
             multiple
-            onChange={(e) => {
-              const files = Array.from(e.target.files);
-              const newImages = files.map(file => ({
-                url: URL.createObjectURL(file),
-                tag: ''
-              }));
-              const newGallery = [...galleryImages, ...newImages];
-              setGalleryImages(newGallery);
-              updateData({ galleryImages: newGallery });
-            }}
+            onChange={handleGalleryUpload}
           />
         </div>
       </div>

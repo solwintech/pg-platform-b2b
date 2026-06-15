@@ -19,7 +19,6 @@ import leadService from '../../services/leadService';
 const Leads = () => {
   const [leads, setLeads] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -43,7 +42,6 @@ const Leads = () => {
   };
 
   const filteredLeads = leads
-    .filter(lead => filter === 'all' ? true : lead.type === (filter === 'Call' ? 'Call' : 'Enquiry'))
     .filter(lead => statusFilter === 'all' ? true : lead.status === statusFilter)
     .filter(lead => 
       (lead.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -78,6 +76,7 @@ const Leads = () => {
     setOpenDropdown(openDropdown === id ? null : id);
   };
 
+
   const getStatusBadge = (status) => {
     switch(status) {
       case 'New':
@@ -107,7 +106,7 @@ const Leads = () => {
       <div className="modern-card mb-2">
         <div className="card-header-modern">
           <div className="row g-3">
-            <div className="col-md-4">
+            <div className="col-md-6">
               <div className="navbar-search">
                 <Search className="search-icon" size={16} />
                 <input 
@@ -120,22 +119,9 @@ const Leads = () => {
                 />
               </div>
             </div>
-            <div className="col-md-3">
+            <div className="col-md-4">
               <select 
-                className="form-control-modern"
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                style={{ fontSize: '13px', padding: '8px 12px' }}
-              >
-                <option value="all">All Types</option>
-                <option value="Call">Calls</option>
-                <option value="Enquiry">Enquiries</option>
-                <option value="WhatsApp">WhatsApp</option>
-              </select>
-            </div>
-            <div className="col-md-3">
-              <select 
-                className="form-control-modern"
+                className="form-control-modern w-100"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 style={{ fontSize: '13px', padding: '8px 12px' }}
@@ -165,16 +151,15 @@ const Leads = () => {
                 <th>User Details</th>
                 <th>Contact Info</th>
                 <th>Property of Interest</th>
-                <th>Type</th>
+                <th>Visit Details</th>
                 <th>Status</th>
                 <th>Timestamp</th>
-                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredLeads.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="text-center py-5">
+                  <td colSpan="6" className="text-center py-5">
                     <User size={50} className="text-muted mb-3" />
                     <h6>No leads found</h6>
                     <p className="text-muted small">No leads match your current filters</p>
@@ -190,7 +175,6 @@ const Leads = () => {
                         </div>
                         <div>
                           <div className="fw-600 small">{lead.name}</div>
-                          <div className="text-muted" style={{ fontSize: '10px' }}>ID: ...{lead._id.substring(lead._id.length - 6)}</div>
                         </div>
                       </div>
                     </td>
@@ -204,65 +188,32 @@ const Leads = () => {
                         <span className="small">{lead.property?.pgName || 'N/A'}</span>
                       </div>
                     </td>
-                    <td>{getTypeBadge(lead.type)}</td>
-                    <td style={{ position: 'relative' }}>
-                      <button 
-                        className="status-dropdown-btn"
-                        onClick={() => toggleDropdown(lead._id)}
-                        style={{
-                          background: 'transparent',
-                          border: 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          cursor: 'pointer',
-                          padding: '4px 8px',
-                          borderRadius: '20px'
-                        }}
-                      >
-                        {getStatusBadge(lead.status)}
-                        <ChevronDown size={12} />
-                      </button>
-                      {openDropdown === lead._id && (
-                        <div className="status-dropdown-menu" style={{
-                          position: 'absolute',
-                          top: '100%',
-                          left: 0,
-                          background: 'white',
-                          border: '1px solid #e5e7eb',
-                          borderRadius: '8px',
-                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                          zIndex: 100,
-                          minWidth: '140px',
-                          marginTop: '4px'
-                        }}>
-                          {['New', 'Contacted', 'Qualified', 'Closed', 'Spam'].map(s => (
-                            <div 
-                              key={s}
-                              className="dropdown-item" 
-                              onClick={() => updateLeadStatus(lead._id, s)}
-                              style={{ padding: '8px 12px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px' }}
-                            >
-                              {s === 'New' ? <Clock size={12} /> : s === 'Contacted' ? <MessageCircle size={12} /> : <CheckCircle size={12} />} {s}
-                            </div>
-                          ))}
+                    <td>
+                      {lead.visitDate ? (
+                        <div style={{ background: '#f0fdfa', padding: '6px 8px', borderRadius: '6px', border: '1px solid #ccfbf1', display: 'inline-block' }}>
+                           <div className="fw-bold d-flex align-items-center gap-1 mb-1" style={{ fontSize: '10px', color: '#0f766e', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                             <Calendar size={10} /> Scheduled Visit
+                           </div>
+                           <div className="d-flex align-items-center gap-1" style={{ fontSize: '11px', color: '#115e59' }}>
+                             <span className="fw-600">{new Date(lead.visitDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                             {lead.visitTime && <><span className="mx-1 opacity-50">|</span><Clock size={10} /> <span className="fw-600">{lead.visitTime}</span></>}
+                           </div>
                         </div>
+                      ) : (
+                        <span className="text-muted opacity-50" style={{ fontSize: '12px' }}>-</span>
                       )}
                     </td>
                     <td>
-                      <div className="small">{new Date(lead.createdAt).toLocaleTimeString()}</div>
-                      <div className="text-muted" style={{ fontSize: '10px' }}>
-                        {new Date(lead.createdAt).toLocaleDateString()}
-                      </div>
+                      {getStatusBadge(lead.status)}
                     </td>
                     <td>
-                      <div className="d-flex gap-2">
-                        <a href={`tel:${lead.phone}`} className="btn-premium" style={{ textDecoration: 'none', padding: '5px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <Phone size={12} /> Call
-                        </a>
-                        <a href={`https://wa.me/${lead.phone}`} target="_blank" rel="noreferrer" className="btn-outline-premium" style={{ textDecoration: 'none', padding: '5px 12px', fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          <MessageCircle size={12} /> WhatsApp
-                        </a>
+                      <div className="fw-600 small text-dark d-flex align-items-center gap-1">
+                        <Calendar size={12} className="text-muted" />
+                        {new Date(lead.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                      <div className="text-muted mt-1 d-flex align-items-center gap-1" style={{ fontSize: '11px' }}>
+                        <Clock size={12} />
+                        {new Date(lead.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
                       </div>
                     </td>
                   </tr>

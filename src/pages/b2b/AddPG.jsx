@@ -17,6 +17,35 @@ const AddPG = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [pendingFormData, setPendingFormData] = useState(null);
+  const [initialData, setInitialData] = useState({});
+
+  const handleAutofill = () => {
+    setInitialData({
+      propertyType: 'PG',
+      pgName: 'Sunny Valley Premium PG',
+      managerName: 'Rahul Kumar',
+      managerPhone: '9876543210',
+      managerEmail: 'rahul@sunnyvalley.com',
+      area: 'Koramangala',
+      address: '123, 4th Cross, 5th Block',
+      city: 'Bangalore',
+      pinCode: '560034',
+      genderAllowed: 'Boys',
+      totalBeds: '50',
+      propertySubCategory: 'Premium',
+      roomTypes: [
+        { name: 'Standard Single', size: '120', sharingType: 'Single', attachedBathroom: true, price: '12000', ac: true, furnishingStatus: 'Fully Furnished', amenities: ['Bed', 'Wardrobe', 'Desk'], isAvailable: true }
+      ],
+      amenities: ['WiFi', 'Power Backup', 'Washing Machine', 'Daily Cleaning'],
+      depositType: 'Fixed',
+      deposit: '20000',
+      paymentCycle: 'Monthly',
+      foodOption: 'Breakfast & Dinner',
+      electricityCharges: 'Included',
+      minLocking: '3 Months',
+      coverImage: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800'
+    });
+  };
 
   const steps = [
     { 
@@ -111,6 +140,11 @@ const AddPG = () => {
 
   return (
     <div className="add-pg-page">
+      <div className="d-flex justify-content-end mb-3">
+        <button className="btn btn-outline-primary btn-sm" onClick={handleAutofill}>
+          ⚡ Autofill for Testing
+        </button>
+      </div>
       <div className="card">
         <div className="card-body p-4">
           {submitting ? (
@@ -121,7 +155,7 @@ const AddPG = () => {
               <p>Submitting your listing...</p>
             </div>
           ) : (
-            <MultiStepForm steps={steps} onSubmit={handleSubmit} />
+            <MultiStepForm steps={steps} onSubmit={handleSubmit} initialData={initialData} />
           )}
         </div>
       </div>

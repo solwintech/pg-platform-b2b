@@ -3,6 +3,7 @@ const path = require('path');
 const dotenv = require('dotenv');
 const morgan = require('morgan');
 const cors = require('cors');
+const http = require('http');
 const connectDB = require('./config/db');
 const User = require('./models/User');
 const { sendOtpSms } = require('./utils/sms');
@@ -38,13 +39,23 @@ if (process.env.NODE_ENV === 'development') {
 
 // Route files
 const auth = require('./routes/auth');
-const properties = require('./routes/properties');
 const admin = require('./routes/admin');
+const properties = require('./routes/properties');
+const advertisements = require('./routes/advertisements');
+const leads = require('./routes/leads');
+const reviews = require('./routes/reviews');
+const settings = require('./routes/settings');
+const notifications = require('./routes/notifications');
 
 // Mount routers
 app.use('/api/v1/auth', auth);
-app.use('/api/v1/properties', properties);
 app.use('/api/v1/admin', admin);
+app.use('/api/v1/properties', properties);
+app.use('/api/v1/advertisements', advertisements);
+app.use('/api/v1/leads', leads);
+app.use('/api/v1/reviews', reviews);
+app.use('/api/v1/settings', settings);
+app.use('/api/v1/notifications', notifications);
 
 // Combined Public Test Endpoint
 app.get('/check-status', async (req, res) => {
@@ -128,27 +139,75 @@ app.get('/', (req, res) => {
   res.send('API is running...');
 });
 
-// Export app for Vercel
-module.exports = app;
+const server = http.createServer(app);
 
-// Only listen if not running as a serverless function
-if (require.main === module) {
-  const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => {
-    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+// SSE Event Hub
+const sseClients = new Map(); // userId -> response object
+
+app.get('/api/v1/events/stream', (req, res) => {
+  const userId = req.query.userId;
+  
+  // Set headers for SSE
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'Access-Control-Allow-Origin': '*'
   });
-}
+
+  // Send an initial connected event
+  res.write(`data: ${JSON.stringify({ event: 'connected' })}\n\n`);
+
+  if (userId && userId !== 'null') {
+    sseClients.set(userId, res);
+  }
+
+  // Add generic client map for broadcast
+  const clientId = Date.now().toString();
+  if (!userId || userId === 'null') {
+    sseClients.set(`guest_${clientId}`, res);
+  }
+
+  req.on('close', () => {
+    if (userId && userId !== 'null') {
+      sseClients.delete(userId);
+    } else {
+      sseClients.delete(`guest_${clientId}`);
+    }
+  });
+});
+
+app.set('sseClients', sseClients);
 
 // Handle unhandled routes (404)
 app.use((req, res) => {
-  console.log(`404 Not Found: ${req.method} ${req.url}`);
+  // Suppress socket.io 404 logs from spamming the console
+  if (!req.url.startsWith('/socket.io')) {
+    console.log(`404 Not Found: ${req.method} ${req.url}`);
+  }
   res.status(404).json({
     success: false,
     message: `Route ${req.method} ${req.url} not found on this server`
   });
 });
 
+// Start the server
+if (typeof PhusionPassenger !== 'undefined') {
+  // Phusion Passenger (Hostinger / cPanel)
+  server.listen('passenger');
+} else if (require.main === module) {
+  // Direct Node.js execution
+  const PORT = process.env.PORT || 5000;
+  server.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  });
+}
+
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err, promise) => {
   console.log(`Unhandled Rejection: ${err.message}`);
 });
+
+// Export server for Hostinger Passenger / Vercel
+module.exports = server;
+

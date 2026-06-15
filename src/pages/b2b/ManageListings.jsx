@@ -21,6 +21,20 @@ import {
 import { mockListings } from '../../utils/mockData';
 import propertyService from '../../services/propertyService';
 
+const getBaseImageUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api/v1' : 'http://localhost:5000/api/v1');
+  return apiUrl.replace('/api/v1', '');
+};
+
+const resolveImageUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  const baseUrl = getBaseImageUrl();
+  if (url.startsWith('/uploads/')) return `${baseUrl}${url}`;
+  if (url.startsWith('uploads/')) return `${baseUrl}/${url}`;
+  return url;
+};
+
 const ManageListings = () => {
   const navigate = useNavigate();
   const [listings, setListings] = useState([]);
@@ -33,6 +47,21 @@ const ManageListings = () => {
 
   useEffect(() => {
     loadListings();
+
+    const handleStatusUpdated = (e) => {
+      const updatedProperty = e.detail;
+      setListings(prev => prev.map(p => p._id === updatedProperty._id ? { ...p, status: updatedProperty.status } : p));
+      
+      setSelectedProperty(prev => {
+        if (prev && prev._id === updatedProperty._id) {
+          return { ...prev, status: updatedProperty.status };
+        }
+        return prev;
+      });
+    };
+
+    window.addEventListener('property_status_updated', handleStatusUpdated);
+    return () => window.removeEventListener('property_status_updated', handleStatusUpdated);
   }, []);
 
   const loadListings = async () => {
@@ -327,16 +356,25 @@ const ManageListings = () => {
                     return (
                       <div key={idx} className="room-item-premium p-3 border rounded-3 bg-light bg-opacity-50">
                         <div className="d-flex justify-content-between align-items-start mb-2">
-                          <div>
-                            <div className="fw-bold text-dark d-flex align-items-center gap-2" style={{ fontSize: '14px' }}>
-                              {room.name}
-                              {room.isAvailable !== false ?
-                                <span className="badge bg-success bg-opacity-10 text-success" style={{ fontSize: '10px' }}>Available</span> :
-                                <span className="badge bg-danger bg-opacity-10 text-danger" style={{ fontSize: '10px' }}>Not Available</span>
-                              }
-                            </div>
-                            <div className="text-muted mt-1" style={{ fontSize: '11px' }}>
-                              {room.sharingType} • ₹{room.price}/month • {room.attachedBathroom ? 'Attached Bath' : 'Common Bath'}
+                          <div className="d-flex gap-3 align-items-start">
+                            {room.image ? (
+                              <img src={resolveImageUrl(room.image)} alt={room.name} className="rounded shadow-sm" style={{ width: '60px', height: '45px', objectFit: 'cover' }} />
+                            ) : (
+                              <div className="bg-white border rounded shadow-sm d-flex align-items-center justify-content-center text-muted" style={{ width: '60px', height: '45px' }}>
+                                <DoorOpen size={16} />
+                              </div>
+                            )}
+                            <div>
+                              <div className="fw-bold text-dark d-flex align-items-center gap-2" style={{ fontSize: '14px' }}>
+                                {room.name}
+                                {room.isAvailable !== false ?
+                                  <span className="badge bg-success bg-opacity-10 text-success" style={{ fontSize: '10px' }}>Available</span> :
+                                  <span className="badge bg-danger bg-opacity-10 text-danger" style={{ fontSize: '10px' }}>Not Available</span>
+                                }
+                              </div>
+                              <div className="text-muted mt-1" style={{ fontSize: '11px' }}>
+                                {room.size ? `${room.size} sq.ft • ` : ''}₹{room.price}/month • {room.attachedBathroom ? 'Attached Bath' : 'Common Bath'}
+                              </div>
                             </div>
                           </div>
                           <div className="form-check form-switch p-0 m-0">
@@ -353,7 +391,7 @@ const ManageListings = () => {
                         </div>
                         <div className="d-flex flex-wrap gap-1 mt-2">
                           {room.amenities?.slice(0, 3).map((a, i) => (
-                            <span key={i} className="badge bg-white text-muted border" style={{ fontSize: '9px' }}>{a}</span>
+                            <span key={i} className="badge bg-white text-muted border" style={{ fontSize: '9px' }}>{typeof a === 'object' ? (a.name || JSON.stringify(a)) : a}</span>
                           ))}
                           {room.ac && <span className="badge bg-primary bg-opacity-10 text-primary" style={{ fontSize: '9px' }}>AC</span>}
                         </div>
@@ -429,7 +467,7 @@ const ManageListings = () => {
                       <div className="d-flex flex-wrap gap-2">
                         {selectedProperty.amenities?.map((a, i) => (
                           <span key={i} className="badge bg-light text-secondary border-0 px-3 py-2 rounded-pill fw-medium" style={{ fontSize: '11px' }}>
-                            {a}
+                            {typeof a === 'object' ? (a.name || JSON.stringify(a)) : a}
                           </span>
                         ))}
                       </div>
@@ -450,15 +488,24 @@ const ManageListings = () => {
                         return (
                           <div key={idx} className="room-item-premium p-3 border rounded-3 bg-light bg-opacity-50">
                             <div className="d-flex justify-content-between align-items-start mb-2">
-                              <div>
-                                <div className="fw-bold text-dark d-flex align-items-center gap-2" style={{ fontSize: '12px' }}>
-                                  {room.name}
-                                  {room.isAvailable !== false ?
-                                    <span className="badge bg-success bg-opacity-10 text-success" style={{ fontSize: '9px' }}>Available</span> :
-                                    <span className="badge bg-danger bg-opacity-10 text-danger" style={{ fontSize: '9px' }}>Not Available</span>
-                                  }
+                              <div className="d-flex gap-3 align-items-start">
+                                {room.image ? (
+                                  <img src={resolveImageUrl(room.image)} alt={room.name} className="rounded shadow-sm" style={{ width: '60px', height: '45px', objectFit: 'cover' }} />
+                                ) : (
+                                  <div className="bg-white border rounded shadow-sm d-flex align-items-center justify-content-center text-muted" style={{ width: '60px', height: '45px' }}>
+                                    <DoorOpen size={16} />
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="fw-bold text-dark d-flex align-items-center gap-2" style={{ fontSize: '12px' }}>
+                                    {room.name}
+                                    {room.isAvailable !== false ?
+                                      <span className="badge bg-success bg-opacity-10 text-success" style={{ fontSize: '9px' }}>Available</span> :
+                                      <span className="badge bg-danger bg-opacity-10 text-danger" style={{ fontSize: '9px' }}>Not Available</span>
+                                    }
+                                  </div>
+                                  <div className="text-muted mt-1" style={{ fontSize: '10px' }}>{room.sharingType} • {room.size} sqft • {room.attachedBathroom ? 'Attached Bath' : 'Common Bath'}</div>
                                 </div>
-                                <div className="text-muted mt-1" style={{ fontSize: '10px' }}>{room.sharingType} • {room.size} sqft • {room.attachedBathroom ? 'Attached Bath' : 'Common Bath'}</div>
                               </div>
                               <div className="text-end d-flex flex-column align-items-end gap-2">
                                 <div className="fw-bold text-primary" style={{ fontSize: '13px' }}>₹{room.price}</div>
@@ -479,7 +526,7 @@ const ManageListings = () => {
                             </div>
                             <div className="d-flex flex-wrap gap-1 mt-2">
                               {room.amenities?.map((a, i) => (
-                                <span key={i} className="badge bg-white text-muted border border-light shadow-sm" style={{ fontSize: '9px' }}>{a}</span>
+                                <span key={i} className="badge bg-white text-muted border border-light shadow-sm" style={{ fontSize: '9px' }}>{typeof a === 'object' ? (a.name || JSON.stringify(a)) : a}</span>
                               ))}
                               {room.ac && <span className="badge bg-primary bg-opacity-10 text-primary" style={{ fontSize: '9px' }}>AC Room</span>}
                               {room.furnishingStatus && <span className="badge bg-secondary bg-opacity-10 text-secondary" style={{ fontSize: '9px' }}>{room.furnishingStatus}</span>}
@@ -562,9 +609,9 @@ const ManageListings = () => {
               <div className="property-gallery-refined mb-4">
                 <div className="row g-2">
                   <div className="col-md-8">
-                    <div className="main-image-container rounded-4 overflow-hidden shadow-sm" style={{ height: '380px' }}>
+                    <div className="main-image-container rounded-4 overflow-hidden shadow-sm" style={{ height: '200px' }}>
                       <img
-                        src={selectedProperty.coverImage}
+                        src={resolveImageUrl(selectedProperty.coverImage)}
                         alt="Cover"
                         className="w-100 h-100 object-fit-cover"
                         onError={(e) => e.target.src = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800'}
@@ -572,11 +619,11 @@ const ManageListings = () => {
                     </div>
                   </div>
                   <div className="col-md-4">
-                    <div className="d-flex flex-column gap-2" style={{ height: '380px' }}>
+                    <div className="d-flex flex-column gap-2" style={{ height: '200px' }}>
                       {selectedProperty.galleryImages?.slice(0, 2).map((img, idx) => (
                         <div key={idx} className="side-image-container rounded-4 overflow-hidden shadow-sm flex-grow-1">
                           <img
-                            src={typeof img === 'string' ? img : img.url}
+                            src={resolveImageUrl(typeof img === 'string' ? img : img.url)}
                             alt={`Gallery ${idx}`}
                             className="w-100 h-100 object-fit-cover"
                             onError={(e) => e.target.src = 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400'}
@@ -586,7 +633,7 @@ const ManageListings = () => {
                       {selectedProperty.galleryImages?.length > 2 && (
                         <div className="more-images-overlay rounded-4 shadow-sm d-flex align-items-center justify-content-center bg-dark text-white position-relative" style={{ height: '120px' }}>
                           <img
-                            src={typeof selectedProperty.galleryImages[2] === 'string' ? selectedProperty.galleryImages[2] : selectedProperty.galleryImages[2].url}
+                            src={resolveImageUrl(typeof selectedProperty.galleryImages[2] === 'string' ? selectedProperty.galleryImages[2] : selectedProperty.galleryImages[2].url)}
                             alt="More"
                             className="w-100 h-100 object-fit-cover opacity-50 rounded-4"
                           />

@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Shield, ScrollText, UserCheck } from 'lucide-react';
+import { X, Shield, ScrollText, UserCheck, Smartphone } from 'lucide-react';
 
 export const TermsOfServiceModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
@@ -121,6 +121,81 @@ export const PrivacyPolicyModal = ({ isOpen, onClose }) => {
         <div className="auth-modal-footer">
           <button className="btn btn-info w-100 text-white" style={{ background: '#0284c7', border: 'none' }} onClick={onClose}>
             Close
+          </button>
+        </div>
+      </div>
+      {modalStyles}
+    </div>
+  );
+};
+
+export const OtpVerificationModal = ({ 
+  isOpen, 
+  onClose, 
+  phone,
+  otp, 
+  setOtp, 
+  onVerify, 
+  isVerifying, 
+  error, 
+  otpTimer, 
+  onResend 
+}) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="auth-modal-overlay">
+      <div className="auth-modal-content" style={{ maxWidth: '400px' }}>
+        <div className="auth-modal-header">
+          <div className="d-flex align-items-center">
+            <div className="auth-icon-wrapper me-3" style={{ background: '#f0f9ff' }}>
+              <Smartphone size={24} color="#0284c7" />
+            </div>
+            <div>
+              <h5 className="mb-0">Verify OTP</h5>
+              <small className="text-muted">Sent to +91 {phone}</small>
+            </div>
+          </div>
+          <button className="auth-close-btn" type="button" onClick={onClose}>
+            <X size={20} />
+          </button>
+        </div>
+        
+        <div className="auth-modal-body">
+          <div className="form-group mb-3">
+            <label className="fw-semibold small mb-2 d-block text-center">Enter 6-digit OTP</label>
+            <input
+              type="text"
+              className={`form-control-modern ${error ? 'is-invalid' : ''}`}
+              placeholder="000000"
+              value={otp}
+              onChange={(e) => setOtp(e.target.value)}
+              maxLength="6"
+              style={{ fontSize: '1.25rem', letterSpacing: '0.5rem', textAlign: 'center' }}
+            />
+            {error && <small className="text-danger mt-1 d-block text-center">{error}</small>}
+          </div>
+          <div className="text-center mt-3">
+            <button 
+              type="button" 
+              className="btn btn-link text-decoration-none small"
+              onClick={onResend}
+              disabled={otpTimer > 0}
+            >
+              {otpTimer > 0 ? `Resend OTP in ${otpTimer}s` : 'Resend OTP'}
+            </button>
+          </div>
+        </div>
+        
+        <div className="auth-modal-footer">
+          <button 
+            type="button"
+            className="btn btn-primary w-100 py-2 fw-bold text-white" 
+            style={{ background: '#0284c7', border: 'none' }} 
+            onClick={onVerify}
+            disabled={isVerifying || otp.length !== 6}
+          >
+            {isVerifying ? 'Verifying...' : 'Verify & Continue'}
           </button>
         </div>
       </div>

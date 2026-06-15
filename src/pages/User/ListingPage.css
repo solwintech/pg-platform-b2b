@@ -3,53 +3,76 @@
 /* Base Styles */
 .listing-page {
   font-family: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: linear-gradient(135deg, #f5f7fa 0%, #f8f9fc 100%);
+  background-color: #feede0;
   min-height: 100vh;
 }
 
 /* ── Scroll-isolated 3-column layout ─────────────────────────────────── */
 
-/* Container: standard flow */
+/* Container: Dashboard layout (Fixed page, scrolling columns) */
 @media (min-width: 992px) {
-  .listing-layout-container {
+  .listing-page {
+    min-height: 100vh;
     display: flex;
     flex-direction: column;
-  }
-
-  /* Row fills the height naturally */
-  .listing-layout-row {
-    flex: 1;
-    align-items: flex-start !important;
-  }
-
-  /* Listings column: natural height */
-  .listing-scroll-col {
-    padding-bottom: 2rem;
-  }
-
-  /* Filter sidebar: sticky */
-  .filter-sidebar {
-    position: sticky;
-    top: 90px;
-    height: calc(100vh - 110px);
     overflow-y: auto;
     overflow-x: hidden;
-    scrollbar-width: none;
   }
 
-  .filter-sidebar::-webkit-scrollbar {
-    display: none;
+  .listing-layout-container {
+    height: calc(100vh - 75px); /* Matches exact viewport height minus header */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-bottom: 0 !important;
   }
 
-  /* Banner column: sticky */
+  /* Row fills the container height */
+  .listing-layout-row {
+    flex: 1;
+    overflow: hidden;
+    margin-bottom: 0;
+    align-items: stretch !important;
+  }
+
+  /* Make columns independently scrollable, exactly like original dashboard! */
+  .filter-sidebar,
+  .listing-scroll-col,
   .right-banner-col {
-    position: sticky;
-    top: 90px;
-    height: calc(100vh - 110px);
+    height: 100%;
+    position: static;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: thin;
+  }
+
+  /* Padding inside the middle scrolling column to ensure last item is visible */
+  .listing-scroll-col {
+    padding-bottom: 3rem;
+  }
+
+  /* Webkit custom scrollbars for columns */
+  .filter-sidebar::-webkit-scrollbar,
+  .listing-scroll-col::-webkit-scrollbar,
+  .right-banner-col::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .filter-sidebar::-webkit-scrollbar-thumb,
+  .listing-scroll-col::-webkit-scrollbar-thumb,
+  .right-banner-col::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 10px;
+  }
+
+  .filter-sidebar:hover::-webkit-scrollbar-thumb,
+  .listing-scroll-col:hover::-webkit-scrollbar-thumb,
+  .right-banner-col:hover::-webkit-scrollbar-thumb {
+    background: #94a3b8;
   }
 
   .right-banner-sticky {
-    height: 100%;
+    height: auto;
     display: flex;
     flex-direction: column;
   }
@@ -206,21 +229,88 @@
 }
 
 /* Custom Range Slider */
-.custom-range::-webkit-slider-thumb {
+.dual-range-slider {
+  position: relative;
+  height: 30px;
+  margin-top: 10px;
+}
+
+.slider-track {
+  position: absolute;
+  top: 13px;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: #e2e8f0;
+  border-radius: 2px;
+}
+
+.slider-range {
+  position: absolute;
+  top: 13px;
+  height: 4px;
   background: #f97316;
+  border-radius: 2px;
+}
+
+.dual-range-slider .thumb {
+  position: absolute;
+  top: 5px;
+  width: 100%;
+  appearance: none;
+  background: transparent;
+  pointer-events: none;
+}
+
+.dual-range-slider .thumb::-webkit-slider-thumb {
+  pointer-events: all;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #f97316;
+  cursor: pointer;
   box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
 }
 
-.custom-range::-moz-range-thumb {
+.dual-range-slider .thumb::-moz-range-thumb {
+  pointer-events: all;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
   background: #f97316;
-}
-
-.custom-range::-ms-thumb {
-  background: #f97316;
+  cursor: pointer;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.2);
+  border: none;
 }
 
 .range-container {
   padding-bottom: 10px;
+}
+
+.view-more-modern-btn {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: #fffaf5;
+  border: 1px solid #fed7aa;
+  color: #ea580c;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 2px 2px;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(249, 115, 22, 0.05);
+}
+
+.view-more-modern-btn:hover {
+  background-color: #fed7aa;
+  border-color: #f97316;
+  color: #c2410c;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(249, 115, 22, 0.1);
 }
 
 /* Filter Scroll Area */
@@ -306,6 +396,35 @@
 
 .sorting-card:hover {
   box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+}
+
+/* Override Bootstrap Warning Colors in Sorting Card to match theme */
+.sorting-card .btn-warning,
+.sorting-card .btn-warning:active,
+.sorting-card .btn-warning:focus,
+.sorting-card .show > .btn-warning.dropdown-toggle {
+  background-color: #f97316 !important;
+  border-color: #f97316 !important;
+  color: white !important;
+}
+
+.sorting-card .btn-warning:hover {
+  background-color: #ea580c !important;
+  border-color: #ea580c !important;
+}
+
+.sorting-card .btn-outline-warning,
+.sorting-card .btn-outline-warning:active,
+.sorting-card .btn-outline-warning:focus {
+  color: #f97316 !important;
+  border-color: #f97316 !important;
+}
+
+.sorting-card .btn-outline-warning:hover,
+.sorting-card .show > .btn-outline-warning.dropdown-toggle {
+  background-color: #f97316 !important;
+  border-color: #f97316 !important;
+  color: white !important;
 }
 
 .sort-btn {
@@ -581,7 +700,7 @@
   
   .filter-sidebar {
     position: sticky;
-    top: 80px; /* Adjust based on Header height */
+    top: 76px; /* Adjust based on Header height */
     height: calc(100vh - 100px);
     overflow-y: auto;
     padding-bottom: 20px;
@@ -604,29 +723,7 @@
   }
 }
 
-/* Sticky Sidebar for Desktop */
-@media (min-width: 992px) {
-  .filter-sidebar {
-    position: sticky;
-    top: 90px;
-    height: calc(100vh - 110px);
-    overflow-y: auto;
-    padding-right: 5px;
-  }
-  
-  .filter-sidebar::-webkit-scrollbar {
-    width: 4px;
-  }
-  
-  .filter-sidebar::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 10px;
-  }
-  
-  .filter-sidebar:hover::-webkit-scrollbar-thumb {
-    background: #94a3b8;
-  }
-}
+/* Desktop Sidebar Overrides (Moved to top media query) */
 
 
 /* Loading Skeleton Animation */
@@ -703,7 +800,7 @@
   position: relative;
   width: 260px;
   min-width: 260px;
-  height: 180px;
+  height: 120px;
   flex-shrink: 0;
   border-radius: 12px;
   overflow: hidden;
@@ -814,31 +911,32 @@
   margin-top: 4px;
 }
 
-/* ── Info grid (changed to flexible pills) ── */
+/* ── Info grid (Pills) ── */
 .pc-info-grid {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
 }
 
-.pc-info-item {
-  display: flex;
+.pc-info-pill {
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  background: #f8fafc;
+  background: white;
   border: 1px solid #e2e8f0;
-  padding: 6px 10px;
-  border-radius: 8px;
+  padding: 4px 12px;
+  border-radius: 20px;
+}
+
+.pc-status-pill {
+  border: 1px solid #10b981;
+  background: white;
 }
 
 .pc-info-icon {
   font-size: 0.75rem;
   color: #f97316;
   flex-shrink: 0;
-}
-
-.pc-info-label {
-  display: none; /* Hide label to save space in pill design */
 }
 
 .pc-info-val {
@@ -874,7 +972,7 @@
 /* ── Footer bar ── */
 .pc-footer {
   border-top: 1px dashed #e2e8f0;
-  padding: 12px 16px;
+  padding: 5px 5px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -885,20 +983,68 @@
 
 .pc-footer-left {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.pc-agent-profile {
+  display: flex;
   align-items: center;
-  gap: 16px;
-}
-
-.pc-posted-date {
-  font-size: 0.7rem;
-  color: #94a3b8;
-}
-
-.pc-agent {
-  font-size: 0.75rem;
-  color: #475569;
-  font-weight: 500;
+  gap: 8px;
   cursor: pointer;
+}
+
+.pc-agent-img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid #e2e8f0;
+}
+
+.pc-agent-info {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.pc-agent-label {
+  font-size: 0.65rem;
+  color: #64748b;
+}
+
+.pc-agent-name {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.pc-rating-review {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.pc-rating-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 2px 8px;
+  border-radius: 12px;
+}
+
+.pc-review-link {
+  font-size: 0.75rem;
+  color: #f97316;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.pc-review-link:hover {
+  color: #ea580c;
 }
 
 .pc-footer-actions {

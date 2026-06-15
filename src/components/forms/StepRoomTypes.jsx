@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Trash2, Home, Bath, Sun, Coffee, Wifi, Wind, Edit2, Save, X, Utensils, Users, Maximize, Sofa, Layout } from 'lucide-react';
+import { Plus, Trash2, Home, Bath, Sun, Coffee, Wifi, Wind, Edit2, Save, X, Utensils, Users, Maximize, Sofa, Layout, Camera } from 'lucide-react';
 
 const StepRoomTypes = ({ data, updateData }) => {
   const [roomTypes, setRoomTypes] = useState(data.roomTypes || []);
@@ -18,7 +18,9 @@ const StepRoomTypes = ({ data, updateData }) => {
     description: '',
     numberOfRooms: '',
     furnishingStatus: 'Semi Finished',
-    acType: 'Non AC'
+    acType: 'Non AC',
+    image: null,
+    imageFile: null
   });
 
   // Dynamic Room Options based on Property Type
@@ -123,7 +125,9 @@ const StepRoomTypes = ({ data, updateData }) => {
       description: '',
       numberOfRooms: '',
       furnishingStatus: 'Semi Finished',
-      acType: 'Non AC'
+      acType: 'Non AC',
+      image: null,
+      imageFile: null
     });
     setShowRoomForm(false);
   };
@@ -156,6 +160,14 @@ const StepRoomTypes = ({ data, updateData }) => {
     }
   };
 
+  const handleRoomImageUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const imageUrl = URL.createObjectURL(file);
+      setNewRoom({ ...newRoom, image: imageUrl, imageFile: file });
+    }
+  };
+
   return (
     <div className="step-room-types">
       <h5 className="mb-3 fw-semibold">Room & Bed Details</h5>
@@ -178,7 +190,12 @@ const StepRoomTypes = ({ data, updateData }) => {
                   <h6 className="fw-bold mb-1">{room.name}</h6>
                   <div className="text-primary fw-bold">₹{room.price}/month</div>
                 </div>
-                <div className="d-flex gap-2">
+                {room.image && (
+                  <div className="mx-3">
+                    <img src={room.image} alt={room.name} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px' }} />
+                  </div>
+                )}
+                <div className="d-flex gap-2 ms-auto">
                   <button className="btn btn-sm btn-light" onClick={() => editRoom(room)}><Edit2 size={14} /></button>
                   <button className="btn btn-sm btn-light text-danger" onClick={() => deleteRoom(room.id)}><Trash2 size={14} /></button>
                 </div>
@@ -237,6 +254,40 @@ const StepRoomTypes = ({ data, updateData }) => {
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
+            </div>
+            
+            <div className="col-md-12 mb-2">
+              <label className="form-label small fw-medium">Room Image</label>
+              <div className="border rounded-2 p-3 text-center bg-white border-dashed" style={{ borderColor: '#cbd5e1' }}>
+                {newRoom.image ? (
+                  <div className="position-relative d-inline-block">
+                    <img
+                      src={newRoom.image}
+                      alt="Room Preview"
+                      style={{ maxWidth: '200px', maxHeight: '120px', objectFit: 'cover' }}
+                      className="rounded shadow-sm"
+                    />
+                    <button
+                      className="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 rounded-circle"
+                      onClick={() => setNewRoom({ ...newRoom, image: null, imageFile: null })}
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ) : (
+                  <div onClick={() => document.getElementById('roomImageUpload').click()} style={{ cursor: 'pointer' }}>
+                    <Camera className="mx-auto mb-2 text-primary" size={24} />
+                    <p className="text-muted small mb-0">Upload 1 photo for this room type</p>
+                    <input
+                      type="file"
+                      className="d-none"
+                      id="roomImageUpload"
+                      accept="image/*"
+                      onChange={handleRoomImageUpload}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             <div className="col-md-6">
               <label className="form-label small fw-medium">Price (₹ / Month) *</label>

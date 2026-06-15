@@ -314,59 +314,56 @@ const B2BRatingsReviews = () => {
               <p className="text-muted small">When residents rate your property, they will appear here</p>
             </div>
           ) : (
-            filteredReviews.map(review => (
-              <div key={review._id} className="review-item-admin">
-                <div className="review-header">
-                  <div className="reviewer-info">
-                    <div className="reviewer-avatar">
+            filteredReviews.slice(0, 10).map(review => (
+              <div key={review._id} className="modern-card mb-3 p-3 border-0 shadow-sm" style={{ borderLeft: '4px solid #0ea5e9' }}>
+                <div className="d-flex justify-content-between align-items-start mb-2">
+                  <div className="d-flex align-items-center gap-2">
+                    <div className="bg-primary bg-opacity-10 text-primary fw-bold rounded-circle d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px', fontSize: '14px' }}>
                       {review.user?.name?.charAt(0).toUpperCase()}
                     </div>
                     <div>
-                      <div className="reviewer-name">{review.user?.name}</div>
-                      <div className="review-meta">
-                        <span className="review-property">{review.property?.pgName}</span>
-                        <span className="review-date">
-                          <Calendar size={10} /> {new Date(review.createdAt).toLocaleDateString()}
-                        </span>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className="fw-600 small">{review.user?.name}</span>
+                        <span className="badge bg-light text-dark border">{review.property?.pgName}</span>
+                        {review.isVerified && <span className="text-success small" style={{ fontSize: '10px' }}>✓ Verified</span>}
+                      </div>
+                      <div className="d-flex align-items-center gap-2 mt-1">
+                        <div className="d-flex align-items-center text-warning" style={{ gap: '2px' }}>
+                          {renderStars(review.rating)} <span className="text-dark fw-600 ms-1 small" style={{ fontSize: '11px' }}>{review.rating}</span>
+                        </div>
+                        <span className="text-muted small" style={{ fontSize: '10px' }}>• <Calendar size={10} className="mx-1" />{new Date(review.createdAt).toLocaleDateString()}</span>
                       </div>
                     </div>
                   </div>
-                  <div className="review-actions-admin">
+                  <div>
                     {getStatusBadge(review.status)}
                   </div>
                 </div>
                 
-                <div className="review-body">
-                  <div className="review-rating mb-2">
-                    {renderStars(review.rating)}
-                    <span className="ms-2 small fw-600">{review.rating}</span>
-                  </div>
-                  <h6 className="review-title">{review.title}</h6>
-                  <p className="review-comment">{review.comment}</p>
+                <div className="mb-2">
+                  {review.title && <span className="fw-600 small me-2">{review.title}</span>}
+                  <span className="small text-muted">{review.comment}</span>
                 </div>
                 
-                <div className="review-footer">
-                  <div className="review-stats">
-                    <span className="stat-btn"><ThumbsUp size={12} /> {review.likes || 0}</span>
-                    <span className="stat-btn"><ThumbsDown size={12} /> {review.dislikes || 0}</span>
-                    {review.isVerified && <span className="verified-badge">✓ Verified Resident</span>}
+                <div className="d-flex justify-content-between align-items-center border-top pt-2 mt-2">
+                  <div className="d-flex gap-3 text-muted" style={{ fontSize: '11px' }}>
+                    <span className="d-flex align-items-center gap-1"><ThumbsUp size={12} /> {review.likes || 0}</span>
+                    <span className="d-flex align-items-center gap-1"><ThumbsDown size={12} /> {review.dislikes || 0}</span>
                   </div>
-                  <div className="admin-actions">
-                    <button className="admin-action approve" onClick={() => handleOpenReply(review)}>
-                      <Reply size={12} /> {review.reply ? 'Edit Reply' : 'Reply to Resident'}
-                    </button>
-                  </div>
+                  <button className="btn btn-sm btn-outline-primary py-1 px-2" style={{ fontSize: '11px' }} onClick={() => handleOpenReply(review)}>
+                    <Reply size={12} className="me-1" /> {review.reply ? 'Edit Reply' : 'Reply'}
+                  </button>
                 </div>
                 
                 {review.reply && (
-                  <div className="review-reply">
-                    <div className="reply-icon"><Reply size={14} /></div>
-                    <div className="reply-content">
-                      <div className="reply-header">
-                        <strong>My Response</strong>
-                        <span className="reply-date">Posted on {new Date(review.replyAt || review.updatedAt).toLocaleDateString()}</span>
+                  <div className="mt-2 bg-light p-2 rounded small d-flex gap-2 align-items-start border-start border-3 border-primary">
+                    <Reply size={12} className="text-primary mt-1 flex-shrink-0" />
+                    <div className="w-100">
+                      <div className="d-flex justify-content-between align-items-center">
+                        <strong style={{ fontSize: '11px' }}>My Response</strong>
+                        <span className="text-muted" style={{ fontSize: '10px' }}>{new Date(review.replyAt || review.updatedAt).toLocaleDateString()}</span>
                       </div>
-                      <p className="reply-text">{review.reply}</p>
+                      <div className="text-muted mt-1" style={{ fontSize: '11px' }}>{review.reply}</div>
                     </div>
                   </div>
                 )}

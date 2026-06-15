@@ -15,7 +15,7 @@ const { protect, authorize, optionalProtect } = require('../middleware/auth');
 
 router.route('/')
   .get(optionalProtect, getReviews)
-  .post(protect, authorize('user'), addReview);
+  .post(protect, authorize('user', 'b2b', 'admin'), addReview);
 
 router.route('/:id')
   .get(getReview)

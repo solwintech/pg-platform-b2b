@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { MapPin, Building, Bed, Search, Sparkles, ChevronDown } from 'lucide-react';
 import { Autocomplete } from '@react-google-maps/api';
 import { useGoogleMaps } from '../context/GoogleMapsContext';
@@ -6,8 +6,22 @@ import './SearchWrapper.css';
 
 const SearchWrapper = ({ filters, updateFilter, onSearch, locationLoading, getUserLocation }) => {
   const autocompleteRef = useRef(null);
+  const cityAutocompleteRef = useRef(null);
 
   const { isLoaded } = useGoogleMaps();
+
+  const [cityBounds, setCityBounds] = useState(null);
+
+  useEffect(() => {
+    if (isLoaded && filters.city && window.google) {
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode({ address: `${filters.city}, India` }, (results, status) => {
+        if (status === 'OK' && results[0]) {
+          setCityBounds(results[0].geometry.viewport);
+        }
+      });
+    }
+  }, [isLoaded, filters.city]);
 
   const propertyTypes = [
     { label: 'All Stays', value: 'all', icon: <Sparkles size={16} /> },
@@ -40,20 +54,35 @@ const SearchWrapper = ({ filters, updateFilter, onSearch, locationLoading, getUs
     }
   };
 
+  const onCityPlaceChanged = () => {
+    if (cityAutocompleteRef.current !== null) {
+      const place = cityAutocompleteRef.current.getPlace();
+      if (place && place.name) {
+        updateFilter('city', place.name);
+      }
+    }
+  };
+
   return (
     <div className="sw-main-container">
-      {/* Property Type Tabs */}
-      <div className="sw-tabs-container">
-        {propertyTypes.map(type => (
-          <button 
-            key={type.value}
-            className={`sw-tab-btn ${filters.propertyType === type.value ? 'active' : ''}`}
-            onClick={() => updateFilter('propertyType', type.value)}
-          >
-            {type.icon}
-            <span>{type.label}</span>
-          </button>
-        ))}
+      {/* Property Type Filters */}
+      <div className="sw-quick-filters" style={{ marginBottom: '20px' }}>
+        <div className="sw-filter-item">
+          <span className="sw-filter-label">Stay Type:</span>
+          <div className="sw-chips">
+            {propertyTypes.map(type => (
+              <button 
+                key={type.value}
+                className={`sw-chip ${filters.propertyType === type.value ? 'active' : ''}`}
+                onClick={() => updateFilter('propertyType', type.value)}
+                style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                {type.icon}
+                <span>{type.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       <div className="sw-search-box">
@@ -63,12 +92,27 @@ const SearchWrapper = ({ filters, updateFilter, onSearch, locationLoading, getUs
             <MapPin size={20} className="sw-icon" />
             <div className="sw-input-group">
               <span className="sw-label">CITY</span>
-              <input 
-                type="text" 
-                placeholder={locationLoading ? "Detecting..." : "Bangalore"} 
-                value={filters.city}
-                onChange={(e) => updateFilter('city', e.target.value)}
-              />
+              {isLoaded ? (
+                <Autocomplete
+                  onLoad={ref => cityAutocompleteRef.current = ref}
+                  onPlaceChanged={onCityPlaceChanged}
+                  options={{ types: ['(cities)'], componentRestrictions: { country: 'in' } }}
+                >
+                  <input 
+                    type="text" 
+                    placeholder={locationLoading ? "Detecting..." : "Bangalore"} 
+                    value={filters.city}
+                    onChange={(e) => updateFilter('city', e.target.value)}
+                  />
+                </Autocomplete>
+              ) : (
+                <input 
+                  type="text" 
+                  placeholder={locationLoading ? "Detecting..." : "Bangalore"} 
+                  value={filters.city}
+                  onChange={(e) => updateFilter('city', e.target.value)}
+                />
+              )}
             </div>
             {getUserLocation && (
               <button className="sw-detect-btn" onClick={getUserLocation} title="Detect Location">
@@ -87,6 +131,11 @@ const SearchWrapper = ({ filters, updateFilter, onSearch, locationLoading, getUs
                 <Autocomplete
                   onLoad={ref => autocompleteRef.current = ref}
                   onPlaceChanged={onPlaceChanged}
+                  options={{
+                    bounds: cityBounds,
+                    strictBounds: true,
+                    componentRestrictions: { country: 'in' }
+                  }}
                 >
                   <input 
                     type="text" 

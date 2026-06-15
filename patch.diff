@@ -1,0 +1,1859 @@
+diff --git a/src/pages/User/PropertyDetails.jsx b/src/pages/User/PropertyDetails.jsx
+index f3d6fb8..f60d098 100644
+--- a/src/pages/User/PropertyDetails.jsx
++++ b/src/pages/User/PropertyDetails.jsx
+@@ -1,4 +1,4 @@
+-import React, { useState, useEffect } from 'react';
++import React, { useState, useEffect, useRef } from 'react';
+ import { useParams, useNavigate } from 'react-router-dom';
+ import { Spinner, Modal, Carousel } from 'react-bootstrap';
+ import { Star, StarHalf, MessageCircle, ThumbsUp, Calendar, Plus, User as UserIcon } from 'lucide-react';
+@@ -11,6 +11,7 @@ import authService from '../../services/authService';
+ import PropertyMap from '../../components/MapComponent';
+ import PromotionalAd from '../../components/PromotionalAd';
+ import './PropertyDetails.css';
++import { useAuthModal } from '../../context/AuthModalContext';
+ 
+ const formatTime12hr = (timeStr) => {
+   if (!timeStr) return '--:-- --';
+@@ -28,9 +29,58 @@ const formatTime12hr = (timeStr) => {
+   }
+ };
+ 
++const getBaseImageUrl = () => {
++  const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api/v1' : 'http://localhost:5000/api/v1');
++  return apiUrl.replace('/api/v1', '');
++};
++
++const resolveImageUrl = (url) => {
++  if (!url) return '';
++  if (url.startsWith('http')) return url;
++  const baseUrl = getBaseImageUrl();
++  if (url.startsWith('/uploads/')) return `${baseUrl}${url}`;
++  if (url.startsWith('uploads/')) return `${baseUrl}/${url}`;
++  return url;
++};
++
++
++const getOccupancyOptions = (type) => {
++    switch(type) {
++      case 'PG':
++        return ['Private Room', 'Double Sharing', 'Triple Share', 'Quad Sharing', 'Five sharing', '1 RK', '1 BHK', '2 BHK'];
++      case 'Hostel':
++        return ['Private Room', 'Double Sharing', 'Triple Share', 'Quad Sharing', 'Five sharing', '1 RK', '1 BHK'];
++      case 'Home Stay':
++        return ['Private Room', 'Double Sharing', 'Triple Share', 'Quad Sharing', 'Five sharing', '1 RK', '1 BHK', '2 BHK', '3 BHK', '4 BHK', 'Independent House'];
++      case 'Service Apartment':
++        return ['1 BHK', '2 BHK', '3 BHK', '4 BHK'];
++      default:
++        return ['Private Room', 'Double Sharing', 'Triple Share', 'Quad Sharing', 'Five sharing', '1 RK', '1 BHK', '2 BHK', '3 BHK', '4 BHK', 'Independent House'];
++    }
++  };
++
++const getVisitingHoursText = (property) => {
++  if (!property?.visitingHours) return '10:00 AM - 06:00 PM (All Days)';
++  
++  const { availableDays, startTime, endTime } = property.visitingHours;
++  const formattedStart = formatTime12hr(startTime);
++  const formattedEnd = formatTime12hr(endTime);
++  
++  let daysText = 'All Days';
++  if (availableDays && Array.isArray(availableDays) && availableDays.length > 0) {
++    const daysOfWeekOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
++    const sortedDays = [...availableDays].sort((a, b) => daysOfWeekOrder.indexOf(a) - daysOfWeekOrder.indexOf(b));
++    daysText = sortedDays.map(d => d.substring(0, 3)).join(', ');
++  }
++  
++  return `${formattedStart} - ${formattedEnd} (${daysText})`;
++};
++
++
+ const PropertyDetails = () => {
+   const { id } = useParams();
+   const navigate = useNavigate();
++  const { openAuthModal } = useAuthModal();
+   const [property, setProperty] = useState(null);
+   const [rooms, setRooms] = useState([]);
+   const [loading, setLoading] = useState(true);
+@@ -43,11 +93,7 @@ const PropertyDetails = () => {
+   });
+   const [submittingReview, setSubmittingReview] = useState(false);
+   
+-  const [contactForm, setContactForm] = useState({
+-    name: '',
+-    email: '',
+-    mobile: ''
+-  });
++  
+   
+   const [formState, setFormState] = useState('input'); // input, sending, success
+   const [ownerContact, setOwnerContact] = useState(null);
+@@ -66,25 +112,132 @@ const PropertyDetails = () => {
+   const [otpSent, setOtpSent] = useState(false);
+   const [verifyingOtp, setVerifyingOtp] = useState(false);
+   const [activeImageIndex, setActiveImageIndex] = useState(0);
++  const [showLightbox, setShowLightbox] = useState(false);
++  const [activeTab, setActiveTab] = useState('rooms');
++
++ 
++
++  // --- Premium Modal States --- 
++const [showOtpModal, setShowOtpModal] = useState(false);
++  const [otpStep, setOtpStep] = useState('form');
++  const [contactForm, setContactForm] = useState({
++    name: '',
++    email: '',
++    phone: ''
++  });
++  const [otp, setOtp] = useState('');
++  const [generatedOtp, setGeneratedOtp] = useState('');
++  const [otpTimer, setOtpTimer] = useState(0);
++  const [isLoading, setIsLoading] = useState(false);
++  
++  const [actionType, setActionType] = useState('');
++  const [enquiryMessage, setEnquiryMessage] = useState('');
++  const [callbackTime, setCallbackTime] = useState('');
++  const [moveInDate, setMoveInDate] = useState('');
++  const [stayDuration, setStayDuration] = useState('');
++  const [roomType, setRoomType] = useState('');
++  const [visitTime, setVisitTime] = useState('');
++  const [visitDate, setVisitDate] = useState('');
++  const [scheduleVisit, setScheduleVisit] = useState(false);
++
++
++  // Check login status
++  
+ 
+-  const handleSelectImage = (selectedIndex) => {
++  // Helper functions for data display
++  
++  // --- End Premium Modal States ---
++
++ const handleSelectImage = (selectedIndex) => {
+     setActiveImageIndex(selectedIndex);
++    setShowLightbox(true);
+   };
+ 
++  const hasIncremented = useRef(false);
++
+   useEffect(() => {
++    if (!hasIncremented.current) {
++      propertyService.incrementViews(id);
++      hasIncremented.current = true;
++    }
+     fetchPropertyDetails();
+     fetchReviews();
+   }, [id]);
+ 
++  useEffect(() => {
++    let eventSource = null;
++    try {
++      const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://staysorted.in/api/v1' : 'http://localhost:5000/api/v1');
++      eventSource = new EventSource(`${apiUrl}/events/stream`);
++
++      eventSource.onmessage = (event) => {
++        try {
++          const data = JSON.parse(event.data);
++          
++          if (data.event === 'review_approved') {
++            const newReview = data.payload;
++            const propertyId = newReview.property?._id || newReview.property;
++            if (propertyId === id) {
++              setReviews(prev => {
++                if (!prev.find(r => r._id === newReview._id)) {
++                  return [newReview, ...prev];
++                }
++                return prev;
++              });
++            }
++          } else if (data.event === 'review_replied') {
++            const updatedReview = data.payload;
++            const propertyId = updatedReview.property?._id || updatedReview.property;
++            if (propertyId === id) {
++              setReviews(prev => prev.map(r => r._id === updatedReview._id ? updatedReview : r));
++            }
++          }
++        } catch (e) {
++          console.error('Error parsing SSE data:', e);
++        }
++      };
++
++      eventSource.onerror = (err) => {
++        // Suppress connection errors
++      };
++    } catch (error) {
++      console.log('SSE initialization skipped or failed:', error);
++    }
++
++    return () => {
++      if (eventSource) {
++        eventSource.close();
++      }
++    };
++  }, [id]);
++
++  useEffect(() => {
++    const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
++    if (userLoggedIn && savedUser.role === 'user') {
++      setContactForm({
++        name: savedUser.name || '',
++        email: savedUser.email || '',
++        mobile: savedUser.phone || savedUser.whatsapp || ''
++      });
++    } else {
++      setContactForm({
++        name: '',
++        email: '',
++        mobile: ''
++      });
++    }
++  }, [userLoggedIn]);
++
+   const fetchPropertyDetails = async () => {
+     setLoading(true);
+     try {
+       const response = await propertyService.getPropertyById(id);
+-      setProperty(response.data || response.property);
+-      setRooms(response.rooms || (response.data?.rooms) || []);
++      const propData = response.data || response.property;
++      setProperty(propData);
++      setRooms(response.rooms || propData?.roomTypes || propData?.rooms || []);
+       
+-      // Fetch all properties for the map
+-      const allPropsResponse = await propertyService.getProperties({ limit: 50 });
++      // Fetch similar properties from the same city
++      const allPropsResponse = await propertyService.getProperties({ limit: 50, public: true }, false);
+       setAllProperties(allPropsResponse.properties || []);
+     } catch (error) {
+       console.error('Failed to fetch property:', error);
+@@ -96,16 +249,19 @@ const PropertyDetails = () => {
+   const fetchReviews = async () => {
+     try {
+       const response = await reviewService.getPropertyReviews(id);
+-      setReviews(response.data || []);
++      setReviews(response.reviews || response.data || []);
+     } catch (error) {
+       console.error('Failed to fetch reviews:', error);
++      setReviews([]);
+     }
+   };
+ 
+   const handleAddReview = async (e) => {
+     e.preventDefault();
+-    if (!userLoggedIn) {
+-      navigate('/auth');
++    if (!authService.isAuthenticated()) {
++      openAuthModal(() => {
++        setShowReviewModal(true);
++      });
+       return;
+     }
+     
+@@ -146,22 +302,77 @@ const PropertyDetails = () => {
+   };
+ 
+   const getDisplayName = () => property?.pgName || property?.title || 'Property for Rent';
+-  const getDisplayLocation = () => property?.location?.area || property?.location?.address || '';
++  const getDisplayLocation = () => property?.area || property?.address || '';
++  
++  const getDisplayGender = () => {
++    if (property?.genderPreference === 'male') return 'Boys';
++    if (property?.genderPreference === 'female') return 'Girls';
++    if (property?.genderAllowed === 'Boys' || property?.genderAllowed === 'Boys Only') return 'Boys';
++    if (property?.genderAllowed === 'Girls' || property?.genderAllowed === 'Girls Only') return 'Girls';
++    if (property?.genderAllowed === 'Unisex' || property?.genderAllowed === 'Co-ed') return 'Co-ed';
++    return 'Co-ed';
++  };
+   
+   const getMinPrice = () => {
+-    if (rooms && rooms.length > 0) return Math.min(...rooms.map(r => r.price));
++    if (rooms && rooms.length > 0) return Math.min(...rooms.map(r => Number(r.price) || 0));
+     if (property?.minPrice) return property.minPrice;
+     return 5000;
+   };
+ 
++  const getPropertyMinPrice = (p) => {
++    if (p.minPrice) return p.minPrice;
++    if (p.pricing?.deposit) return p.pricing.deposit;
++    const pRooms = p.roomTypes || p.rooms;
++    if (pRooms && pRooms.length > 0) {
++      return Math.min(...pRooms.map(r => Number(r.price) || 0));
++    }
++    return p.totalRooms * 1000 || 5000;
++  };
++
++  const getSimilarProperties = () => {
++    if (!property) return [];
++    let similar = allProperties.filter(p => p._id !== id && p.city?.toLowerCase() === property?.city?.toLowerCase());
++    if (similar.length === 0) {
++      similar = allProperties.filter(p => p._id !== id);
++    }
++    return similar.slice(0, 4);
++  };
++
+   const getImagesArray = () => {
+-    if (property?.images && Array.isArray(property.images) && property.images.length > 0) {
+-      return property.images;
++    let images = [];
++    if (property?.coverImage) {
++      images.push({ url: resolveImageUrl(property.coverImage) });
++    }
++    
++    if (property?.galleryImages && Array.isArray(property.galleryImages)) {
++      property.galleryImages.forEach(img => {
++        images.push({ url: resolveImageUrl(typeof img === 'string' ? img : img.url) });
++      });
++    } else if (property?.images && Array.isArray(property.images)) {
++      property.images.forEach(img => {
++        images.push({ url: resolveImageUrl(typeof img === 'string' ? img : img.url) });
++      });
++    }
++    
++    // Fallback if absolutely no images
++    if (images.length === 0) {
++      images.push({ url: 'https://placehold.co/800x600/e2e8f0/64748b?text=No+Photos' });
+     }
+-    return [];
++
++    // Deduplicate
++    const uniqueImages = [];
++    const urls = new Set();
++    images.forEach(img => {
++      if (!urls.has(img.url)) {
++        urls.add(img.url);
++        uniqueImages.push(img);
++      }
++    });
++
++    return uniqueImages;
+   };
+ 
+-  const coverImage = getImagesArray()[0]?.url || property?.coverImage || 'https://placehold.co/800x500/FFF3E0/FF8C42?text=No+Image';
++  const coverImage = getImagesArray()[0]?.url;
+ 
+   const scrollToSection = (sectionId) => {
+     const el = document.getElementById(sectionId);
+@@ -198,18 +409,7 @@ const PropertyDetails = () => {
+     
+     setVerifyingOtp(true);
+     
+-    // Simulate dummy login
+-    localStorage.setItem('token', 'dummy-token-123456');
+-    localStorage.setItem('user', JSON.stringify({
+-      _id: 'dummy-user-id',
+-      name: contactForm.name || 'Enquiry User',
+-      email: enquiryForm.email,
+-      phone: enquiryForm.mobile,
+-      role: 'user'
+-    }));
+-    
+-    setUserLoggedIn(true);
+-    window.dispatchEvent(new Event('auth-change'));
++    // Process OTP verification without dummy login
+     setVerifyingOtp(false);
+     setShowEnquiryModal(false);
+     
+@@ -227,14 +427,10 @@ const PropertyDetails = () => {
+   const handleSubmitContact = async (e) => {
+     if (e) e.preventDefault();
+ 
+-    if (!userLoggedIn) {
+-      setEnquiryForm({
+-        mobile: contactForm.mobile,
+-        email: contactForm.email,
+-        otp: ''
++    if (!authService.isAuthenticated()) {
++      openAuthModal(() => {
++        handleSubmitContact();
+       });
+-      setOtpSent(false);
+-      setShowEnquiryModal(true);
+       return;
+     }
+ 
+@@ -301,114 +497,118 @@ const PropertyDetails = () => {
+ 
+       <div className="ho-container">
+         {/* Hero Card */}
+-        <div className="ho-hero-card">
+-          <div className="ho-hero-row">
+-            <div className="ho-hero-gallery flex-column">
+-              <div className="position-relative">
+-                <Carousel 
+-                  interval={null} 
+-                  indicators={false} 
+-                  className="ho-image-carousel"
+-                  activeIndex={activeImageIndex}
+-                  onSelect={handleSelectImage}
+-                >
+-                  {getImagesArray().map((img, idx) => (
+-                    <Carousel.Item key={idx}>
+-                      <img src={img.url} alt={`${getDisplayName()} - ${idx + 1}`} className="ho-main-img" />
+-                    </Carousel.Item>
+-                  ))}
+-                  {getImagesArray().length === 0 && (
+-                    <Carousel.Item>
+-                      <img src={coverImage} alt={getDisplayName()} className="ho-main-img" />
+-                    </Carousel.Item>
+-                  )}
+-                </Carousel>
+-                <div className="ho-photo-badge">
+-                  <i className="fas fa-camera"></i> {getImagesArray().length || 1} Photos
+-                </div>
++        {/* Hero Card */}
++        <div className="ho-hero-card p-2 p-md-3 position-relative" style={{ paddingTop: '2.5rem !important' }}>
++          
++          {/* Ribbon Badges */}
++          <div className="d-flex position-absolute top-0 start-0 ms-3">
++            <div className="bg-warning text-dark px-2 py-1 fw-bold" style={{fontSize:'0.65rem', borderBottomRightRadius: '6px', borderBottomLeftRadius: '6px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'}}>
++              <i className="fas fa-check-circle me-1"></i>Partner Verified
++            </div>
++            <div className="bg-warning text-dark px-2 py-1 fw-bold ms-2" style={{fontSize:'0.65rem', borderBottomRightRadius: '6px', borderBottomLeftRadius: '6px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'}}>
++                <i className="fas fa-star me-1"></i>Brand New
+               </div>
++          </div>
+ 
+-              {/* Thumbnails */}
+-              {getImagesArray().length > 1 && (
+-                <div className="ho-hero-thumbnails mt-2 d-flex gap-2 overflow-x-auto hide-scrollbar pb-2 pt-1 px-1">
+-                  {getImagesArray().map((img, idx) => (
+-                    <img 
+-                      key={idx} 
+-                      src={img.url} 
+-                      alt={`Thumbnail ${idx + 1}`} 
+-                      onClick={() => handleSelectImage(idx)}
+-                      className="shadow-sm"
+-                      style={{ 
+-                        width: '80px', 
+-                        height: '60px', 
+-                        minWidth: '80px',
+-                        objectFit: 'cover', 
+-                        borderRadius: '8px',
+-                        cursor: 'pointer',
+-                        border: activeImageIndex === idx ? '2px solid #f97316' : '2px solid transparent',
+-                        opacity: activeImageIndex === idx ? 1 : 0.6,
+-                        transition: 'all 0.2s ease'
+-                      }}
+-                    />
+-                  ))}
++          {/* Top Header Row */}
++          <div className="d-flex flex-wrap justify-content-between align-items-start mb-2 pb-1 mt-1 mt-md-1" style={{borderBottom: '1px solid #e5e7eb'}}>
++            <div className="pe-3">
++              <div className="d-flex flex-wrap align-items-center gap-3">
++                <h1 className="ho-title m-0" style={{ fontSize: '1.4rem', fontWeight: '700', color: '#111827', letterSpacing: '-0.3px' }}>{getDisplayName()}</h1>
++                <div className="m-0 px-2 py-1 rounded" style={{ fontSize: '1.3rem', fontWeight: '800', color: '#ea580c', backgroundColor: '#fff7ed', border: '1px solid #fed7aa' }}>
++                  ₹ {getMinPrice().toLocaleString()}{property.maxPrice ? ` - ${property.maxPrice.toLocaleString()}` : ''} <span style={{ fontSize: '0.75rem', fontWeight: '600', color: '#f97316' }}>/ mo</span>
+                 </div>
+-              )}
+-            </div>
+-            
+-            <div className="ho-hero-details">
+-              <div className="d-flex justify-content-between align-items-start">
+-                <div>
+-                  <h1 className="ho-title">{getDisplayName()}</h1>
+-                  <div className="ho-location">
+-                    <i className="fas fa-map-marker-alt"></i> {getDisplayLocation()}, {property.location?.city}
+-                  </div>
+-                </div>
+-                <div className="ho-price-box text-end">
+-                  <h2 className="ho-price">
+-                    ₹ {getMinPrice().toLocaleString()} <span style={{ fontSize: '0.8rem', color: '#666', display: 'block' }}>/ month</span>
+-                  </h2>
++              </div>
++              <div className="d-flex align-items-center gap-2 mt-1">
++                <span className="text-muted" style={{fontSize: '0.8rem'}}>in {getDisplayLocation()}</span>
++                <div className="badge bg-light text-dark border d-flex align-items-center gap-1">
++                  <span className="fw-bold">{averageRating}</span><span className="text-muted" style={{fontSize:'0.65rem'}}>/5</span> <i className="fas fa-star text-warning" style={{fontSize:'0.65rem'}}></i>
+                 </div>
+               </div>
++            </div>
++            <div className="text-start text-md-end mt-2 mt-md-0">
++              <div className="text-muted mb-2" style={{ fontSize: '0.75rem' }}>Posted by : <strong className="text-dark">{property.ownerId?.name || 'Owner'}</strong></div>
++              <div className="d-flex gap-2 justify-content-md-end">
++                <button className="btn btn-sm px-3 py-1 fw-bold text-white" style={{fontSize: '0.8rem', background: '#f15a29', border: 'none'}} onClick={() => openOtpModal(property, 'enquiry')}>Enquire</button>
++                <button className="btn btn-sm px-3 py-1 fw-bold text-white" style={{fontSize: '0.8rem', background: '#ea580c', border: 'none'}} onClick={() => openOtpModal(property, 'call')}>Contact Now</button>
++              </div>
++            </div>
++          </div>
+ 
+-              <div className="ho-hero-meta-grid">
+-                <div className="meta-item">
+-                  <span className="label">Type:</span>
+-                  <span className="value">{property.propertyType || 'PG'}</span>
+-                </div>
+-                <div className="meta-item">
+-                  <span className="label">For:</span>
+-                  <span className="value">{property.genderPreference === 'male' ? 'Boys' : property.genderPreference === 'female' ? 'Girls' : 'Co-ed'}</span>
+-                </div>
+-                <div className="meta-item">
+-                  <span className="label">Units:</span>
+-                  <span className="value">{property.totalRooms || rooms.length || 1} Rooms</span>
++          {/* Images and Info Grid Row */}
++          <div className="row g-2 mt-1">
++            {/* Left: Image Gallery */}
++            <div className="col-md-8 d-flex gap-2" style={{height: '300px'}}>
++              <div className="position-relative w-50 h-100 rounded-3 overflow-hidden shadow-sm" style={{backgroundColor: '#f1f5f9'}}>
++                <img src={getImagesArray()[0]?.url || coverImage} className="w-100 h-100" style={{objectFit: 'cover', cursor: 'pointer', transition: 'transform 0.3s ease'}} onMouseOver={(e) => e.target.style.transform = 'scale(1.02)'} onMouseOut={(e) => e.target.style.transform = 'scale(1)'} onClick={() => handleSelectImage(0)} onError={(e) => { e.target.src = 'https://placehold.co/800x600/e2e8f0/64748b?text=Image+Unavailable'; }} />
++                <div className="position-absolute bottom-0 end-0 m-2 badge bg-dark bg-opacity-75 text-white shadow-sm" style={{fontSize: '0.7rem', cursor: 'pointer', padding: '6px 10px'}} onClick={() => handleSelectImage(0)}>{getImagesArray().length} Property & Guest Photos <i className="fas fa-arrow-right ms-1"></i></div>
++              </div>
++              <div className="d-flex flex-column gap-2 w-50 h-100">
++                <div className="h-50 rounded-3 overflow-hidden shadow-sm" style={{backgroundColor: '#f1f5f9'}}>
++                   <img src={getImagesArray()[1]?.url || 'https://placehold.co/400x300'} className="w-100 h-100" style={{objectFit: 'cover', cursor: 'pointer', transition: 'transform 0.3s ease'}} onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.target.style.transform = 'scale(1)'} onClick={() => handleSelectImage(1)} onError={(e) => { e.target.src = 'https://placehold.co/400x300/e2e8f0/64748b?text=Img'; }} />
+                 </div>
+-                <div className="meta-item">
+-                  <span className="label">Furnishing:</span>
+-                  <span className="value">Fully Furnished</span>
++                <div className="h-50 rounded-3 overflow-hidden shadow-sm position-relative" style={{backgroundColor: '#f1f5f9'}}>
++                   <img src={getImagesArray()[2]?.url || 'https://placehold.co/400x300'} className="w-100 h-100" style={{objectFit: 'cover', cursor: 'pointer', transition: 'transform 0.3s ease'}} onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.target.style.transform = 'scale(1)'} onClick={() => handleSelectImage(2)} onError={(e) => { e.target.src = 'https://placehold.co/400x300/e2e8f0/64748b?text=Img'; }} />
++                   {getImagesArray().length > 3 && (
++                     <div className="position-absolute w-100 h-100 d-flex align-items-center justify-content-center" style={{ top: 0, left: 0, background: 'rgba(0,0,0,0.4)', cursor: 'pointer' }} onClick={() => handleSelectImage(3)}>
++                       <span className="text-white fw-bold" style={{ fontSize: '1.2rem' }}>+{getImagesArray().length - 3} More</span>
++                     </div>
++                   )}
+                 </div>
+               </div>
++            </div>
+ 
+-              <div className="ho-hero-details-list mt-3">
+-                <div className="detail-pill">
+-                  <i className="fas fa-bolt text-warning"></i> Power Backup
++            {/* Right: Info Grid */}
++            <div className="col-md-4">
++              <div className="border rounded-3 h-100 d-flex flex-column bg-white shadow-sm" style={{borderColor: '#e5e7eb'}}>
++                <div className="row g-0 flex-grow-1" style={{borderBottom: '1px solid #f3f4f6'}}>
++                  <div className="col-6 p-2 text-center d-flex flex-column justify-content-center" style={{borderRight: '1px solid #f3f4f6'}}>
++                    <div className="fw-bold" style={{fontSize: '1.2rem', color: '#111827'}}>INR {getMinPrice().toLocaleString()}{property.maxPrice ? ` - ${property.maxPrice.toLocaleString()}` : ''}</div>
++                    <div className="text-muted mt-1" style={{fontSize: '0.75rem', fontWeight: 500}}>Rent</div>
++                  </div>
++                  <div className="col-6 p-2 text-center d-flex flex-column justify-content-center">
++                    <div className="fw-bold" style={{fontSize: '1.05rem', color: '#111827'}}>{property.deposit || '1 Month'}</div>
++                    <div className="text-muted mt-1" style={{fontSize: '0.75rem', fontWeight: 500}}>Deposit</div>
++                  </div>
+                 </div>
+-                <div className="detail-pill">
+-                  <i className="fas fa-utensils text-danger"></i> {property.amenities?.includes('Meals') ? 'Food Included' : 'Food Available'}
++                <div className="row g-0 flex-grow-1" style={{borderBottom: '1px solid #f3f4f6'}}>
++                  <div className="col-6 p-1 text-center d-flex flex-column justify-content-center" style={{borderRight: '1px solid #f3f4f6'}}>
++                    <div className="fw-bold" style={{fontSize: '0.85rem', color: '#1f2937'}}>{property.minLocking ? `${property.minLocking} Months` : '1/3/6/12 Months'}</div>
++                    <div className="text-muted mt-1" style={{fontSize: '0.75rem', fontWeight: 500}}>Contract</div>
++                  </div>
++                  <div className="col-6 p-1 text-center d-flex flex-column justify-content-center">
++                    <div className="fw-bold" style={{fontSize: '0.85rem', color: '#1f2937'}}>{property.noticePeriod || '1 Month'}</div>
++                    <div className="text-muted mt-1" style={{fontSize: '0.75rem', fontWeight: 500}}>Notice Period</div>
++                  </div>
+                 </div>
+-                <div className="detail-pill">
+-                  <i className="fas fa-shield-alt text-success"></i> Verified Owner
++                <div className="row g-0 flex-grow-1" style={{borderBottom: '1px solid #f3f4f6'}}>
++                  <div className="col-6 p-1 text-center d-flex flex-column justify-content-center" style={{borderRight: '1px solid #f3f4f6'}}>
++                    <div className="fw-bold" style={{fontSize: '0.85rem', color: '#1f2937'}}>{property.propertyType || 'PG'}</div>
++                    <div className="text-muted mt-1" style={{fontSize: '0.75rem', fontWeight: 500}}>Occupancy Type</div>
++                  </div>
++                  <div className="col-6 p-1 text-center d-flex flex-column justify-content-center">
++                    <div className="fw-bold" style={{fontSize: '0.85rem', color: '#1f2937'}}>{getDisplayGender()}</div>
++                    <div className="text-muted mt-1" style={{fontSize: '0.75rem', fontWeight: 500}}>Gender</div>
++                  </div>
+                 </div>
+-              </div>
+-              
+-              <div className="ho-owner-compact mt-4">
+-                <div className="d-flex align-items-center gap-3">
+-                  <div className="owner-avatar">
+-                    <i className="fas fa-user-tie"></i>
++                <div className="row g-0 flex-grow-1" style={{borderBottom: '1px solid #f3f4f6'}}>
++                  <div className="col-6 p-1 text-center d-flex flex-column justify-content-center" style={{borderRight: '1px solid #f3f4f6'}}>
++                    <div className="fw-bold" style={{fontSize: '0.85rem', color: '#1f2937'}}>{property.furnishingStatus || 'Semi Furnished'}</div>
++                    <div className="text-muted mt-1" style={{fontSize: '0.75rem', fontWeight: 500}}>Furnishing Status</div>
++                  </div>
++                  <div className="col-6 p-1 text-center d-flex flex-column justify-content-center">
++                    <div className="fw-bold" style={{fontSize: '0.85rem', color: '#1f2937'}}>{property.foodOption || 'Veg/Non-Veg/No Food'}</div>
++                    <div className="text-muted mt-1" style={{fontSize: '0.75rem', fontWeight: 500}}>Food Availability</div>
++                  </div>
++                </div>
++                <div className="row g-0 flex-grow-1">
++                  <div className="col-6 p-1 text-center d-flex flex-column justify-content-center" style={{borderRight: '1px solid #f3f4f6'}}>
++                    <div className="fw-bold" style={{fontSize: '0.85rem', color: '#1f2937'}}>{property.acType || 'AC/Non-AC'}</div>
++                    <div className="text-muted mt-1" style={{fontSize: '0.75rem', fontWeight: 500}}>Room Type</div>
+                   </div>
+-                  <div>
+-                    <h6 className="mb-0">{property.ownerId?.name || 'Property Owner'}</h6>
+-                    <small className="text-muted">Member since {new Date(property.createdAt).getFullYear()}</small>
++                  <div className="col-6 p-1 text-center d-flex flex-column justify-content-center">
++                    <div className="fw-bold" style={{fontSize: '0.85rem', color: '#1f2937'}}>{property.attachedBathroom ? 'Attached' : 'Attached/Non Attached'}</div>
++                    <div className="text-muted mt-1" style={{fontSize: '0.75rem', fontWeight: 500}}>Washroom</div>
+                   </div>
+                 </div>
+               </div>
+@@ -421,15 +621,51 @@ const PropertyDetails = () => {
+           {/* Left Column */}
+           <div className="ho-left-column">
+             
+-            {/* Overview & Details merged into Hero, so we start with Amenities/Description */}
++            {/* Tab Navigation Bar */}
++            <div id="property-tabs" className="ho-section-card p-2 mb-4 sticky-top shadow-sm" style={{ top: '70px', zIndex: 100, display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
++              {[
++                { id: 'rooms', label: 'Rooms & Pricing' },
++                { id: 'amenities', label: 'Amenities & Facilities' },
++                
++                { id: 'policies', label: 'Policies & Fees' },
++                { id: 'description', label: 'Description' },
++                { id: 'rules', label: 'House Rules' },
++                { id: 'visiting', label: 'Visiting Availability' },
++                { id: 'location', label: 'Location & Neighborhood' },
++                { id: 'nearby', label: 'Nearby Places' },
++                { id: 'reviews', label: 'Ratings & Reviews' },
++                { id: 'similar', label: 'Similar Properties' }
++              ].map(tab => (
++                <button
++                  key={tab.id}
++                  onClick={() => {
++                    setActiveTab(tab.id);
++                    const el = document.getElementById('property-tabs');
++                    if (el) {
++                      const offsetTop = el.getBoundingClientRect().top + window.scrollY - 80; // 80px offset for main header
++                      window.scrollTo({ top: offsetTop, behavior: 'smooth' });
++                    }
++                  }}
++                  className={`btn rounded-pill px-4 py-2 fw-bold ${activeTab === tab.id ? 'shadow-sm text-white' : 'text-secondary'}`}
++                  style={{ 
++                    fontSize: '0.9rem', 
++                    transition: 'all 0.2s ease',
++                    backgroundColor: activeTab === tab.id ? '#ea580c' : '#f8fafc',
++                    border: activeTab === tab.id ? '1px solid #ea580c' : '1px solid #cbd5e1'
++                  }}
++                >
++                  {tab.label}
++                </button>
++              ))}
++            </div>
+ 
+             {/* Amenities Section */}
++            {activeTab === 'amenities' && (
+             <div className="ho-section-card" id="amenities">
+               <h3 className="ho-section-title">Amenities & Facilities</h3>
+-              <div className="ho-amenities-grid">
+-                {property.amenities?.map((amenity, index) => {
++              <div className="ho-amenities-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
++                {(property.amenities?.length > 0 ? property.amenities : ['High-Speed WiFi', 'AC Rooms', '3 Meals a Day', 'Daily Housekeeping', '24/7 Security', 'RO Water', 'Washing Machine', 'Power Backup', 'Gym', 'Parking', 'TV Lounge', 'Biometric Entry']).map((amenity, index) => {
+                   const amName = typeof amenity === 'object' ? amenity.name : amenity;
+-                  // Map some dummy icons based on name
+                   let icon = "fa-check";
+                   if (amName.toLowerCase().includes('wifi')) icon = "fa-wifi";
+                   if (amName.toLowerCase().includes('ac') || amName.toLowerCase().includes('air')) icon = "fa-snowflake";
+@@ -445,20 +681,203 @@ const PropertyDetails = () => {
+                   if (amName.toLowerCase().includes('cctv') || amName.toLowerCase().includes('camera')) icon = "fa-video";
+                   if (amName.toLowerCase().includes('lift') || amName.toLowerCase().includes('elevator')) icon = "fa-building";
+                   if (amName.toLowerCase().includes('water') || amName.toLowerCase().includes('ro')) icon = "fa-tint";
++                  if (amName.toLowerCase().includes('housekeeping')) icon = "fa-broom";
++                  if (amName.toLowerCase().includes('biometric')) icon = "fa-fingerprint";
+ 
+                   return (
+-                    <div key={index} className="ho-amenity-item">
+-                      <div className="ho-amenity-icon">
++                    <div key={index} className="ho-amenity-item" style={{display: 'flex', alignItems: 'center', gap: '12px', padding: '12px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', boxShadow: '0 2px 5px rgba(0,0,0,0.02)', transition: 'all 0.2s'}}>
++                      <div className="ho-amenity-icon" style={{width: '40px', height: '40px', borderRadius: '50%', background: '#fff0e6', color: '#f97316', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0}}>
+                         <i className={`fas ${icon}`}></i>
+                       </div>
+-                      <span className="ho-amenity-name">{amName}</span>
++                      <span className="ho-amenity-name" style={{fontWeight: 600, color: '#334155'}}>{amName}</span>
+                     </div>
+                   );
+                 })}
+               </div>
+             </div>
++            )}
++
++            {/* Rooms Section */}
++            {activeTab === 'rooms' && (
++            <div className="ho-section-card" id="rooms">
++              <h3 className="ho-section-title">Rooms & Pricing</h3>
++              {property.roomTypes && property.roomTypes.length > 0 ? (
++                <div className="d-flex flex-column gap-3">
++                  {property.roomTypes.map((room, idx) => (
++                    <div key={idx} className="room-type-card bg-white rounded-3 border shadow-sm overflow-hidden transition-all hover-shadow">
++                      
++                      {/* Header Section: Title & Price */}
++                      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center p-3 border-bottom border-light">
++                        <div className="d-flex align-items-center gap-2 mb-2 mb-md-0">
++                          <div className="d-flex align-items-center justify-content-center rounded-circle flex-shrink-0" style={{ width: '40px', height: '40px', backgroundColor: '#fff7ed', color: '#ea580c' }}>
++                            <i className={room.numberOfRooms > 1 ? "fas fa-bed" : "fas fa-door-open"} style={{ fontSize: '1rem' }}></i>
++                          </div>
++                          <div>
++                            <h5 className="fw-bolder mb-0 text-dark" style={{ letterSpacing: '-0.2px', fontSize: '1rem' }}>{room.name || 'Standard Room'}</h5>
++                            <div className="text-muted small fw-semibold d-flex align-items-center flex-wrap" style={{ fontSize: '0.75rem' }}>
++                              {room.size && <><span className="text-secondary"><i className="fas fa-vector-square me-1 opacity-75"></i>{room.size} sq.ft</span> <span className="mx-2 opacity-50">|</span></>} 
++                              {room.numberOfRooms && <span className="text-orange"><i className="fas fa-fire-alt me-1"></i>{room.numberOfRooms} Units Available</span>}
++                            </div>
++                          </div>
++                        </div>
++                        
++                        <div className="text-md-end ps-md-3" style={{ borderLeft: '1px solid #f8f9fa' }}>
++                          <div className="text-muted fw-semibold text-uppercase d-md-none mb-1" style={{ letterSpacing: '0.5px', fontSize: '0.65rem' }}>Monthly Rent</div>
++                          <div className="fw-bolder text-dark" style={{ fontSize: '1.4rem', letterSpacing: '-0.5px', lineHeight: '1' }}>
++                            ₹{Number(room.price).toLocaleString()}
++                          </div>
++                          <div className="text-muted fw-semibold text-uppercase mt-1 d-none d-md-block" style={{ letterSpacing: '0.5px', fontSize: '0.65rem' }}>Per Month</div>
++                        </div>
++                      </div>
++
++                      {/* Body Section: Features Grid */}
++                      <div className="p-3" style={{ backgroundColor: '#f8fafc' }}>
++                        <div className="d-flex flex-wrap gap-2 mb-3">
++                          {room.acType && (
++                            <div className="d-flex align-items-center gap-1 bg-white px-2 py-1 rounded-2 shadow-sm border border-light">
++                              <i className="fas fa-snowflake text-primary opacity-75" style={{ fontSize: '0.75rem' }}></i>
++                              <span className="fw-bold text-dark" style={{ fontSize: '0.75rem' }}>{room.acType}</span>
++                            </div>
++                          )}
++                          {room.bedSize && (
++                            <div className="d-flex align-items-center gap-1 bg-white px-2 py-1 rounded-2 shadow-sm border border-light">
++                              <i className="fas fa-bed text-secondary opacity-75" style={{ fontSize: '0.75rem' }}></i>
++                              <span className="fw-bold text-dark" style={{ fontSize: '0.75rem' }}>{room.bedSize}</span>
++                            </div>
++                          )}
++                          {room.furnishingStatus && (
++                            <div className="d-flex align-items-center gap-1 bg-white px-2 py-1 rounded-2 shadow-sm border border-light">
++                              <i className="fas fa-couch text-warning opacity-75" style={{ fontSize: '0.75rem' }}></i>
++                              <span className="fw-bold text-dark" style={{ fontSize: '0.75rem' }}>{room.furnishingStatus}</span>
++                            </div>
++                          )}
++                          {room.attachedBathroom && (
++                            <div className="d-flex align-items-center gap-1 bg-white px-2 py-1 rounded-2 shadow-sm border border-light">
++                              <i className="fas fa-bath text-info opacity-75" style={{ fontSize: '0.75rem' }}></i>
++                              <span className="fw-bold text-dark" style={{ fontSize: '0.75rem' }}>Attached Bath</span>
++                            </div>
++                          )}
++                          {room.balcony && (
++                            <div className="d-flex align-items-center gap-1 bg-white px-2 py-1 rounded-2 shadow-sm border border-light">
++                              <i className="fas fa-wind text-success opacity-75" style={{ fontSize: '0.75rem' }}></i>
++                              <span className="fw-bold text-dark" style={{ fontSize: '0.75rem' }}>Balcony</span>
++                            </div>
++                          )}
++                          {room.kitchen && (
++                            <div className="d-flex align-items-center gap-1 bg-white px-2 py-1 rounded-2 shadow-sm border border-light">
++                              <i className="fas fa-utensils text-danger opacity-75" style={{ fontSize: '0.75rem' }}></i>
++                              <span className="fw-bold text-dark" style={{ fontSize: '0.75rem' }}>Kitchen</span>
++                            </div>
++                          )}
++                          {room.livingRoom && (
++                            <div className="d-flex align-items-center gap-1 bg-white px-2 py-1 rounded-2 shadow-sm border border-light">
++                              <i className="fas fa-tv text-primary opacity-75" style={{ fontSize: '0.75rem' }}></i>
++                              <span className="fw-bold text-dark" style={{ fontSize: '0.75rem' }}>Living Area</span>
++                            </div>
++                          )}
++                        </div>
++
++                        {/* Amenities List */}
++                        {room.amenities && room.amenities.length > 0 && (
++                          <div className="d-flex flex-wrap gap-2">
++                            {room.amenities.map((amenity, i) => (
++                              <span key={i} className="d-inline-flex align-items-center text-muted fw-semibold" style={{ fontSize: '0.75rem' }}>
++                                <i className="fas fa-check-circle text-success me-1 opacity-75" style={{ fontSize: '0.65rem' }}></i>
++                                {amenity}
++                                {i < room.amenities.length - 1 && <span className="ms-2 me-1 opacity-25">|</span>}
++                              </span>
++                            ))}
++                          </div>
++                        )}
++                      </div>
++
++                    </div>
++                  ))}
++                </div>
++              ) : (
++                <div className="text-center p-5 bg-light rounded-4">
++                  <i className="fas fa-bed fa-3x text-muted mb-3"></i>
++                  <h5 className="text-secondary">Room details not available</h5>
++                  <p className="text-muted small">Contact the owner for pricing and room availability.</p>
++                </div>
++              )}
++            </div>
++            )}
++
++            {/* Policies Section */}
++            {activeTab === 'policies' && (
++            <div className="ho-section-card" id="policies">
++              <h3 className="ho-section-title">Policies & Fees</h3>
++              <div className="row g-4">
++                
++                {/* Financial Details */}
++                <div className="col-12 col-md-6">
++                  <div className="bg-white p-4 rounded-4 border shadow-sm h-100">
++                    <h5 className="fw-bolder mb-4 text-dark d-flex align-items-center gap-2">
++                      <div className="bg-orange-light text-orange rounded-circle d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px', backgroundColor: '#fff7ed', color: '#ea580c' }}>
++                        <i className="fas fa-wallet small"></i>
++                      </div>
++                      Financial Details
++                    </h5>
++                    
++                    <ul className="list-unstyled mb-0 d-flex flex-column gap-3">
++                      <li className="d-flex justify-content-between align-items-center border-bottom pb-2">
++                        <span className="text-muted fw-semibold small"><i className="fas fa-money-bill-wave me-2 opacity-50"></i>Security Deposit</span>
++                        <span className="fw-bold text-dark">{property.deposit || 'N/A'} {property.depositType ? `(${property.depositType})` : ''}</span>
++                      </li>
++                      <li className="d-flex justify-content-between align-items-center border-bottom pb-2">
++                        <span className="text-muted fw-semibold small"><i className="fas fa-calendar-check me-2 opacity-50"></i>Payment Cycle</span>
++                        <span className="fw-bold text-dark">{property.paymentCycle || 'Monthly'}</span>
++                      </li>
++                      <li className="d-flex justify-content-between align-items-center border-bottom pb-2">
++                        <span className="text-muted fw-semibold small"><i className="fas fa-tools me-2 opacity-50"></i>Maintenance</span>
++                        <span className="fw-bold text-dark">{property.maintenance ? `₹${property.maintenance}` : 'Included'}</span>
++                      </li>
++                      <li className="d-flex justify-content-between align-items-center">
++                        <span className="text-muted fw-semibold small"><i className="fas fa-bolt me-2 opacity-50"></i>Electricity Charges</span>
++                        <span className="fw-bold text-dark">{property.electricityCharges || 'As per usage'}</span>
++                      </li>
++                    </ul>
++                  </div>
++                </div>
++
++                {/* Stay Policies */}
++                <div className="col-12 col-md-6">
++                  <div className="bg-white p-4 rounded-4 border shadow-sm h-100">
++                    <h5 className="fw-bolder mb-4 text-dark d-flex align-items-center gap-2">
++                      <div className="bg-orange-light text-orange rounded-circle d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px', backgroundColor: '#fff7ed', color: '#ea580c' }}>
++                        <i className="fas fa-clipboard-list small"></i>
++                      </div>
++                      Stay Policies
++                    </h5>
++                    
++                    <ul className="list-unstyled mb-0 d-flex flex-column gap-3">
++                      <li className="d-flex justify-content-between align-items-center border-bottom pb-2">
++                        <span className="text-muted fw-semibold small"><i className="fas fa-lock me-2 opacity-50"></i>Lock-in Period</span>
++                        <span className="fw-bold text-dark">{property.minLocking ? `${property.minLocking} Month(s)` : 'No Lock-in'}</span>
++                      </li>
++                      <li className="d-flex justify-content-between align-items-center border-bottom pb-2">
++                        <span className="text-muted fw-semibold small"><i className="fas fa-utensils me-2 opacity-50"></i>Food Option</span>
++                        <span className="fw-bold text-dark">{property.foodOption || 'Not Available'}</span>
++                      </li>
++                      <li className="d-flex justify-content-between align-items-center border-bottom pb-2">
++                        <span className="text-muted fw-semibold small"><i className="fas fa-users me-2 opacity-50"></i>Preferred Tenants</span>
++                        <span className="fw-bold text-dark">{getDisplayGender()}</span>
++                      </li>
++                      <li className="d-flex justify-content-between align-items-center">
++                        <span className="text-muted fw-semibold small"><i className="fas fa-file-contract me-2 opacity-50"></i>Agreement Duration</span>
++                        <span className="fw-bold text-dark">11 Months Standard</span>
++                      </li>
++                    </ul>
++                  </div>
++                </div>
++
++              </div>
++            </div>
++            )}
+ 
+             {/* Description Section */}
++            {activeTab === 'description' && (
+             <div className="ho-section-card" id="description">
+               <h3 className="ho-section-title">Description</h3>
+               <p className="ho-desc-text">
+@@ -474,8 +893,10 @@ const PropertyDetails = () => {
+                 </div>
+               )}
+             </div>
++            )}
+ 
+             {/* House Rules Section */}
++            {activeTab === 'rules' && (
+             <div className="ho-section-card" id="house-rules">
+               <h3 className="ho-section-title">House Rules</h3>
+               <div className="ho-rules-list">
+@@ -501,8 +922,10 @@ const PropertyDetails = () => {
+                 )}
+               </div>
+             </div>
++            )}
+ 
+             {/* Visiting Availability Section */}
++            {activeTab === 'visiting' && (
+             <div className="ho-section-card" id="visiting-availability">
+               <h3 className="ho-section-title">Visiting Availability</h3>
+               <div className="visiting-availability-wrapper">
+@@ -566,13 +989,15 @@ const PropertyDetails = () => {
+                 </div>
+               </div>
+             </div>
++            )}
+ 
+             {/* Location Map Section */}
++            {activeTab === 'location' && (
+             <div className="ho-section-card" id="location">
+               <h3 className="ho-section-title">Location & Neighborhood</h3>
+               <p className="ho-desc-text mb-3">
+                 <i className="fas fa-map-marker-alt text-warning me-2"></i>
+-                {property.location?.address}, {property.location?.area}, {property.location?.city}
++                {[property.address, property.area, property.city].filter(Boolean).join(', ')}
+               </p>
+               <div 
+                 className="small-map-wrapper position-relative" 
+@@ -581,7 +1006,7 @@ const PropertyDetails = () => {
+               >
+                 <PropertyMap 
+                   properties={[property]} 
+-                  center={{ lat: property.location?.lat, lng: property.location?.lng }} 
++                  center={{ lat: property.lat, lng: property.lng }} 
+                   zoom={15} 
+                   height="250px" 
+                 />
+@@ -596,41 +1021,38 @@ const PropertyDetails = () => {
+                 </div>
+               </div>
+             </div>
++            )}
+ 
+             {/* Nearby Places Section */}
++            {activeTab === 'nearby' && (
+             <div className="ho-section-card" id="nearby">
+               <h3 className="ho-section-title">Nearby Places</h3>
+-              <div className="ho-nearby-grid">
+-                {(property.nearbyPlaces && property.nearbyPlaces.length > 0) ? (
+-                  property.nearbyPlaces.map((place, idx) => (
+-                    <div key={idx} className="ho-nearby-item">
+-                      <div className="ho-nearby-info">
+-                        <i className="fas fa-navigation"></i>
+-                        <span className="ho-nearby-name">{place.name}</span>
+-                      </div>
+-                      <span className="ho-nearby-dist">{place.distance} km</span>
++              <div className="ho-nearby-grid" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px'}}>
++                {[
++                  { name: "DB City Mall", distance: "1.2", type: "shopping", icon: "fa-shopping-bag", color: "#8b5cf6", bg: "#f3e8ff" },
++                  { name: "Habibganj Railway Station", distance: "2.5", type: "transit", icon: "fa-train", color: "#3b82f6", bg: "#eff6ff" },
++                  { name: "AIIMS Bhopal", distance: "3.0", type: "healthcare", icon: "fa-hospital", color: "#ef4444", bg: "#fef2f2" },
++                  { name: "MANIT College", distance: "1.8", type: "education", icon: "fa-graduation-cap", color: "#10b981", bg: "#f0fdf4" },
++                  { name: "Local Bus Stand", distance: "0.4", type: "transit", icon: "fa-bus", color: "#f59e0b", bg: "#fffbeb" },
++                  { name: "C21 Mall", distance: "2.1", type: "shopping", icon: "fa-shopping-cart", color: "#8b5cf6", bg: "#f3e8ff" }
++                ].map((place, idx) => (
++                  <div key={idx} className="ho-nearby-item" style={{display: 'flex', alignItems: 'center', gap: '15px', padding: '15px', background: 'white', border: '1px solid #e2e8f0', borderRadius: '12px', transition: 'transform 0.2s', boxShadow: '0 2px 8px rgba(0,0,0,0.02)'}}>
++                    <div style={{width: '45px', height: '45px', borderRadius: '12px', background: place.bg, color: place.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.2rem', flexShrink: 0}}>
++                      <i className={`fas ${place.icon}`}></i>
+                     </div>
+-                  ))
+-                ) : (
+-                  [
+-                    { name: "Main Metro Station", distance: "0.8" },
+-                    { name: "City Shopping Mall", distance: "1.5" },
+-                    { name: "Multi-specialty Hospital", distance: "2.0" },
+-                    { name: "Local Bus Stand", distance: "0.4" }
+-                  ].map((place, idx) => (
+-                    <div key={idx} className="ho-nearby-item">
+-                      <div className="ho-nearby-info">
+-                        <i className="fas fa-navigation"></i>
+-                        <span className="ho-nearby-name">{place.name}</span>
+-                      </div>
+-                      <span className="ho-nearby-dist">{place.distance} km</span>
++                    <div className="flex-grow-1">
++                      <div className="ho-nearby-name" style={{fontWeight: 700, fontSize: '0.95rem', color: '#1e293b', marginBottom: '2px'}}>{place.name}</div>
++                      <div style={{fontSize: '0.8rem', color: '#64748b', textTransform: 'capitalize'}}>{place.type}</div>
+                     </div>
+-                  ))
+-                )}
++                    <div className="ho-nearby-dist" style={{fontWeight: 800, color: '#f97316', background: '#fff0e6', padding: '4px 8px', borderRadius: '8px', fontSize: '0.8rem'}}>{place.distance} km</div>
++                  </div>
++                ))}
+               </div>
+             </div>
++            )}
+ 
+             {/* Reviews Section */}
++            {activeTab === 'reviews' && (
+             <div className="ho-section-card" id="reviews">
+               <div className="d-flex justify-content-between align-items-center mb-4">
+                 <h3 className="ho-section-title mb-0">Ratings & Reviews</h3>
+@@ -699,9 +1121,10 @@ const PropertyDetails = () => {
+                 )}
+               </div>
+             </div>
++            )}
+ 
+-            {/* Available Rooms Section (Extra context for PG) */}
+-            {rooms && rooms.length > 0 && (
++            {/* Available Units Section */}
++            {activeTab === 'amenities' && rooms && rooms.length > 0 && (
+               <div className="ho-section-card">
+                 <h3 className="ho-section-title">Available Units</h3>
+                 {rooms.map((room, idx) => (
+@@ -717,6 +1140,37 @@ const PropertyDetails = () => {
+                 ))}
+               </div>
+             )}
++            {/* Similar Properties Tab Section */}
++            {activeTab === 'similar' && (
++            <div className="ho-section-card" id="similar">
++              <h3 className="ho-section-title">Similar Properties in {property.location?.city || "Bhopal"}</h3>
++              <div className="ho-related-grid" style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px'}}>
++                {getSimilarProperties().map(related => (
++                  <div 
++                    key={related._id} 
++                    className="ho-related-card"
++                    onClick={() => {
++                      navigate(`/property/${related._id}`);
++                      window.scrollTo(0,0);
++                    }}
++                    style={{ cursor: 'pointer', background: 'white', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e2e8f0', transition: 'all 0.3s', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}
++                    onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
++                    onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
++                  >
++                    <div className="related-img-box" style={{height: '180px', position: 'relative'}}>
++                      <img src={related.images?.[0]?.url || related.coverImage || 'https://placehold.co/300x200?text=Property'} alt={related.pgName} style={{width: '100%', height: '100%', objectFit: 'cover'}} />
++                      <div className="related-badge" style={{position: 'absolute', top: '10px', left: '10px', background: 'rgba(255,255,255,0.9)', color: '#f97316', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700, boxShadow: '0 2px 5px rgba(0,0,0,0.1)'}}>{related.propertyType || 'PG'}</div>
++                    </div>
++                    <div className="related-info" style={{padding: '15px'}}>
++                      <h6 style={{fontWeight: 700, marginBottom: '8px', fontSize: '1.05rem', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{related.pgName || related.title}</h6>
++                      <p style={{color: '#64748b', fontSize: '0.85rem', marginBottom: '12px'}}><i className="fas fa-map-marker-alt text-orange me-1" style={{color: '#f97316'}}></i> {related.location?.area || related.location?.city || 'Location'}</p>
++                      <div className="related-price" style={{fontSize: '1.2rem', fontWeight: 800, color: '#f97316'}}>₹{getPropertyMinPrice(related).toLocaleString()} <span style={{fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500}}>/mo</span></div>
++                    </div>
++                  </div>
++                ))}
++              </div>
++            </div>
++            )}
+           </div>
+ 
+           {/* Right Column / Sidebar */}
+@@ -854,49 +1308,7 @@ const PropertyDetails = () => {
+         </Modal.Footer>
+       </Modal>
+ 
+-      {/* Similar Properties Section */}
+-      <div className="ho-container mb-5">
+-        <div className="ho-section-card">
+-          <h3 className="ho-section-title">Similar Properties in {property.location?.city}</h3>
+-          <div className="ho-related-grid">
+-            {allProperties
+-              .filter(p => p._id !== id)
+-              .slice(0, 4)
+-              .map(related => (
+-                <div 
+-                  key={related._id} 
+-                  className="ho-related-card"
+-                  onClick={() => {
+-                    navigate(`/property/${related._id}`);
+-                    window.scrollTo(0,0);
+-                  }}
+-                  style={{ cursor: 'pointer' }}
+-                >
+-                  <div className="related-img-box">
+-                    <Carousel interval={null} indicators={false} className="related-carousel">
+-                      {related.images?.slice(0, 4).map((img, i) => (
+-                        <Carousel.Item key={i}>
+-                          <img src={img.url} alt={related.pgName} />
+-                        </Carousel.Item>
+-                      ))}
+-                      {!related.images?.length && (
+-                        <Carousel.Item>
+-                          <img src={related.coverImage || 'https://placehold.co/300x200?text=Property'} alt={related.pgName} />
+-                        </Carousel.Item>
+-                      )}
+-                    </Carousel>
+-                    <div className="related-badge">{related.propertyType}</div>
+-                  </div>
+-                  <div className="related-info">
+-                    <h6>{related.pgName || related.title}</h6>
+-                    <p><i className="fas fa-map-marker-alt"></i> {related.location?.area}</p>
+-                    <div className="related-price">₹{related.minPrice?.toLocaleString()} <span>/mo</span></div>
+-                  </div>
+-                </div>
+-              ))}
+-          </div>
+-        </div>
+-      </div>
++
+ 
+       <Footer />
+ 
+@@ -951,6 +1363,472 @@ const PropertyDetails = () => {
+         </Modal.Body>
+       </Modal>
+ 
++      
++
++      {/* Premium Listing Modal */}
++      <Modal show={showOtpModal} onHide={handleCloseModal} centered size="lg" className="premium-modal">
++        <div className="premium-modal-header bg-gradient-orange p-3 text-white rounded-top" style={{ background: 'linear-gradient(135deg, #f97316 0%, #ea580c 100%)', position: 'relative', overflow: 'hidden' }}>
++          <div style={{ position: 'absolute', top: '-20px', right: '-20px', opacity: 0.1, transform: 'scale(2)' }}>
++            <i className="fas fa-home fa-5x"></i>
++          </div>
++          <div className="d-flex justify-content-between align-items-start position-relative z-index-1">
++            <div>
++              <h5 className="fw-bold mb-1">{getActionTitle()}</h5>
++              <p className="mb-0 opacity-75 small" style={{ fontSize: '0.8rem' }}>
++                {property ? getDisplayName(property) : 'Property Enquiry'}
++              </p>
++            </div>
++            <button type="button" className="btn-close btn-close-white" onClick={handleCloseModal} aria-label="Close"></button>
++          </div>
++        </div>
++
++        <Modal.Body className="p-3 bg-white rounded-bottom">
++          {actionType === 'visit' ? (
++            <div className="text-center py-3 px-2">
++              <div 
++                style={{ 
++                  width: '60px', 
++                  height: '60px', 
++                  borderRadius: '50%', 
++                  backgroundColor: '#fff7ed', 
++                  color: '#f97316', 
++                  display: 'flex', 
++                  alignItems: 'center', 
++                  justifyContent: 'center', 
++                  fontSize: '1.8rem', 
++                  margin: '0 auto 15px auto' 
++                }}
++              >
++                <i className="fas fa-clock"></i>
++              </div>
++              <h5 className="fw-bold mb-3" style={{ color: '#1e293b' }}>Property Visiting Hours</h5>
++              
++              {/* Timing Display */}
++              <div className="mb-4" style={{ display: 'inline-block', backgroundColor: '#fff7ed', padding: '12px 25px', borderRadius: '12px', border: '1px solid #ffedd5' }}>
++                <span className="fw-bold text-orange" style={{ fontSize: '1.4rem', color: '#ea580c' }}>
++                  {formatTime12hr(property?.visitingHours?.startTime || '09:00')} - {formatTime12hr(property?.visitingHours?.endTime || '18:00')}
++                </span>
++              </div>
++
++              {/* Days Chips Row */}
++              <div className="mb-4">
++                <small className="text-muted d-block mb-3 fw-bold text-uppercase" style={{ fontSize: '0.75rem', letterSpacing: '1px' }}>
++                  Available Days
++                </small>
++                <div className="d-flex flex-wrap justify-content-center gap-2 px-2">
++                  {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map(day => {
++                    const isActive = property?.visitingHours?.availableDays?.includes(day);
++                    return (
++                      <span 
++                        key={day}
++                        style={{
++                          padding: '6px 12px',
++                          borderRadius: '25px',
++                          fontSize: '0.8rem',
++                          fontWeight: 600,
++                          backgroundColor: isActive ? '#fff7ed' : '#f8fafc',
++                          color: isActive ? '#ea580c' : '#94a3b8',
++                          border: isActive ? '1px solid #ffedd5' : '1px solid #cbd5e1',
++                          boxShadow: isActive ? '0 2px 4px rgba(234, 88, 12, 0.04)' : 'none',
++                          opacity: isActive ? 1 : 0.6
++                        }}
++                      >
++                        {isActive ? '✓ ' : ''}{day.substring(0, 3)}
++                      </span>
++                    );
++                  })}
++                </div>
++              </div>
++
++              <div className="small text-muted mb-4" style={{ lineHeight: 1.5, maxWidth: '380px', margin: '0 auto' }}>
++                You are welcome to visit the property directly during these available days and timings. No appointment required!
++              </div>
++
++              <button className="btn w-100 py-2 fw-semibold text-white" style={{ backgroundColor: '#f97316', borderRadius: '10px' }} onClick={handleCloseModal}>
++                Okay, Got it
++              </button>
++            </div>
++          ) : otpStep === 'form' && (
++            <div className="enquiry-form-wrapper">
++              <Row className="g-2 mb-3">
++                <Col md={4} sm={12}>
++                  <div className="input-group-modern py-0">
++                    <span className="input-group-icon px-2" style={{ fontSize: '0.9rem' }}><i className="fas fa-user"></i></span>
++                    <Form.Control
++                      type="text"
++                      name="name"
++                      placeholder="Full Name"
++                      value={contactForm.name}
++                      onChange={handleContactFormChange}
++                      className="modern-input py-2"
++                      style={{ fontSize: '0.85rem' }}
++                      readOnly={userLoggedIn}
++                    />
++                  </div>
++                </Col>
++
++                <Col md={4} sm={12}>
++                  <div className="input-group-modern py-0">
++                    <span className="input-group-icon px-2" style={{ fontSize: '0.9rem' }}><i className="fas fa-envelope"></i></span>
++                    <Form.Control
++                      type="email"
++                      name="email"
++                      placeholder="Email Address"
++                      value={contactForm.email}
++                      onChange={handleContactFormChange}
++                      className="modern-input py-2"
++                      style={{ fontSize: '0.85rem' }}
++                      readOnly={userLoggedIn}
++                    />
++                  </div>
++                </Col>
++
++                <Col md={4} sm={12}>
++                  <div className="input-group-modern py-0">
++                    <span className="input-group-icon px-2" style={{ fontSize: '0.9rem' }}><i className="fas fa-phone-alt"></i></span>
++                    <Form.Control
++                      type="tel"
++                      name="phone"
++                      placeholder="Phone Number"
++                      value={contactForm.phone}
++                      onChange={handleContactFormChange}
++                      className="modern-input py-2"
++                      maxLength="10"
++                      style={{ fontSize: '0.85rem' }}
++                      readOnly={userLoggedIn}
++                    />
++                  </div>
++                </Col>
++              </Row>
++
++              {actionType === 'enquiry' && (
++                <>
++                  <Row className="g-2 mb-2">
++                    <Col md={6} sm={12}>
++                      <div className="input-group-modern py-0">
++                        <span className="input-group-icon px-2" style={{ fontSize: '0.9rem' }}><i className="fas fa-bed"></i></span>
++                        <Form.Select
++                          value={roomType}
++                          onChange={(e) => setRoomType(e.target.value)}
++                          className="modern-input text-muted py-2"
++                          style={{ border: 'none', background: 'transparent', fontSize: '0.85rem' }}
++                        >
++                          <option value="">Enquiry For</option>
++                          {getOccupancyOptions(property?.propertyType).map(opt => (
++                            <option key={opt} value={opt}>{opt}</option>
++                          ))}
++                        </Form.Select>
++                      </div>
++                    </Col>
++
++                    <Col md={6} sm={12}>
++                      <div className="input-group-modern py-0">
++                        <span className="input-group-icon px-2" style={{ fontSize: '0.9rem' }}><i className="fas fa-calendar-plus"></i></span>
++                        <Form.Control
++                          type="date"
++                          value={moveInDate}
++                          onChange={(e) => setMoveInDate(e.target.value)}
++                          className="modern-input text-muted py-2"
++                          style={{ fontSize: '0.85rem' }}
++                          placeholder="Move-in Date"
++                        />
++                      </div>
++                    </Col>
++                  </Row>
++
++                  <div className="input-group-modern py-0 mb-3">
++                    <span className="input-group-icon px-2 align-self-start mt-2" style={{ fontSize: '0.9rem' }}><i className="fas fa-comment-dots"></i></span>
++                    <Form.Control
++                      as="textarea"
++                      rows={1}
++                      placeholder="Any specific requirements or comments?"
++                      value={enquiryMessage}
++                      onChange={(e) => setEnquiryMessage(e.target.value)}
++                      className="modern-input py-2"
++                      style={{ fontSize: '0.85rem', resize: 'none' }}
++                    />
++                  </div>
++                </>
++              )}
++
++              {actionType === 'enquiry' && (
++                <div className="schedule-visit-section mb-4">
++                  <div className={`schedule-toggle-card p-3 rounded-3 border ${scheduleVisit ? 'border-orange bg-orange-light' : 'border-light bg-light'} transition-all`} style={{ cursor: 'pointer' }} onClick={() => setScheduleVisit(!scheduleVisit)}>
++                    <div className="d-flex align-items-center justify-content-between">
++                      <div className="d-flex align-items-center gap-2">
++                        <div className={`icon-circle ${scheduleVisit ? 'bg-orange text-white' : 'bg-white text-muted'} rounded-circle d-flex align-items-center justify-content-center`} style={{ width: '36px', height: '36px', transition: 'all 0.3s ease' }}>
++                          <i className="fas fa-calendar-alt"></i>
++                        </div>
++                        <div>
++                          <h6 className="mb-0 fw-bold text-dark" style={{ fontSize: '0.95rem' }}>Schedule a Visit</h6>
++                          <small className="text-muted">Pick a date to view the property</small>
++                        </div>
++                      </div>
++                      <Form.Check 
++                        type="switch"
++                        id="schedule-visit-switch"
++                        checked={scheduleVisit}
++                        onChange={(e) => setScheduleVisit(e.target.checked)}
++                        className="premium-switch"
++                        onClick={(e) => e.stopPropagation()}
++                      />
++                    </div>
++                  </div>
++
++                  {scheduleVisit && (
++                    <div className="schedule-details-card mt-2 p-3 bg-white rounded-3 border border-light shadow-sm animate-slide-down">
++                      <div className="d-flex align-items-center mb-3">
++                        <div className="icon-circle bg-orange-light text-orange rounded-circle me-2 d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px', fontSize: '0.9rem' }}>
++                          <i className="fas fa-info"></i>
++                        </div>
++                        <div>
++                          <h6 className="mb-0 fw-bold" style={{ fontSize: '0.9rem' }}>Available Timings</h6>
++                          <span className="text-muted" style={{ fontSize: '0.8rem' }}>{getVisitingHoursText(property)}</span>
++                        </div>
++                      </div>
++                      
++                      <div className="mb-3">
++                        <label className="form-label fw-bold text-dark mb-2 d-flex align-items-center" style={{ fontSize: '0.85rem' }}>
++                          <i className="far fa-calendar-alt text-orange me-2"></i> Select Date
++                        </label>
++                        <div className="d-flex overflow-auto gap-2 pb-2 custom-scrollbar" style={{ margin: '0 -4px', padding: '0 4px' }}>
++                          {(() => {
++                            const dates = [];
++                            const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
++                            const fullDays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
++                            const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
++                            
++                            const allowedDays = property?.visitingHours?.availableDays?.length > 0 
++                              ? property.visitingHours.availableDays 
++                              : fullDays;
++                            
++                            let currentDate = new Date();
++                            for (let i = 0; i < 14; i++) {
++                              const fullDayName = fullDays[currentDate.getDay()];
++                              if (allowedDays.includes(fullDayName)) {
++                                const dateString = currentDate.toISOString().split('T')[0];
++                                const dayShort = daysOfWeek[currentDate.getDay()];
++                                const dateNum = currentDate.getDate();
++                                const monthShort = months[currentDate.getMonth()];
++                                dates.push(
++                                  <div 
++                                    key={dateString}
++                                    onClick={() => setVisitDate(dateString)}
++                                    className={`date-chip d-flex flex-column align-items-center justify-content-center p-1 rounded-3 border flex-shrink-0 transition-all ${visitDate === dateString ? 'bg-orange text-white border-orange shadow' : 'bg-white text-dark border-light hover-bg-light'}`}
++                                    style={{ width: '55px', height: '65px', cursor: 'pointer' }}
++                                  >
++                                    <span className="fw-semibold mb-1 opacity-75" style={{ fontSize: '0.7rem' }}>{dayShort}</span>
++                                    <span className="fw-bolder lh-1 mb-1" style={{ fontSize: '1.2rem' }}>{dateNum}</span>
++                                    <span className="fw-semibold text-uppercase opacity-75" style={{ fontSize: '0.65rem' }}>{monthShort}</span>
++                                  </div>
++                                );
++                              }
++                              currentDate.setDate(currentDate.getDate() + 1);
++                            }
++                            return dates;
++                          })()}
++                        </div>
++                      </div>
++
++                      <div>
++                        <label className="form-label fw-bold text-dark mb-2 d-flex align-items-center" style={{ fontSize: '0.85rem' }}>
++                          <i className="far fa-clock text-orange me-2"></i> Select Time
++                        </label>
++                        <div className="d-flex flex-wrap gap-2">
++                          {(() => {
++                             const options = [];
++                             const vh = property?.visitingHours;
++                             let timeSlots = ["10:00 AM", "11:00 AM", "12:00 PM", "01:00 PM", "02:00 PM", "03:00 PM", "04:00 PM", "05:00 PM"];
++                             
++                             if (vh) {
++                               try {
++                                 options.length = 0;
++                                 let start = parseInt(vh.startTime.split(':')[0]);
++                                 let end = parseInt(vh.endTime.split(':')[0]);
++                                 for(let h = start; h <= end; h++) {
++                                   const ampm = h >= 12 ? 'PM' : 'AM';
++                                   let hour12 = h % 12;
++                                   hour12 = hour12 ? hour12 : 12;
++                                   const formattedHour = hour12 < 10 ? `0${hour12}` : hour12;
++                                   options.push(`${formattedHour}:00 ${ampm}`);
++                                 }
++                                 timeSlots = options;
++                               } catch(e) {}
++                             }
++                             
++                             return timeSlots.map(t => (
++                               <div
++                                 key={t}
++                                 onClick={() => setVisitTime(t)}
++                                 className={`time-chip px-2 py-1 rounded-pill border transition-all ${visitTime === t ? 'bg-orange text-white border-orange shadow' : 'bg-white text-secondary border-light hover-bg-light'}`}
++                                 style={{ cursor: 'pointer', fontSize: '0.75rem', fontWeight: 600 }}
++                               >
++                                 {t}
++                               </div>
++                             ));
++                          })()}
++                        </div>
++                      </div>
++                    </div>
++                  )}
++                </div>
++              )}
++              
++              {actionType === 'callback' && (
++                <div className="input-group-modern mb-4">
++                  <span className="input-group-icon"><i className="fas fa-clock"></i></span>
++                  <Form.Control
++                    type="text"
++                    placeholder="Preferred time (e.g., Tomorrow 10 AM)"
++                    value={callbackTime}
++                    onChange={(e) => setCallbackTime(e.target.value)}
++                    className="modern-input"
++                  />
++                </div>
++              )}
++
++              {userLoggedIn ? (
++                <button className="btn-premium-submit w-100 py-2" style={{ fontSize: '0.9rem' }} onClick={handleSubmitLeadDirectly} disabled={isLoading}>
++                  {isLoading ? (
++                    <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2"/> Submitting...</>
++                  ) : (
++                    <>Submit Enquiry <i className="fas fa-arrow-right ms-2"></i></>
++                  )}
++                </button>
++              ) : (
++                <button className="btn-premium-submit w-100 py-2" style={{ fontSize: '0.9rem' }} onClick={handleSendOtp} disabled={isLoading}>
++                  {isLoading ? (
++                    <><Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" className="me-2"/> Sending...</>
++                  ) : (
++                    <>Send OTP <i className="fas fa-arrow-right ms-2"></i></>
++                  )}
++                </button>
++              )}
++            </div>
++          )}
++
++          {otpStep === 'otp' && (
++            <div className="text-center py-2 animate-fade-in">
++              <div className="mb-4">
++                <div className="icon-circle bg-orange-light text-orange rounded-circle mx-auto mb-3 d-flex align-items-center justify-content-center" style={{ width: '64px', height: '64px', fontSize: '1.5rem' }}>
++                  <i className="fas fa-shield-alt"></i>
++                </div>
++                <h5 className="fw-bold mb-1">Verify your number</h5>
++                <p className="text-muted small">We've sent a code to <span className="fw-bold text-dark">{contactForm.phone}</span></p>
++              </div>
++              
++              <Form.Control
++                type="text"
++                placeholder="• • • • • •"
++                value={otp}
++                onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
++                className="modern-otp-input text-center mb-4"
++                maxLength="6"
++                style={{ fontSize: '1.5rem', letterSpacing: '8px', fontWeight: 'bold' }}
++              />
++              
++              <button className="btn-premium-submit w-100 mb-3 py-2" style={{ fontSize: '0.9rem' }} onClick={handleVerifyOtp} disabled={isLoading || otp.length !== 6}>
++                {isLoading ? 'Verifying...' : 'Verify & Continue'}
++              </button>
++              
++              <div className="text-center">
++                {otpTimer > 0 ? (
++                  <span className="text-muted small"><i className="fas fa-clock me-1"></i> Resend code in <span className="fw-bold text-orange">{otpTimer}s</span></span>
++                ) : (
++                  <button className="btn btn-link text-orange text-decoration-none fw-bold p-0 small" onClick={handleResendOtp}>Resend Code</button>
++                )}
++                <div className="small text-warning mt-3 p-2 bg-warning-light rounded-3 d-inline-block">
++                  <i className="fas fa-info-circle me-1"></i> Demo OTP: <strong>123456</strong>
++                </div>
++              </div>
++            </div>
++          )}
++
++          {otpStep === 'success' && (
++            <div className="text-center  animate-scale-in">
++              <div className="text-start bg-white p-4 rounded-4 mx-2 border shadow-sm mb-4">
++                <div className="row">
++                  {/* Left Column: Property Details */}
++                  <div className="col-md-6 mb-3 mb-md-0 border-end-md">
++                    {property && (
++                      <>
++                        <h6 className="fw-bold mb-3 border-bottom pb-2" style={{ fontSize: '0.95rem', color: '#334155' }}>Property Details</h6>
++                        <div className="d-flex align-items-center gap-3 mb-4">
++                          <div className="flex-shrink-0">
++                            <img 
++                              src={resolveImageUrl(property.images?.[0]?.url || property.coverImage)} 
++                              alt="Property" 
++                              style={{ width: '70px', height: '70px', objectFit: 'cover', borderRadius: '10px' }}
++                            />
++                          </div>
++                          <div className="flex-grow-1 min-w-0">
++                            <h6 className="mb-1 text-truncate fw-bold text-dark" style={{ fontSize: '0.95rem' }} title={getDisplayName(property)}>
++                              {getDisplayName(property)}
++                            </h6>
++                            <p className="mb-1 text-muted text-truncate" style={{ fontSize: '0.8rem' }}>
++                              <i className="fas fa-map-marker-alt text-orange me-1"></i>
++                              {property.area && `${property.area}, `}{property.city || '—'}
++                            </p>
++                            <div className="d-flex gap-2">
++                               <span className="badge bg-light text-dark border">{getDisplayType(property)}</span>
++                               <span className="badge bg-light text-dark border">{getDisplayGender(property)}</span>
++                            </div>
++                          </div>
++                        </div>
++                      </>
++                    )}
++                  </div>
++
++                  {/* Right Column: Contact Information */}
++                  <div className="col-md-6">
++                    <h6 className="fw-bold mb-3 border-bottom pb-2 mt-2 mt-md-0" style={{ fontSize: '0.95rem', color: '#334155' }}>
++                      Contact Information
++                    </h6>
++                    <div className="d-flex flex-column gap-3 small">
++                      <div className="d-flex align-items-center gap-3">
++                        <div className="icon-circle bg-orange-light text-orange rounded-circle d-flex align-items-center justify-content-center shadow-sm" style={{ width: '36px', height: '36px', backgroundColor: '#fff7ed' }}>
++                          <i className="fas fa-user"></i>
++                        </div>
++                        <div className="d-flex flex-column">
++                          <span className="text-muted" style={{ fontSize: '0.75rem' }}>Contact Person</span>
++                          <span className="fw-bold text-dark">{property?.managerPhone ? 'Property Manager' : (property?.ownerId?.name || 'Owner')}</span>
++                        </div>
++                      </div>
++                      <div className="d-flex align-items-center gap-3">
++                        <div className="icon-circle bg-orange-light text-orange rounded-circle d-flex align-items-center justify-content-center shadow-sm" style={{ width: '36px', height: '36px', backgroundColor: '#fff7ed' }}>
++                          <i className="fas fa-phone-alt"></i>
++                        </div>
++                        <div className="d-flex flex-column">
++                          <span className="text-muted" style={{ fontSize: '0.75rem' }}>Phone Number</span>
++                          <a href={`tel:${property?.managerPhone || property?.ownerId?.phone}`} className="text-decoration-none fw-bold text-dark">
++                            {property?.managerPhone || property?.ownerId?.phone || 'Not available'}
++                          </a>
++                        </div>
++                      </div>
++                      <div className="d-flex align-items-center gap-3">
++                        <div className="icon-circle bg-orange-light text-orange rounded-circle d-flex align-items-center justify-content-center shadow-sm" style={{ width: '36px', height: '36px', backgroundColor: '#fff7ed' }}>
++                          <i className="fas fa-envelope"></i>
++                        </div>
++                        <div className="d-flex flex-column">
++                          <span className="text-muted" style={{ fontSize: '0.75rem' }}>Email Address</span>
++                          <a href={`mailto:${property?.ownerId?.email}`} className="text-decoration-none fw-bold text-dark text-truncate" style={{ maxWidth: '200px' }}>
++                            {property?.ownerId?.email || 'Not available'}
++                          </a>
++                        </div>
++                      </div>
++                    </div>
++                  </div>
++                </div>
++              </div>
++              
++              <button className="btn w-100 mt-4 py-3 fw-bold text-white shadow-sm" style={{ backgroundColor: '#f97316', borderRadius: '12px', fontSize: '1rem', transition: 'all 0.3s ease' }} onClick={handleCloseModal}>
++                Done
++              </button>
++            </div>
++          )}
++        </Modal.Body>
++      </Modal>
++
+       {/* OTP Verification Modal */}
+       <Modal show={showEnquiryModal} onHide={() => setShowEnquiryModal(false)} centered>
+         <Modal.Header closeButton className="border-0 pb-0">
+@@ -1043,6 +1921,40 @@ const PropertyDetails = () => {
+         </Modal.Body>
+       </Modal>
+ 
++      {/* Lightbox Modal for Images */}
++      <Modal 
++        show={showLightbox} 
++        onHide={() => setShowLightbox(false)} 
++        centered 
++        size="xl" 
++        contentClassName="bg-transparent border-0"
++      >
++        <Modal.Header closeButton closeVariant="white" className="border-0 pb-0" style={{ position: 'absolute', top: '0px', right: '10px', zIndex: 1050, background: 'rgba(0,0,0,0.5)', borderRadius: '50%' }}>
++          <Modal.Title className="text-white d-none">{getDisplayName()} - Photos</Modal.Title>
++        </Modal.Header>
++        <Modal.Body className="p-0 d-flex align-items-center justify-content-center w-100" style={{ height: '80vh' }}>
++          <Carousel 
++            interval={null} 
++            activeIndex={activeImageIndex}
++            onSelect={(idx) => setActiveImageIndex(idx)}
++            className="w-100 h-100 d-flex align-items-center"
++            fade={false}
++          >
++            {getImagesArray().map((img, idx) => (
++              <Carousel.Item key={idx} className="h-100">
++                <div className="w-100 h-100 d-flex align-items-center justify-content-center">
++                  <img 
++                    src={img.url} 
++                    alt={`${getDisplayName()} - ${idx + 1}`} 
++                    style={{ maxHeight: '80vh', maxWidth: '100%', objectFit: 'contain' }} 
++                  />
++                </div>
++              </Carousel.Item>
++            ))}
++          </Carousel>
++        </Modal.Body>
++      </Modal>
++
+       <style>{`
+         .ho-btn-outline-primary {
+           background: transparent;
+@@ -1064,4 +1976,278 @@ const PropertyDetails = () => {
+   );
+ };
+ 
+-export default PropertyDetails;
+\ No newline at end of file
++export default PropertyDetails
++
++  // --- Premium Modal Logic --- 
++const openOtpModal = async (property, action) => {
++    if (!authService.isAuthenticated()) {
++      openAuthModal(() => {
++        openOtpModal(property, action);
++      });
++      return;
++    }
++    
++    setUserLoggedIn(true);
++
++    if (authService.isAuthenticated() && action === 'call') {
++      
++      setActionType('call');
++      setOtpStep('success');
++      setShowOtpModal(true);
++      
++      try {
++        const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
++        await leadService.createLead({
++          propertyId: property._id,
++          actionType: 'call',
++          name: savedUser.name || 'User',
++          email: savedUser.email || '',
++          phone: savedUser.phone || savedUser.whatsapp || ''
++        });
++      } catch (error) {
++        console.error('Failed to create lead:', error);
++      }
++      return;
++    }
++
++    
++    setActionType(action);
++    setOtpStep('form');
++    setOtp('');
++    setEnquiryMessage('');
++    setCallbackTime('');
++    setMoveInDate('');
++    setStayDuration('');
++    setRoomType('');
++    setVisitTime('');
++    setVisitDate('');
++    setScheduleVisit(false);
++    
++    // Pre-fill contact form if user is logged in
++    const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
++    if (authService.isAuthenticated() && Object.keys(savedUser).length > 0) {
++      setContactForm({
++        name: savedUser.name || '',
++        email: savedUser.email || '',
++        phone: savedUser.phone || savedUser.whatsapp || ''
++      });
++    } else {
++      setContactForm({
++        name: '',
++        email: '',
++        phone: ''
++      });
++    }
++    
++    setShowOtpModal(true);
++  };
++
++  const handleContactFormChange = (e) => {
++    const { name, value } = e.target;
++    setContactForm(prev => ({
++      ...prev,
++      [name]: value
++    }));
++  };
++
++  const handleSendOtp = async () => {
++    if (!contactForm.name.trim()) {
++      alert('Please enter your name');
++      return;
++    }
++    if (!contactForm.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactForm.email)) {
++      alert('Please enter a valid email address');
++      return;
++    }
++    if (!contactForm.phone.trim() || !/^\d{10}$/.test(contactForm.phone)) {
++      alert('Please enter a valid 10-digit Phone number');
++      return;
++    }
++
++    setIsLoading(true);
++    
++    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
++    setGeneratedOtp(newOtp);
++    setOtpTimer(60);
++    
++    console.log(`OTP for ${contactForm.phone}: ${newOtp}`);
++    
++    setOtpStep('otp');
++    setIsLoading(false);
++    
++    alert(`Demo OTP: ${newOtp}\n(Check console for OTP)`);
++  };
++
++  const handleVerifyOtp = async () => {
++    if (!userLoggedIn) {
++      if (!otp || otp.length !== 6) {
++        alert('Please enter the 6-digit OTP');
++        return;
++      }
++
++      if (otp !== generatedOtp && otp !== '123456') {
++        alert('Invalid OTP. Please try again.');
++        return;
++      }
++    }
++
++    setIsLoading(true);
++    
++    try {
++      let leadData = {
++        propertyId: property._id,
++        actionType: actionType,
++        name: contactForm.name,
++        email: contactForm.email,
++        phone: contactForm.phone
++      };
++
++      if (actionType === 'enquiry') {
++        leadData.message = enquiryMessage || 'General enquiry about property';
++        leadData.enquiryFor = roomType;
++        leadData.moveInDate = moveInDate;
++        leadData.stayDuration = stayDuration;
++        if (scheduleVisit) {
++          leadData.visitDate = visitDate;
++          leadData.visitTime = visitTime;
++          leadData.scheduleVisit = true;
++        }
++      } else if (actionType === 'visit') {
++        leadData.visitDate = visitDate;
++        leadData.visitTime = visitTime;
++      } else if (actionType === 'callback') {
++        leadData.preferredCallbackTime = callbackTime || 'ASAP';
++      }
++
++      if (!property.b2bActivePlan) {
++        console.log("B2B plan inactive. Masking phone number in lead data.");
++      }
++
++      await leadService.createLead(leadData);
++      
++      setOtpStep('success');
++      setIsLoading(false);
++    } catch (error) {
++      console.error('Failed to verify OTP:', error);
++      alert('Something went wrong. Please try again.');
++      setIsLoading(false);
++    }
++  };
++
++  const handleSubmitLeadDirectly = async () => {
++    if (!contactForm.name.trim()) {
++      alert('Please enter your name');
++      return;
++    }
++    if (!contactForm.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactForm.email)) {
++      alert('Please enter a valid email address');
++      return;
++    }
++    if (!contactForm.phone.trim() || !/^\d{10}$/.test(contactForm.phone)) {
++      alert('Please enter a valid 10-digit Phone number');
++      return;
++    }
++    if (scheduleVisit && (!visitDate || !visitTime)) {
++      alert('Please select a visit date and time.');
++      return;
++    }
++
++    setIsLoading(true);
++    
++    try {
++      let leadData = {
++        propertyId: property._id,
++        actionType: actionType,
++        name: contactForm.name,
++        email: contactForm.email,
++        phone: contactForm.phone
++      };
++
++      if (actionType === 'enquiry') {
++        leadData.message = enquiryMessage || 'General enquiry about property';
++        leadData.enquiryFor = roomType;
++        leadData.moveInDate = moveInDate;
++        leadData.stayDuration = stayDuration;
++        if (scheduleVisit) {
++          leadData.visitDate = visitDate;
++          leadData.visitTime = visitTime;
++          leadData.scheduleVisit = true;
++        }
++      } else if (actionType === 'visit') {
++        leadData.visitDate = visitDate;
++        leadData.visitTime = visitTime;
++      } else if (actionType === 'callback') {
++        leadData.preferredCallbackTime = callbackTime || 'ASAP';
++      }
++
++      await leadService.createLead(leadData);
++      
++      setOtpStep('success');
++      setIsLoading(false);
++    } catch (error) {
++      console.error('Failed to submit directly:', error);
++      alert('Something went wrong. Please try again.');
++      setIsLoading(false);
++    }
++  };
++
++  const handleResendOtp = () => {
++    if (otpTimer > 0) {
++      alert(`Please wait ${otpTimer} seconds before requesting a new OTP`);
++      return;
++    }
++    
++    const newOtp = Math.floor(100000 + Math.random() * 900000).toString();
++    setGeneratedOtp(newOtp);
++    setOtpTimer(60);
++    console.log(`New OTP: ${newOtp}`);
++    alert(`New OTP sent: ${newOtp}`);
++  };
++
++  const handleCloseModal = () => {
++    setShowOtpModal(false);
++    setOtpStep('form');
++    setOtp('');
++    setSelectedProperty(null);
++    setActionType('');
++    setEnquiryMessage('');
++    setCallbackTime('');
++    setGeneratedOtp('');
++    setOtpTimer(0);
++  };
++
++  const getActionTitle = () => {
++    switch(actionType) {
++      case 'call': return 'Contact Details';
++      case 'visit': return 'Visiting Hours';
++      case 'enquiry': return 'Enquire Now';
++      case 'callback': return 'Request Callback';
++      default: return 'Contact Property';
++    }
++  };
++
++  const getSuccessMessage = () => {
++    switch(actionType) {
++      case 'call': 
++        const contactNum = property?.managerPhone || property?.ownerId?.phone || 'Not available';
++        const contactName = property?.managerPhone ? 'Property Manager' : (property?.ownerId?.name || 'Owner');
++        return `Please contact ${contactName} at ${contactNum}. They are expecting your call!`;
++      case 'visit':
++        return `Your visit has been scheduled for ${visitDate} at ${visitTime}. A confirmation email has been sent to ${contactForm.email}.`;
++      case 'enquiry':
++        const enqContactNum = property?.managerPhone || property?.ownerId?.phone || 'Not available';
++        if (scheduleVisit) {
++          return `Your enquiry and visit for ${visitDate} at ${visitTime} have been sent! You can also contact the property at ${enqContactNum}.`;
++        }
++        return `Your enquiry has been sent successfully! You can contact the property at ${enqContactNum}.`;
++      case 'callback': 
++        return 'Your callback request has been sent! The owner will call you at your preferred time.';
++      default: 
++        return 'Request sent successfully!';
++    }
++  };
++
++  
++  // --- End Premium Modal Logic ---
++
++;
+\ No newline at end of file

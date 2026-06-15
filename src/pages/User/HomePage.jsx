@@ -7,13 +7,49 @@ import propertyService from '../../services/propertyService';
 import PromotionalAd from '../../components/PromotionalAd';
 import SearchWrapper from '../../components/SearchWrapper';
 import './HomePage.css';
+import authService from '../../services/authService';
+import { useAuthModal } from '../../context/AuthModalContext';
+import SEO from '../../components/SEO';
+
+const DEFAULT_CITIES_DATA = [
+  { name: "Mumbai", image: "https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=400&q=80" },
+  { name: "Delhi", image: "https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&q=80" },
+  { name: "Bangalore", image: "https://images.unsplash.com/photo-1596422846543-75c6fc197f0a?w=400&q=80" },
+  { name: "Hyderabad", image: "https://images.unsplash.com/photo-1605130284535-11dd9eedc58a?w=400&q=80" },
+  { name: "Chennai", image: "https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=400&q=80" },
+  { name: "Pune", image: "https://images.unsplash.com/photo-1572913017567-02f0649bed21?w=400&q=80" },
+  { name: "Kolkata", image: "https://images.unsplash.com/photo-1536421469767-10559bc65c04?w=400&q=80" },
+  { name: "Ahmedabad", image: "https://images.unsplash.com/photo-1597058712635-3182d1e0bf09?w=400&q=80" },
+  { name: "Jaipur", image: "https://images.unsplash.com/photo-1477587458883-47145ed94245?w=400&q=80" },
+  { name: "Lucknow", image: "https://images.unsplash.com/photo-1587541991851-fe4bbde8416d?w=400&q=80" }
+];
+
+const getBaseImageUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api/v1' : 'http://localhost:5000/api/v1');
+  return apiUrl.replace('/api/v1', '');
+};
+
+const resolveImageUrl = (url) => {
+  if (!url) return 'https://placehold.co/600x400/FFF3E0/FF8C42?text=Property';
+  if (url.startsWith('http')) return url;
+  const baseUrl = getBaseImageUrl();
+  if (url.startsWith('/uploads/')) return `${baseUrl}${url}`;
+  if (url.startsWith('uploads/')) return `${baseUrl}/${url}`;
+  return url;
+};
 
 const HomePage = () => {
   const navigate = useNavigate();
+  const { openAuthModal } = useAuthModal();
+  const [allProperties, setAllProperties] = useState([]);
   const [featuredProperties, setFeaturedProperties] = useState([]);
+  const [newlyLaunched, setNewlyLaunched] = useState([]);
+  const [topBrands, setTopBrands] = useState([]);
+  const [activeCities, setActiveCities] = useState([]);
   const [loading, setLoading] = useState(true);
+  
   const [filters, setFilters] = useState({
-    city: 'Bangalore',
+    city: localStorage.getItem('selected_city') || 'Bangalore',
     locality: '',
     propertyType: 'all',
     budget: 'any',
@@ -22,25 +58,21 @@ const HomePage = () => {
   });
   const [locationLoading, setLocationLoading] = useState(false);
 
-  const citiesData = [
-    { name: "Mumbai", count: "240+ PGs", image: "https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=400&q=80" },
-    { name: "Delhi", count: "310+ PGs", image: "https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&q=80" },
-    { name: "Bangalore", count: "580+ PGs", image: "https://images.unsplash.com/photo-1596422846543-75c6fc197f0a?w=400&q=80" },
-    { name: "Hyderabad", count: "210+ PGs", image: "https://images.unsplash.com/photo-1605130284535-11dd9eedc58a?w=400&q=80" },
-    { name: "Chennai", count: "195+ PGs", image: "https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=400&q=80" },
-    { name: "Pune", count: "270+ PGs", image: "https://images.unsplash.com/photo-1572913017567-02f0649bed21?w=400&q=80" },
-    { name: "Kolkata", count: "140+ PGs", image: "https://images.unsplash.com/photo-1536421469767-10559bc65c04?w=400&q=80" },
-    { name: "Ahmedabad", count: "120+ PGs", image: "https://images.unsplash.com/photo-1597058712635-3182d1e0bf09?w=400&q=80" },
-    { name: "Jaipur", count: "98+ PGs", image: "https://images.unsplash.com/photo-1477587458883-47145ed94245?w=400&q=80" },
-    { name: "Lucknow", count: "85+ PGs", image: "https://images.unsplash.com/photo-1587541991851-fe4bbde8416d?w=400&q=80" }
-  ];
-
   useEffect(() => {
-    loadFeaturedProperties();
-    getUserLocation();
+    loadHomePageData();
+    if (!localStorage.getItem('selected_city')) {
+      getUserLocation();
+    }
+
+    const handleCityChange = (e) => {
+      setFilters(prev => ({ ...prev, city: e.detail }));
+    };
+    window.addEventListener('city-changed', handleCityChange);
+    return () => window.removeEventListener('city-changed', handleCityChange);
   }, []);
 
-  const getUserLocation = () => {
+  const getUserLocation = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
     if ("geolocation" in navigator) {
       setLocationLoading(true);
       navigator.geolocation.getCurrentPosition(
@@ -49,13 +81,12 @@ const HomePage = () => {
             const { latitude, longitude } = position.coords;
             const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
             const data = await res.json();
-            
-            // Extract city from response
-            const city = data.address.city || data.address.town || data.address.state_district;
+            const city = data.address.city || data.address.town || data.address.village || data.address.district || data.address.county || data.address.state_district;
             if (city) {
-              // Standardize city name and update state
               const cleanedCity = city.replace(/ City$/, '');
               setFilters(prev => ({ ...prev, city: cleanedCity }));
+              localStorage.setItem('selected_city', cleanedCity);
+              window.dispatchEvent(new CustomEvent('city-changed', { detail: cleanedCity }));
             }
           } catch (error) {
             console.error("Error fetching location details:", error);
@@ -71,24 +102,87 @@ const HomePage = () => {
     }
   };
 
-  const loadFeaturedProperties = async () => {
+  const loadHomePageData = async () => {
     setLoading(true);
     try {
-      const response = await propertyService.getProperties({ 
-        limit: 6,
-        isFeatured: true
+      // Fetch real properties for Featured Section
+      const response = await propertyService.getProperties({ limit: 200, public: true }, false); 
+      const realProperties = response.properties || [];
+      
+      setAllProperties(realProperties);
+      
+      // 1. Featured Properties: only explicitly marked properties
+      const featured = realProperties
+        .filter(p => p.isFeatured === true)
+        .slice(0, 6);
+      setFeaturedProperties(featured);
+      
+      // 2. Newly Launched: Sort by creation date (from database data)
+      const newest = [...realProperties]
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+        .slice(0, 6);
+      setNewlyLaunched(newest);
+      
+      // 3. Top Brands: Aggregate by ownerName (from database data)
+      const brandsMap = {};
+      realProperties.forEach(p => {
+        const ownerName = p.ownerId?.name || p.ownerName;
+        if (ownerName) {
+          if (!brandsMap[ownerName]) {
+            brandsMap[ownerName] = { 
+              name: ownerName, 
+              count: 0, 
+              ratingSum: 0,
+              // We'll use UI Avatars to generate a placeholder brand logo
+              logoUrl: `https://ui-avatars.com/api/?name=${encodeURIComponent(ownerName)}&background=f15a29&color=fff&size=100` 
+            };
+          }
+          brandsMap[ownerName].count += 1;
+          brandsMap[ownerName].ratingSum += parseFloat(p.rating || 0);
+        }
       });
-      setFeaturedProperties(response.properties || []);
+      
+      const brands = Object.values(brandsMap)
+        .filter(b => b.count >= 1)
+        .map(b => ({ ...b, avgRating: b.ratingSum > 0 ? (b.ratingSum / b.count).toFixed(1) : "5.0" }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 6);
+      setTopBrands(brands);
+      
+      // 4. Popular Cities: Dynamic aggregation (from database data)
+      const cityMap = {};
+      realProperties.forEach(p => {
+        const city = p.location?.city;
+        if (city) {
+          cityMap[city] = (cityMap[city] || 0) + 1;
+        }
+      });
+      
+      // Use default cities data to ensure popular cities always show
+      const activeCitiesData = DEFAULT_CITIES_DATA.map(city => {
+        const count = cityMap[city.name] || cityMap[city.name.toLowerCase()] || 0;
+        return {
+          name: city.name,
+          count: count > 0 ? `${count} properties` : '0 properties',
+          image: city.image
+        };
+      });
+      
+      setActiveCities(activeCitiesData);
+      
     } catch (error) {
-      console.error('Failed to load properties:', error);
-      setFeaturedProperties([]);
+      console.error('Failed to load homepage data:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const updateFilter = (key, value) => {
-    setFilters({ ...filters, [key]: value });
+    setFilters(prev => ({ ...prev, [key]: value }));
+    if (key === 'city') {
+      localStorage.setItem('selected_city', value);
+      window.dispatchEvent(new CustomEvent('city-changed', { detail: value }));
+    }
   };
 
   const getPropertyMinPrice = (property) => {
@@ -110,7 +204,9 @@ const HomePage = () => {
     return property.location?.city || 'Location';
   };
 
-  const goToListings = () => {
+  const goToListings = (overrideCity = null) => {
+    const finalCity = (typeof overrideCity === 'string') ? overrideCity : filters.city;
+    
     let minPrice = 0, maxPrice = 50000;
     if (filters.budget === '<8000') {
       maxPrice = 8000;
@@ -122,30 +218,72 @@ const HomePage = () => {
       maxPrice = 100000;
     }
     
-    let genderMap = { boys: 'male', girls: 'female', 'co-ed': 'any', all: 'any' };
+    let genderMap = { boys: 'male', girls: 'female', 'co-ed': 'any', all: 'all' };
     
     navigate('/listings', { 
       state: {
-        city: filters.city,
+        city: finalCity,
         locality: filters.locality,
         propertyType: filters.propertyType === 'all' ? 'all' : filters.propertyType,
         minPrice: minPrice,
         maxPrice: maxPrice,
-        gender: genderMap[filters.gender] || 'any',
-        occupancy: filters.occupancy
+        gender: genderMap[filters.gender] || 'all',
+        occupancy: filters.occupancy === 'any' ? [] : (Array.isArray(filters.occupancy) ? filters.occupancy : [filters.occupancy])
       }
     });
   };
 
+  // Helper for rendering property grids
+  const renderPropertyGrid = (properties, emptyMessage) => (
+    <div className="compact-grid">
+      {properties.length === 0 ? (
+        <div className="no-results">{emptyMessage}</div>
+      ) : (
+        properties.map(property => (
+          <div 
+            key={property._id} 
+            className="compact-card"
+            onClick={() => navigate(`/property/${property.slug || property._id}`)}
+            style={{ cursor: 'pointer' }}
+          >
+            <div 
+              className="compact-card-img" 
+              style={{ 
+                backgroundImage: `url(${resolveImageUrl(property.images?.[0]?.url || property.coverImage)})`,
+              }}
+            >
+              <div className="compact-badge">{property.propertyType || property.type || 'PG'}</div>
+            </div>
+            <div className="compact-card-content">
+              <div className="compact-title">{getDisplayName(property)}</div>
+              <div className="compact-location">
+                <i className="fas fa-map-pin"></i> {getDisplayLocation(property)}, {property.location?.city || 'City'}
+              </div>
+              <div className="compact-features">
+                <span><i className="fas fa-bed"></i> {property.totalRooms} rooms</span>
+                <span className="compact-price">₹{getPropertyMinPrice(property).toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+
   return (
     <div className="homepage">
+      <SEO 
+        title="Find the Best PGs, Hostels & Service Apartments" 
+        description="Sortify Stays is India's leading platform to discover verified PGs, Hostels, and Service Apartments in top cities like Bangalore, Mumbai, and Delhi." 
+      />
       <Header />
       
-      <section className="hero">
-        <div className="container">
-          <div className="hero-title">
-            Find <span className="highlight">PG, Hostel, Home Stay</span> or <span className="highlight">Service Apartment</span>
-          </div>
+      <main>
+        <section className="hero">
+          <div className="container">
+            <h1 className="hero-title">
+              Find <span className="highlight">PG, Hostel, Home Stay</span> or <span className="highlight">Service Apartment</span>
+            </h1>
           <div className="hero-sub">
             Verified stays • Flexible stays • All across India
           </div>
@@ -165,94 +303,86 @@ const HomePage = () => {
       </section>
 
       <div className="container">
-        <div className="section-header compact">
-          <h3><i className="fas fa-star" style={{ color: '#f97316' }}></i> Featured Properties</h3>
-          <a 
-            href="#" 
-            className="section-link"
-            onClick={(e) => {
-              e.preventDefault();
-              goToListings();
-            }}
-          >
-            View all <i className="fas fa-arrow-right"></i>
-          </a>
-        </div>
         
         {loading ? (
-          <div className="text-center py-4">
+          <div className="text-center py-5 my-5">
             <i className="fas fa-spinner fa-spin fa-2x text-warning"></i>
+            <p className="mt-2 text-muted">Loading data...</p>
           </div>
         ) : (
-          <div className="compact-grid">
-            {featuredProperties.length === 0 ? (
-              <div className="no-results">🏠 No properties found</div>
-            ) : (
-              featuredProperties.map(property => (
-                <div 
-                  key={property._id} 
-                  className="compact-card"
-                  onClick={() => navigate(`/property/${property._id}`)}
-                  style={{ cursor: 'pointer' }}
-                >
-                  <div 
-                    className="compact-card-img" 
-                    style={{ 
-                      backgroundImage: `url(${property.images?.[0]?.url || property.coverImage || 'https://placehold.co/600x400/FFF3E0/FF8C42?text=Property'})`,
-                    }}
-                  >
-                    <div className="compact-badge">{property.propertyType || property.type || 'PG'}</div>
-                  </div>
-                  <div className="compact-card-content">
-                    <div className="compact-title">{getDisplayName(property)}</div>
-                    <div className="compact-location">
-                      <i className="fas fa-map-pin"></i> {getDisplayLocation(property)}, {property.location?.city || 'City'}
-                    </div>
-                    <div className="compact-features">
-                      <span><i className="fas fa-bed"></i> {property.totalRooms} rooms</span>
-                      <span className="compact-price">₹{getPropertyMinPrice(property).toLocaleString()}</span>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        <PromotionalAd location="home_mid" />
-
-        <div className="section-header compact">
-          <h3><i className="fas fa-globe"></i> Popular Cities</h3>
-          <a 
-            href="#" 
-            className="section-link"
-            onClick={(e) => {
-              e.preventDefault();
-              goToListings();
-            }}
-          >
-            Explore all
-          </a>
-        </div>
-        <div className="cities-image-grid">
-          {citiesData.map((city, index) => (
-            <div 
-              key={index} 
-              className="city-image-card"
-              onClick={() => {
-                updateFilter('city', city.name);
-                goToListings();
-              }}
-            >
-              <img src={city.image} alt={city.name} className="city-card-img" loading="lazy" />
-              <div className="city-card-overlay">
-                <h4 className="city-name-overlay">{city.name}</h4>
-                <p className="city-count-overlay">{city.count}</p>
-              </div>
+          <>
+            {/* 1. FEATURED PROPERTIES */}
+            <div className="section-header compact">
+              <h3><i className="fas fa-star" style={{ color: '#f97316' }}></i> Featured Properties</h3>
+              <a href="#" className="section-link" onClick={(e) => { e.preventDefault(); goToListings(); }}>
+                View all <i className="fas fa-arrow-right"></i>
+              </a>
             </div>
-          ))}
-        </div>
+            {renderPropertyGrid(featuredProperties, '🏠 No featured properties found')}
+
+            {/* 2. TOP BRANDS */}
+            {topBrands.length > 0 && (
+              <div className="top-brands-section mt-5 mb-4">
+                <div className="section-header compact">
+                  <h3><i className="fas fa-crown" style={{ color: '#fbbf24' }}></i> Top Brands</h3>
+                </div>
+                <div className="brands-grid">
+                  {topBrands.map((brand, idx) => (
+                    <div key={idx} className="brand-card shadow-sm">
+                      <img src={brand.logoUrl} alt={brand.name} className="brand-logo" />
+                      <div className="brand-info">
+                        <h5 className="brand-name">{brand.name}</h5>
+                        <p className="brand-meta">{brand.count} Properties • <i className="fas fa-star text-warning"></i> {brand.avgRating}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <PromotionalAd location="home_mid" />
+
+            {/* 3. NEWLY LAUNCHED */}
+            <div className="section-header compact mt-5">
+              <h3><i className="fas fa-rocket" style={{ color: '#ef4444' }}></i> Newly Launched</h3>
+              <a href="#" className="section-link" onClick={(e) => { e.preventDefault(); goToListings(); }}>
+                Explore more <i className="fas fa-arrow-right"></i>
+              </a>
+            </div>
+            {renderPropertyGrid(newlyLaunched, '🏠 No new properties found')}
+
+            {/* 4. POPULAR CITIES */}
+            {activeCities.length > 0 && (
+              <div className="popular-cities-section mt-5 mb-5">
+                <div className="section-header compact">
+                  <h3><i className="fas fa-globe" style={{ color: '#3b82f6' }}></i> Popular Cities</h3>
+                  <a href="#" className="section-link" onClick={(e) => { e.preventDefault(); goToListings(); }}>
+                    Explore all
+                  </a>
+                </div>
+                <div className="cities-image-grid">
+                  {activeCities.map((city, index) => (
+                    <div 
+                      key={index} 
+                      className="city-image-card"
+                      onClick={() => {
+                        updateFilter('city', city.name);
+                        goToListings(city.name);
+                      }}
+                    >
+                      <img src={city.image} alt={city.name} className="city-card-img" loading="lazy" />
+                      <div className="city-card-overlay">
+                        <h4 className="city-name-overlay">{city.name}</h4>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
       </div>
+      </main>
 
       <Footer />
     </div>

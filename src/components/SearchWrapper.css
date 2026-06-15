@@ -8,9 +8,9 @@
 /* Tabs Styling */
 .sw-tabs-container {
   display: flex;
+  justify-content: center;
   gap: 8px;
   margin-bottom: 0;
-  padding-left: 20px;
 }
 
 .sw-tab-btn {
@@ -241,6 +241,7 @@
 @media (max-width: 768px) {
   .sw-tabs-container {
     padding-left: 10px;
+    justify-content: flex-start;
     overflow-x: auto;
     padding-bottom: 5px;
     scrollbar-width: none;
@@ -293,14 +294,9 @@
   }
   
   .sw-chips {
-    overflow-x: auto;
+    flex-wrap: wrap;
     width: 100%;
     padding-bottom: 5px;
-    scrollbar-width: none;
-  }
-  
-  .sw-chips::-webkit-scrollbar {
-    display: none;
   }
   
   .sw-filter-divider {

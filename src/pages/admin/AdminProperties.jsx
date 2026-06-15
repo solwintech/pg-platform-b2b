@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Building2,
   Eye,
@@ -35,7 +36,22 @@ import propertyService from '../../services/propertyService';
 import adminService from '../../services/adminService';
 import { formatDate } from '../../utils/dateFormatter';
 
+const getBaseImageUrl = () => {
+  const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api/v1' : 'http://localhost:5000/api/v1');
+  return apiUrl.replace('/api/v1', '');
+};
+
+const resolveImageUrl = (url) => {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  const baseUrl = getBaseImageUrl();
+  if (url.startsWith('/uploads/')) return `${baseUrl}${url}`;
+  if (url.startsWith('uploads/')) return `${baseUrl}/${url}`;
+  return url;
+};
+
 const AdminProperties = () => {
+  const navigate = useNavigate();
   const [properties, setProperties] = useState([]);
   const [filteredProperties, setFilteredProperties] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -47,6 +63,8 @@ const AdminProperties = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showRoomsModal, setShowRoomsModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
 
   useEffect(() => {
     loadProperties();
@@ -56,7 +74,13 @@ const AdminProperties = () => {
     setLoading(true);
     try {
       const response = await propertyService.getProperties({}, false);
-      const listings = response.properties || [];
+      let listings = response.properties || [];
+      // Sort to show most recently created or updated properties first
+      listings.sort((a, b) => {
+        const dateA = new Date(a.updatedAt || a.createdAt);
+        const dateB = new Date(b.updatedAt || b.createdAt);
+        return dateB - dateA;
+      });
       setProperties(listings);
       setFilteredProperties(listings);
       setLoading(false);
@@ -91,6 +115,7 @@ const AdminProperties = () => {
     }
 
     setFilteredProperties(filtered);
+    setCurrentPage(1);
   };
 
   const handleSearch = (e) => {
@@ -120,6 +145,7 @@ const AdminProperties = () => {
     setTypeFilter('all');
     setGenderFilter('all');
     setFilteredProperties(properties);
+    setCurrentPage(1);
   };
 
   const [showApproveConfirm, setShowApproveConfirm] = useState(false);
@@ -251,6 +277,14 @@ const AdminProperties = () => {
     avgPrice: Math.round(properties.reduce((acc, p) => acc + (p.price || 0), 0) / (properties.length || 1))
   };
 
+  // Pagination logic
+  const indexOfLastItem = currentPage * itemsPerPage;
+  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+  const currentProperties = filteredProperties.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(filteredProperties.length / itemsPerPage);
+
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
   if (loading) {
     return (
       <div className="text-center py-5">
@@ -266,27 +300,28 @@ const AdminProperties = () => {
 
 
       {/* Filters */}
-      <div className="modern-card mb-4">
-        <div className="card-header-modern">
-          <div className="row g-3">
+      <div className="modern-card mb-3">
+        <div className="card-header-modern py-2">
+          <div className="row g-2 align-items-center">
             <div className="col-md-4">
-              <div className="navbar-search">
-                <Search className="search-icon" size={16} />
+              <div className="navbar-search mb-0 position-relative">
+                <Search className="search-icon position-absolute" size={14} style={{ top: '50%', left: '10px', transform: 'translateY(-50%)', color: '#6c757d' }} />
                 <input
                   type="text"
-                  className="form-control-premium"
+                  className="form-control form-control-sm border"
                   placeholder="Search by name, manager, city or email..."
                   value={searchTerm}
                   onChange={handleSearch}
-                  style={{ fontSize: '13px', padding: '8px 12px 8px 36px' }}
+                  style={{ fontSize: '12px', padding: '6px 12px 6px 30px', height: '32px', borderRadius: '6px' }}
                 />
               </div>
             </div>
             <div className="col-md-2">
               <select
-                className="form-control-modern"
+                className="form-select form-select-sm border"
                 value={statusFilter}
                 onChange={(e) => handleStatusFilter(e.target.value)}
+                style={{ fontSize: '12px', height: '32px', borderRadius: '6px' }}
               >
                 <option value="all">All Status</option>
                 <option value="approved">Approved</option>
@@ -296,9 +331,10 @@ const AdminProperties = () => {
             </div>
             <div className="col-md-2">
               <select
-                className="form-control-modern"
+                className="form-select form-select-sm border"
                 value={typeFilter}
                 onChange={(e) => handleTypeFilter(e.target.value)}
+                style={{ fontSize: '12px', height: '32px', borderRadius: '6px' }}
               >
                 <option value="all">All Types</option>
                 <option value="PG">PG</option>
@@ -309,9 +345,10 @@ const AdminProperties = () => {
             </div>
             <div className="col-md-2">
               <select
-                className="form-control-modern"
+                className="form-select form-select-sm border"
                 value={genderFilter}
                 onChange={(e) => handleGenderFilter(e.target.value)}
+                style={{ fontSize: '12px', height: '32px', borderRadius: '6px' }}
               >
                 <option value="all">All Genders</option>
                 <option value="Boys">Boys Only</option>
@@ -320,8 +357,12 @@ const AdminProperties = () => {
               </select>
             </div>
             <div className="col-md-2">
-              <button className="btn-outline-premium w-100" onClick={clearFilters}>
-                Clear Filters
+              <button 
+                className="btn btn-sm btn-outline-secondary w-100 d-flex align-items-center justify-content-center gap-1" 
+                onClick={clearFilters}
+                style={{ fontSize: '12px', height: '32px', borderRadius: '6px' }}
+              >
+                <Filter size={12} /> Clear Filters
               </button>
             </div>
           </div>
@@ -341,6 +382,7 @@ const AdminProperties = () => {
                 <th>Status</th>
                 <th>Featured</th>
                 <th>Visibility</th>
+                <th>Views</th>
                 <th>Submitted On</th>
                 <th>Actions</th>
               </tr>
@@ -355,7 +397,7 @@ const AdminProperties = () => {
                   </td>
                 </tr>
               ) : (
-                filteredProperties.map(property => (
+                currentProperties.map(property => (
                   <tr key={property._id}>
                     <td>
                       <div>
@@ -401,6 +443,12 @@ const AdminProperties = () => {
                         />
                       </div>
                     </td>
+                    <td>
+                      <div className="d-flex align-items-center gap-1">
+                        <Eye size={12} className="text-muted" />
+                        <span className="fw-600 small">{property.views || 0}</span>
+                      </div>
+                    </td>
                     <td className="small">{formatDate(property.createdAt)}</td>
                     <td>
                       <div className="d-flex gap-2">
@@ -423,6 +471,24 @@ const AdminProperties = () => {
                           title="Manage Rooms"
                         >
                           <DoorOpen size={14} />
+                        </button>
+                        <button
+                          className="btn-icon-sm btn-outline-premium"
+                          onClick={() => navigate(`/admin/edit-pg/${property._id}`)}
+                          title="Edit Property"
+                        >
+                          <Edit size={14} />
+                        </button>
+                        <button
+                          className="btn-icon-sm btn-outline-premium text-danger"
+                          onClick={() => {
+                            setSelectedProperty(property);
+                            setShowDeleteConfirm(true);
+                          }}
+                          title="Delete Property"
+                          style={{ borderColor: '#dc3545' }}
+                        >
+                          <Trash2 size={14} />
                         </button>
                         <div className="dropdown">
                           <button 
@@ -450,18 +516,6 @@ const AdminProperties = () => {
                                 <XCircle size={14} className="text-danger" /> Reject
                               </button>
                             </li>
-                            <li className="border-top my-1"></li>
-                            <li>
-                              <button 
-                                className="dropdown-item d-flex align-items-center gap-2 py-2 text-danger" 
-                                onClick={() => {
-                                  setSelectedProperty(property);
-                                  setShowDeleteConfirm(true);
-                                }}
-                              >
-                                <Trash2 size={14} /> Delete
-                              </button>
-                            </li>
                           </ul>
                         </div>
                       </div>
@@ -472,6 +526,34 @@ const AdminProperties = () => {
             </tbody>
           </table>
         </div>
+
+        {/* Pagination Controls */}
+        {totalPages > 1 && (
+          <div className="card-footer bg-white border-0 py-3">
+            <div className="d-flex justify-content-between align-items-center">
+              <span className="text-muted small" style={{ fontSize: '13px' }}>
+                Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredProperties.length)} of {filteredProperties.length} entries
+              </span>
+              <nav>
+                <ul className="pagination pagination-sm m-0">
+                  <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                    <button className="page-link text-dark" onClick={() => paginate(currentPage - 1)} disabled={currentPage === 1}>Previous</button>
+                  </li>
+                  {[...Array(totalPages)].map((_, index) => (
+                    <li key={index} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
+                      <button className={`page-link ${currentPage === index + 1 ? 'bg-primary text-white border-primary' : 'text-dark'}`} onClick={() => paginate(index + 1)}>
+                        {index + 1}
+                      </button>
+                    </li>
+                  ))}
+                  <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                    <button className="page-link text-dark" onClick={() => paginate(currentPage + 1)} disabled={currentPage === totalPages}>Next</button>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* View Property Modal */}
@@ -515,8 +597,8 @@ const AdminProperties = () => {
                         {selectedProperty.changedFields.map((field, idx) => (
                           <tr key={idx} className="border-bottom border-white border-opacity-50">
                             <td className="fw-bold text-dark py-2" style={{ fontSize: '11px' }}>{field.replace(/([A-Z])/g, ' $1').toUpperCase()}</td>
-                            <td className="text-muted py-2" style={{ fontSize: '11px', textDecoration: 'line-through opacity-50' }}>{selectedProperty.previousValues?.[field] || 'N/A'}</td>
-                            <td className="text-info fw-bold py-2" style={{ fontSize: '11px' }}>{selectedProperty[field]}</td>
+                            <td className="text-muted py-2" style={{ fontSize: '11px', textDecoration: 'line-through opacity-50' }}>{typeof selectedProperty.previousValues?.[field] === 'object' ? JSON.stringify(selectedProperty.previousValues[field]) : (selectedProperty.previousValues?.[field] || 'N/A')}</td>
+                            <td className="text-info fw-bold py-2" style={{ fontSize: '11px' }}>{typeof selectedProperty[field] === 'object' ? JSON.stringify(selectedProperty[field]) : selectedProperty[field]}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -560,7 +642,7 @@ const AdminProperties = () => {
                       <div className="d-flex flex-wrap gap-2">
                         {selectedProperty.amenities?.map((a, i) => (
                           <span key={i} className="badge bg-light text-secondary border-0 px-3 py-2 rounded-pill fw-medium" style={{ fontSize: '11px' }}>
-                            {a}
+                            {typeof a === 'object' ? (a.name || JSON.stringify(a)) : a}
                           </span>
                         ))}
                       </div>
@@ -581,9 +663,18 @@ const AdminProperties = () => {
                         return (
                           <div key={idx} className="room-item-premium p-3 border rounded-3 bg-light bg-opacity-50">
                             <div className="d-flex justify-content-between align-items-start mb-2">
-                              <div>
-                                <div className="fw-bold text-dark" style={{ fontSize: '12px' }}>{room.name}</div>
-                                <div className="text-muted mt-1" style={{ fontSize: '10px' }}>{room.sharingType} • {room.size} sqft • {room.attachedBathroom ? 'Attached Bath' : 'Common Bath'}</div>
+                              <div className="d-flex gap-3 align-items-start">
+                                {room.image ? (
+                                  <img src={resolveImageUrl(room.image)} alt={room.name} className="rounded shadow-sm" style={{ width: '60px', height: '45px', objectFit: 'cover' }} />
+                                ) : (
+                                  <div className="bg-white border rounded shadow-sm d-flex align-items-center justify-content-center text-muted" style={{ width: '60px', height: '45px' }}>
+                                    <DoorOpen size={16} />
+                                  </div>
+                                )}
+                                <div>
+                                  <div className="fw-bold text-dark" style={{ fontSize: '12px' }}>{room.name}</div>
+                                  <div className="text-muted mt-1" style={{ fontSize: '10px' }}>{room.sharingType} • {room.size} sqft • {room.attachedBathroom ? 'Attached Bath' : 'Common Bath'}</div>
+                                </div>
                               </div>
                               <div className="text-end d-flex flex-column align-items-end gap-1">
                                 <div className="fw-bold text-primary" style={{ fontSize: '13px' }}>₹{room.price}</div>
@@ -604,7 +695,7 @@ const AdminProperties = () => {
                             </div>
                             <div className="d-flex flex-wrap gap-1 mt-2">
                               {room.amenities?.map((a, i) => (
-                                <span key={i} className="badge bg-white text-muted border border-light shadow-sm" style={{ fontSize: '9px' }}>{a}</span>
+                                <span key={i} className="badge bg-white text-muted border border-light shadow-sm" style={{ fontSize: '9px' }}>{typeof a === 'object' ? (a.name || JSON.stringify(a)) : a}</span>
                               ))}
                               {room.ac && <span className="badge bg-primary bg-opacity-10 text-primary" style={{ fontSize: '9px' }}>AC Room</span>}
                               {room.furnishingStatus && <span className="badge bg-secondary bg-opacity-10 text-secondary" style={{ fontSize: '9px' }}>{room.furnishingStatus}</span>}
@@ -682,45 +773,28 @@ const AdminProperties = () => {
                   </div>
                 </div>
               </div>
-              <div className="property-gallery-refined mb-4">
-                <div className="row g-2">
-                  <div className="col-md-8">
-                    <div className="main-image-container rounded-4 overflow-hidden shadow-sm" style={{ height: '380px' }}>
-                      <img
-                        src={selectedProperty.coverImage}
-                        alt="Cover"
-                        className="w-100 h-100 object-fit-cover"
-                        onError={(e) => e.target.src = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800'}
-                      />
-                    </div>
-                  </div>
-                  <div className="col-md-4">
-                    <div className="d-flex flex-column gap-2" style={{ height: '380px' }}>
-                      {selectedProperty.galleryImages?.slice(0, 2).map((img, idx) => (
-                        <div key={idx} className="side-image-container rounded-4 overflow-hidden shadow-sm flex-grow-1">
-                          <img
-                            src={typeof img === 'string' ? img : img.url}
-                            alt={`Gallery ${idx}`}
-                            className="w-100 h-100 object-fit-cover"
-                            onError={(e) => e.target.src = 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400'}
-                          />
-                        </div>
-                      ))}
-                      {selectedProperty.galleryImages?.length > 2 && (
-                        <div className="more-images-overlay rounded-4 shadow-sm d-flex align-items-center justify-content-center bg-dark text-white position-relative" style={{ height: '120px' }}>
-                          <img
-                            src={typeof selectedProperty.galleryImages[2] === 'string' ? selectedProperty.galleryImages[2] : selectedProperty.galleryImages[2].url}
-                            alt="More"
-                            className="w-100 h-100 object-fit-cover opacity-50 rounded-4"
-                          />
-                          <div className="position-absolute text-center">
-                            <div className="fw-bold" style={{ fontSize: '16px' }}>+{selectedProperty.galleryImages.length - 2}</div>
-                            <div style={{ fontSize: '10px' }}>PHOTOS</div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
+              <div className="property-gallery-refined mt-3 mb-1">
+                <h6 className="fw-bold mb-2 text-dark" style={{ fontSize: '13px' }}>Property Images</h6>
+                <div className="d-flex gap-2 overflow-auto pb-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+                  {selectedProperty.coverImage && (
+                    <img
+                      src={resolveImageUrl(selectedProperty.coverImage)}
+                      alt="Cover"
+                      className="rounded-3 shadow-sm object-fit-cover flex-shrink-0 border"
+                      style={{ width: '120px', height: '80px' }}
+                      onError={(e) => e.target.src = 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?w=800'}
+                    />
+                  )}
+                  {selectedProperty.galleryImages?.map((img, idx) => (
+                    <img
+                      key={idx}
+                      src={resolveImageUrl(typeof img === 'string' ? img : img.url)}
+                      alt={`Gallery ${idx}`}
+                      className="rounded-3 shadow-sm object-fit-cover flex-shrink-0 border"
+                      style={{ width: '120px', height: '80px' }}
+                      onError={(e) => e.target.src = 'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=400'}
+                    />
+                  ))}
                 </div>
               </div>
 
@@ -746,40 +820,6 @@ const AdminProperties = () => {
                 </div>
                 <div className="d-flex gap-2">
                   <button className="btn btn-light px-4 border" onClick={() => setShowViewModal(false)} style={{ fontSize: '12px', fontWeight: '500' }}>Close</button>
-                  <div className="dropdown">
-                    <button className="btn btn-outline-premium px-4 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style={{ fontSize: '12px', fontWeight: '600' }}>
-                      Change Status
-                    </button>
-                    <ul className="dropdown-menu shadow border-0">
-                      <li>
-                        <button 
-                          className="dropdown-item py-2" 
-                          onClick={() => updatePropertyStatus(selectedProperty._id, 'approved')}
-                          disabled={selectedProperty.status === 'approved'}
-                        >
-                          Approve Property
-                        </button>
-                      </li>
-                      <li>
-                        <button 
-                          className="dropdown-item py-2" 
-                          onClick={() => updatePropertyStatus(selectedProperty._id, 'rejected')}
-                          disabled={selectedProperty.status === 'rejected'}
-                        >
-                          Reject Property
-                        </button>
-                      </li>
-                      <li>
-                        <button 
-                          className="dropdown-item py-2" 
-                          onClick={() => updatePropertyStatus(selectedProperty._id, 'pending')}
-                          disabled={selectedProperty.status === 'pending'}
-                        >
-                          Mark as Pending
-                        </button>
-                      </li>
-                    </ul>
-                  </div>
                   {selectedProperty.status === 'pending' && (
                     <button
                       className="btn btn-success px-4"
@@ -826,7 +866,7 @@ const AdminProperties = () => {
       {/* Re-approval Confirmation Modal */}
       {showApproveConfirm && selectedProperty && (
         <div className="modal-overlay" style={{ zIndex: 1100 }}>
-          <div className="modal-container" style={{ maxWidth: '500px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal-container" style={{ maxWidth: '800px' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header border-0 pb-0">
               <h5 className="modal-title fw-bold text-dark">Confirm Changes</h5>
               <button className="modal-close" onClick={() => setShowApproveConfirm(false)}>
@@ -847,9 +887,9 @@ const AdminProperties = () => {
                    <div key={idx} className="mb-3 last-child-mb-0">
                       <label className="text-muted d-block mb-1" style={{ fontSize: '10px' }}>{field.replace(/([A-Z])/g, ' $1').toUpperCase()}</label>
                       <div className="d-flex align-items-center gap-2">
-                        <span className="text-muted small text-decoration-line-through">{selectedProperty.previousValues?.[field] || 'N/A'}</span>
+                        <span className="text-muted small text-decoration-line-through">{typeof selectedProperty.previousValues?.[field] === 'object' ? JSON.stringify(selectedProperty.previousValues[field]) : (selectedProperty.previousValues?.[field] || 'N/A')}</span>
                         <Check size={12} className="text-success" />
-                        <span className="fw-bold text-primary small">{selectedProperty[field]}</span>
+                        <span className="fw-bold text-primary small">{typeof selectedProperty[field] === 'object' ? JSON.stringify(selectedProperty[field]) : selectedProperty[field]}</span>
                       </div>
                    </div>
                  ))}
@@ -916,7 +956,7 @@ const AdminProperties = () => {
                         </div>
                         <div className="d-flex flex-wrap gap-1 mt-2">
                           {room.amenities?.slice(0, 3).map((a, i) => (
-                            <span key={i} className="badge bg-white text-muted border" style={{ fontSize: '9px' }}>{a}</span>
+                            <span key={i} className="badge bg-white text-muted border" style={{ fontSize: '9px' }}>{typeof a === 'object' ? (a.name || JSON.stringify(a)) : a}</span>
                           ))}
                           {room.ac && <span className="badge bg-primary bg-opacity-10 text-primary" style={{ fontSize: '9px' }}>AC</span>}
                         </div>

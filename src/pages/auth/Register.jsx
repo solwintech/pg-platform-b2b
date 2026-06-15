@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   User,
@@ -18,7 +18,8 @@ import {
   EyeOff
 } from 'lucide-react';
 import authService from '../../services/authService';
-import { TermsOfServiceModal, PrivacyPolicyModal } from '../../components/auth/AuthModals';
+import { TermsOfServiceModal, PrivacyPolicyModal, OtpVerificationModal } from '../../components/auth/AuthModals';
+import logo from '../../assets/logo.png';
 
 const Register = () => {
   const navigate = useNavigate();
@@ -43,6 +44,7 @@ const Register = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -66,6 +68,7 @@ const Register = () => {
       try {
         await authService.generateOtp(formData.phone);
         setOtpSent(true);
+        setShowOtpModal(true);
         setIsSendingOtp(false);
         setOtpTimer(60);
         // Start timer
@@ -94,6 +97,7 @@ const Register = () => {
         await authService.verifyOtp(formData.phone, otp);
         setIsVerified(true);
         setIsVerifyingOtp(false);
+        setShowOtpModal(false);
       } catch (err) {
         setIsVerifyingOtp(false);
         setErrors({ ...errors, otp: err.response?.data?.message || 'Invalid OTP' });
@@ -102,6 +106,12 @@ const Register = () => {
       setErrors({ ...errors, otp: 'Please enter 6-digit OTP' });
     }
   };
+
+  useEffect(() => {
+    if (otp.length === 6 && !isVerifyingOtp && !isVerified) {
+      handleVerifyOTP();
+    }
+  }, [otp]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -160,10 +170,9 @@ const Register = () => {
           {/* Left Side - Brand Section */}
           <div className="register-brand">
             <div className="brand-content">
-              <div className="brand-logo">
-                <Building2 size={40} />
+              <div className="mb-4">
+                <img src={logo} alt="Logo" height="60" style={{ objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
               </div>
-              <h2 className="brand-title">Sortify Stays</h2>
               <p className="brand-subtitle">Join India's largest PG & Hostel platform</p>
               <div className="brand-features">
                 <div className="feature-item">
@@ -240,44 +249,23 @@ const Register = () => {
                         <button
                           type="button"
                           className={`otp-btn ${isVerified ? 'verified' : ''}`}
-                          onClick={handleSendOTP}
-                          disabled={isVerified || isSendingOtp || (otpSent && otpTimer > 0)}
+                          onClick={() => {
+                            if (otpSent && !isVerified) {
+                              setShowOtpModal(true);
+                            } else {
+                              handleSendOTP();
+                            }
+                          }}
+                          disabled={isVerified || isSendingOtp}
                         >
-                          {isVerified ? '✓ Verified' : isSendingOtp ? 'Sending...' : otpSent && otpTimer > 0 ? `Resend in ${otpTimer}s` : 'Send OTP'}
+                          {isVerified ? '✓ Verified' : isSendingOtp ? 'Sending...' : otpSent && !isVerified ? 'Enter OTP' : 'Send OTP'}
                         </button>
                       </div>
                       {errors.phone && <small className="error-text">{errors.phone}</small>}
                     </div>
                   </div>
 
-                  {otpSent && !isVerified && (
-                    <div className="col-md-12">
-                      <div className="form-group">
-                        <div className="input-group-custom">
-                          <span className="input-group-text-modern">
-                            <Smartphone size={16} />
-                          </span>
-                          <input
-                            type="text"
-                            className={`form-control-modern ${errors.otp ? 'is-invalid' : ''}`}
-                            placeholder="Enter 6-digit OTP"
-                            value={otp}
-                            onChange={(e) => setOtp(e.target.value)}
-                            maxLength="6"
-                          />
-                          <button
-                            type="button"
-                            className="otp-btn"
-                            onClick={handleVerifyOTP}
-                            disabled={isVerifyingOtp || otp.length !== 6}
-                          >
-                            {isVerifyingOtp ? 'Verifying...' : 'Verify OTP'}
-                          </button>
-                        </div>
-                        {errors.otp && <small className="error-text">{errors.otp}</small>}
-                      </div>
-                    </div>
-                  )}
+
 
                   <div className="col-md-12">
                     <div className="form-group">
@@ -419,6 +407,18 @@ const Register = () => {
       <PrivacyPolicyModal 
         isOpen={showPrivacyModal} 
         onClose={() => setShowPrivacyModal(false)} 
+      />
+      <OtpVerificationModal
+        isOpen={showOtpModal}
+        onClose={() => setShowOtpModal(false)}
+        phone={formData.phone}
+        otp={otp}
+        setOtp={setOtp}
+        onVerify={handleVerifyOTP}
+        isVerifying={isVerifyingOtp}
+        error={errors.otp}
+        otpTimer={otpTimer}
+        onResend={handleSendOTP}
       />
     </div>
   );

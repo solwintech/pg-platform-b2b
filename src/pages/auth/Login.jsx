@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Mail,
@@ -14,10 +14,12 @@ import {
   HelpCircle,
   Users,
   Eye,
-  EyeOff
+  EyeOff,
+  AlertCircle
 } from 'lucide-react';
 import authService from '../../services/authService';
-import { TermsOfServiceModal, PrivacyPolicyModal } from '../../components/auth/AuthModals';
+import { TermsOfServiceModal, PrivacyPolicyModal, OtpVerificationModal } from '../../components/auth/AuthModals';
+import logo from '../../assets/logo.png';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -37,6 +39,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showTermsModal, setShowTermsModal] = useState(false);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -54,8 +57,9 @@ const Login = () => {
       setIsSendingOtp(true);
       setErrors({});
       try {
-        await authService.generateOtp(formData.phone);
+        await authService.generateOtp(formData.phone, 'b2b');
         setOtpSent(true);
+        setShowOtpModal(true);
         setIsSendingOtp(false);
         setOtpTimer(60);
         const interval = setInterval(() => {
@@ -69,54 +73,24 @@ const Login = () => {
         }, 1000);
       } catch (err) {
         setIsSendingOtp(false);
-        setErrors({ ...errors, phone: err.response?.data?.message || 'Failed to send OTP' });
+        let errorMsg = err.response?.data?.message || 'Failed to send OTP';
+        if (typeof errorMsg === 'object') {
+          errorMsg = errorMsg.message || JSON.stringify(errorMsg);
+        }
+        setErrors({ ...errors, phone: errorMsg });
       }
     } else {
       setErrors({ ...errors, phone: 'Please enter a valid 10-digit phone number' });
     }
   };
 
-  // Check if user is a manager
-  const checkAndLoginManager = (username, password) => {
-    const managers = JSON.parse(window.dummyDataStorage.getItem('managers') || '[]');
-    const manager = managers.find(
-      m => (m.username === username || m.email === username) && m.password === password && m.status === 'active'
-    );
-
-    if (manager) {
-      window.dummyDataStorage.setItem('isLoggedIn', 'true');
-      window.dummyDataStorage.setItem('userRole', 'manager');
-      window.dummyDataStorage.setItem('loggedManager', JSON.stringify(manager));
-      window.dummyDataStorage.setItem('rememberMe', rememberMe);
-      navigate('/manager/dashboard');
-      return true;
-    }
-    return false;
-  };
-
-  // Check manager by phone
-  const checkManagerByPhone = (phone, otp) => {
-    // For demo, if OTP is sent and phone matches any manager
-    const managers = JSON.parse(window.dummyDataStorage.getItem('managers') || '[]');
-    const manager = managers.find(m => m.phone === phone && m.status === 'active');
-
-    if (manager && otpSent) {
-      window.dummyDataStorage.setItem('isLoggedIn', 'true');
-      window.dummyDataStorage.setItem('userRole', 'manager');
-      window.dummyDataStorage.setItem('loggedManager', JSON.stringify(manager));
-      window.dummyDataStorage.setItem('rememberMe', rememberMe);
-      navigate('/manager/dashboard');
-      return true;
-    }
-    return false;
-  };
 
   const handleLogin = (e, role) => {
     if (e) e.preventDefault();
     setErrors({});
     const newErrors = {};
 
-    // For email login - Check manager first
+    // For email login
     if (loginMethod === 'email') {
       if (!formData.email) newErrors.email = 'Email/Username is required';
       if (!formData.password) newErrors.password = 'Password is required';
@@ -125,13 +99,9 @@ const Login = () => {
         setErrors(newErrors);
         return;
       }
-
-      // Check if manager exists (dummy data fallback)
-      const isManager = checkAndLoginManager(formData.email, formData.password);
-      if (isManager) return;
     }
 
-    // For phone login - Check manager
+    // For phone login
     if (loginMethod === 'phone') {
       if (!formData.phone) newErrors.phone = 'Phone number is required';
       if (!otpSent) newErrors.phone = 'Please request and verify OTP';
@@ -141,23 +111,33 @@ const Login = () => {
         setErrors(newErrors);
         return;
       }
-
-      const isManager = checkManagerByPhone(formData.phone, formData.otp);
-      if (isManager) return;
     }
 
-    // If not manager, proceed with B2B login
+    // Proceed with B2B login
     if (role === 'b2b') {
       loginB2B();
     }
   };
 
+  useEffect(() => {
+    if (loginMethod === 'phone' && formData.otp.length === 6 && otpSent && !isVerifying) {
+      handleLogin(null, 'b2b');
+    }
+  }, [formData.otp, loginMethod, otpSent, isVerifying]);
+
   const loginB2B = async () => {
     try {
       if (loginMethod === 'phone') {
         setIsVerifying(true);
-        const verifyRes = await authService.verifyOtp(formData.phone, formData.otp);
+        const verifyRes = await authService.verifyOtp(formData.phone, formData.otp, 'b2b');
         if (verifyRes.success) {
+          // Explicit check to block regular users if backend somehow returns them
+          if (verifyRes.user && verifyRes.user.role === 'user') {
+            authService.logout(); // Clear any erroneously set token
+            setErrors({ general: 'Access Denied. Only B2B Owners can log in here.' });
+            setIsVerifying(false);
+            return;
+          }
           if (verifyRes.token) {
             // User was automatically logged in
             navigate('/b2b');
@@ -182,7 +162,11 @@ const Login = () => {
         setErrors({ general: 'Please verify your mobile number to continue' });
         handleSendOTP();
       } else {
-        setErrors({ general: err.response?.data?.message || 'Invalid credentials' });
+        let errorMsg = err.response?.data?.message || 'Invalid credentials';
+        if (typeof errorMsg === 'object') {
+          errorMsg = errorMsg.message || JSON.stringify(errorMsg);
+        }
+        setErrors({ general: errorMsg });
       }
       setIsVerifying(false);
     }
@@ -196,10 +180,9 @@ const Login = () => {
           {/* Left Side - Brand Section */}
           <div className="login-brand">
             <div className="brand-content">
-              <div className="brand-logo">
-                <Building2 size={40} />
+              <div className="mb-4">
+                <img src={logo} alt="Logo" height="60" style={{ objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
               </div>
-              <h2 className="brand-title">Sortify Stays</h2>
               <p className="brand-subtitle">India's largest PG & Hostel discovery platform</p>
               <div className="brand-features">
                 <div className="feature-item">
@@ -347,31 +330,20 @@ const Login = () => {
                         <button
                           type="button"
                           className="otp-btn"
-                          onClick={handleSendOTP}
-                          disabled={isSendingOtp || (otpSent && otpTimer > 0)}
+                          onClick={() => {
+                            if (otpSent) {
+                              setShowOtpModal(true);
+                            } else {
+                              handleSendOTP();
+                            }
+                          }}
+                          disabled={isSendingOtp}
                         >
-                          {isSendingOtp ? 'Sending...' : otpSent && otpTimer > 0 ? `Resend in ${otpTimer}s` : 'Send OTP'}
+                          {isSendingOtp ? 'Sending...' : otpSent ? 'Enter OTP' : 'Send OTP'}
                         </button>
                       </div>
                       {errors.phone && <div className="text-danger mt-1" style={{ fontSize: '10px' }}>{errors.phone}</div>}
                     </div>
-                    {otpSent && (
-                      <div className="form-group mb-4">
-                        <div className="input-icon">
-                          <Key size={16} className="icon" />
-                          <input
-                            type="text"
-                            className={`form-control-modern ${errors.otp ? 'is-invalid' : ''}`}
-                            name="otp"
-                            placeholder="Enter 6-digit OTP"
-                            value={formData.otp}
-                            onChange={handleChange}
-                            maxLength="6"
-                          />
-                        </div>
-                        {errors.otp && <div className="text-danger mt-1" style={{ fontSize: '10px' }}>{errors.otp}</div>}
-                      </div>
-                    )}
                   </>
                 )}
   
@@ -408,6 +380,18 @@ const Login = () => {
       <PrivacyPolicyModal 
         isOpen={showPrivacyModal} 
         onClose={() => setShowPrivacyModal(false)} 
+      />
+      <OtpVerificationModal
+        isOpen={showOtpModal}
+        onClose={() => setShowOtpModal(false)}
+        phone={formData.phone}
+        otp={formData.otp}
+        setOtp={(val) => handleChange({ target: { name: 'otp', value: val } })}
+        onVerify={(e) => handleLogin(e, 'b2b')}
+        isVerifying={isVerifying}
+        error={errors.otp || errors.general}
+        otpTimer={otpTimer}
+        onResend={handleSendOTP}
       />
     </div>
   );

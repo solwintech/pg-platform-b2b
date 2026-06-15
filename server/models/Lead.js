@@ -32,7 +32,7 @@ const LeadSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['Enquiry', 'Call', 'WhatsApp'],
+    enum: ['Enquiry', 'Contact', 'WhatsApp'],
     default: 'Enquiry'
   },
   status: {
@@ -44,6 +44,18 @@ const LeadSchema = new mongoose.Schema({
     type: String
   },
   notes: {
+    type: String
+  },
+  enquiryFor: {
+    type: String
+  },
+  moveInDate: {
+    type: String
+  },
+  visitDate: {
+    type: String
+  },
+  visitTime: {
     type: String
   },
   createdAt: {

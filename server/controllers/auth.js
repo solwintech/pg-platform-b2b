@@ -69,7 +69,9 @@ exports.login = async (req, res, next) => {
 
     // Check if identifier is email or phone
     const isEmail = email.includes('@');
-    const query = isEmail ? { email } : { phone: email };
+    const query = isEmail 
+      ? { email, role: { $in: ['b2b', 'admin'] } } 
+      : { phone: email, role: { $in: ['b2b', 'admin'] } };
 
     // Check for user
     const user = await User.findOne(query).select('+password');
@@ -185,7 +187,7 @@ exports.updateProfileImage = async (req, res, next) => {
 // @access  Public
 exports.generateOtp = async (req, res, next) => {
   try {
-    const { mobile } = req.body;
+    const { mobile, role } = req.body;
 
     if (!mobile || !/^\d{10}$/.test(mobile)) {
       return res.status(400).json({
@@ -204,7 +206,8 @@ exports.generateOtp = async (req, res, next) => {
     }
 
     // Check if user exists
-    const user = await User.findOne({ phone: mobile });
+    const queryRole = role || 'user';
+    const user = await User.findOne({ phone: mobile, role: queryRole });
     
     // If it's a login attempt, we don't care if they are verified, we just need to know they exist.
     // If you want to ONLY allow registered users to get a login OTP, we can add a check here.
@@ -249,7 +252,7 @@ exports.generateOtp = async (req, res, next) => {
 // @access  Public
 exports.verifyOtp = async (req, res, next) => {
   try {
-    const { mobile, otp } = req.body;
+    const { mobile, otp, role } = req.body;
 
     if (!mobile || !otp) {
       return res.status(400).json({
@@ -269,7 +272,8 @@ exports.verifyOtp = async (req, res, next) => {
 
     if (otpRecord) {
       // Check if user exists
-      const user = await User.findOne({ phone: mobile });
+      const queryRole = role || 'user';
+      const user = await User.findOne({ phone: mobile, role: queryRole });
       
       if (user) {
         // Update existing user verification status if needed
@@ -294,7 +298,8 @@ exports.verifyOtp = async (req, res, next) => {
             id: user._id,
             name: user.name,
             email: user.email,
-            role: user.role
+            role: user.role,
+            phone: user.phone
           }
         });
       }
@@ -351,7 +356,8 @@ const sendTokenResponse = (user, statusCode, res) => {
       id: user._id,
       name: user.name,
       email: user.email,
-      role: user.role
+      role: user.role,
+      phone: user.phone
     }
   });
 };

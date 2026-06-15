@@ -5,22 +5,24 @@ const {
   createAd,
   updateAd,
   deleteAd,
-  recordClick
+  recordClick,
+  uploadAdImage
 } = require('../controllers/advertisements');
 
 const router = express.Router();
-
 const { protect, authorize } = require('../middleware/auth');
 
-router.route('/')
-  .get(getAds)
-  .post(protect, authorize('admin'), createAd);
-
-router.route('/:id')
-  .put(protect, authorize('admin'), updateAd)
-  .delete(protect, authorize('admin'), deleteAd);
-
+// Public routes
 router.get('/location/:location', getAdsByLocation);
 router.put('/:id/click', recordClick);
+
+// Admin-only routes (with optional image upload via multipart/form-data)
+router.route('/')
+  .get(getAds)
+  .post(protect, authorize('admin'), uploadAdImage, createAd);
+
+router.route('/:id')
+  .put(protect, authorize('admin'), uploadAdImage, updateAd)
+  .delete(protect, authorize('admin'), deleteAd);
 
 module.exports = router;

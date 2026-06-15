@@ -1,6 +1,8 @@
 const Review = require('../models/Review');
 const Property = require('../models/Property');
-
+const Notification = require('../models/Notification');
+const notifyAdmins = require('../utils/notifyAdmins');
+const { broadcastEvent, sendEventToUser } = require('../utils/sse');
 // @desc    Get all reviews
 // @route   GET /api/v1/reviews
 // @access  Public
@@ -10,7 +12,19 @@ exports.getReviews = async (req, res, next) => {
 
     // If a propertyId is provided, filter by that property
     if (req.params.propertyId) {
-      query = Review.find({ property: req.params.propertyId, status: 'approved' });
+      const idOrSlug = req.params.propertyId;
+      const isObjectId = /^[0-9a-fA-F]{24}$/.test(idOrSlug);
+      let propId = idOrSlug;
+      
+      if (!isObjectId) {
+        const prop = await Property.findOne({ slug: idOrSlug }).select('_id');
+        if (!prop) {
+          return res.status(404).json({ success: false, message: 'Property not found' });
+        }
+        propId = prop._id;
+      }
+      
+      query = Review.find({ property: propId, status: 'approved' });
     } else if (req.user && req.user.role === 'admin') {
       // Admins see all reviews
       query = Review.find();
@@ -68,16 +82,28 @@ exports.getReview = async (req, res, next) => {
 // @access  Private
 exports.addReview = async (req, res, next) => {
   try {
-    req.body.property = req.params.propertyId;
-    req.body.user = req.user.id;
+    const idOrSlug = req.params.propertyId;
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(idOrSlug);
+    const query = isObjectId ? { _id: idOrSlug } : { slug: idOrSlug };
+    
+    const property = await Property.findOne(query);
 
-    const property = await Property.findById(req.params.propertyId);
+    if (!property) {
+      return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+
+    req.body.property = property._id;
+    req.body.user = req.user.id;
+    req.body.status = 'pending';
 
     if (!property) {
       return res.status(404).json({ success: false, message: 'Property not found' });
     }
 
     const review = await Review.create(req.body);
+
+    // Notify all admins about the new review
+    await notifyAdmins(req, `A new review was added for ${property.pgName}`, 'review', review._id);
 
     res.status(201).json({
       success: true,
@@ -153,14 +179,27 @@ exports.deleteReview = async (req, res, next) => {
 // @access  Private/Admin
 exports.updateReviewStatus = async (req, res, next) => {
   try {
-    let review = await Review.findById(req.params.id);
+    let review = await Review.findById(req.params.id).populate('property').populate('user', 'name profileImage');
 
     if (!review) {
       return res.status(404).json({ success: false, message: 'Review not found' });
     }
 
+    const previousStatus = review.status;
     review.status = req.body.status;
     await review.save();
+
+    // If status is changed to approved, notify the B2B owner
+    if (req.body.status === 'approved' && previousStatus !== 'approved' && review.property && review.property.owner) {
+      const newNotif = await Notification.create({
+        user: review.property.owner,
+        message: `A review for ${review.property.pgName} has been approved and is now public.`,
+        type: 'review',
+        relatedId: review._id
+      });
+      broadcastEvent(req, 'review_approved', review);
+      sendEventToUser(req, review.property.owner, 'new_notification', newNotif);
+    }
 
     res.status(200).json({
       success: true,
@@ -190,6 +229,9 @@ exports.addReviewReply = async (req, res, next) => {
     review.reply = req.body.reply;
     review.replyAt = Date.now();
     await review.save();
+
+    const fullyPopulatedReview = await Review.findById(review._id).populate('user', 'name profileImage').populate('property');
+    broadcastEvent(req, 'review_replied', fullyPopulatedReview);
 
     res.status(200).json({
       success: true,
