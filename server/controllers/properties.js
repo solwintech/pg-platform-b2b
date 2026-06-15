@@ -162,8 +162,18 @@ const deleteFiles = (files) => {
 exports.createProperty = async (req, res, next) => {
   try {
     // Add user to req.body
-    req.body.owner = req.user.id;
-    req.body.status = 'pending'; // New properties are always pending
+    if (req.user.role === 'admin' && req.body.owner) {
+      // Use the provided owner if admin is creating it
+    } else {
+      req.body.owner = req.user.id;
+    }
+
+    if (req.user.role === 'admin') {
+      req.body.status = 'approved';
+      req.body.isPublished = true;
+    } else {
+      req.body.status = 'pending'; // New properties are always pending for B2B
+    }
 
     // Parse JSON fields from formData
     const jsonFields = ['roomTypes', 'amenities', 'nearbyPlaces', 'visitingHours', 'galleryImages'];

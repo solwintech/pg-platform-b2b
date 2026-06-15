@@ -270,9 +270,9 @@ const PropertyDetails = () => {
 
   const getSimilarProperties = () => {
     if (!property) return [];
-    let similar = allProperties.filter(p => p._id !== id && p.city?.toLowerCase() === property?.city?.toLowerCase());
+    let similar = allProperties.filter(p => p._id !== property._id && p.city?.toLowerCase() === property?.city?.toLowerCase());
     if (similar.length === 0) {
-      similar = allProperties.filter(p => p._id !== id);
+      similar = allProperties.filter(p => p._id !== property._id);
     }
     return similar;
   };
@@ -280,16 +280,30 @@ const PropertyDetails = () => {
   const getImagesArray = () => {
     let images = [];
     if (property?.coverImage) {
-      images.push({ url: resolveImageUrl(property.coverImage) });
+      images.push({ url: resolveImageUrl(property.coverImage), tag: 'Cover' });
     }
     
     if (property?.galleryImages && Array.isArray(property.galleryImages)) {
       property.galleryImages.forEach(img => {
-        images.push({ url: resolveImageUrl(typeof img === 'string' ? img : img.url) });
+        images.push({ 
+          url: resolveImageUrl(typeof img === 'string' ? img : img.url),
+          tag: typeof img === 'object' && img.tag ? img.tag : ''
+        });
       });
     } else if (property?.images && Array.isArray(property.images)) {
       property.images.forEach(img => {
-        images.push({ url: resolveImageUrl(typeof img === 'string' ? img : img.url) });
+        images.push({ 
+          url: resolveImageUrl(typeof img === 'string' ? img : img.url),
+          tag: typeof img === 'object' && img.tag ? img.tag : ''
+        });
+      });
+    }
+
+    if (rooms && Array.isArray(rooms)) {
+      rooms.forEach(room => {
+        if (room.image) {
+          images.push({ url: resolveImageUrl(room.image), tag: room.name || 'Room' });
+        }
       });
     }
     
@@ -390,9 +404,9 @@ const PropertyDetails = () => {
       });
       
       setOwnerContact({
-        name: property?.ownerId?.name || 'Verified Owner',
-        phone: property?.ownerId?.phone || '+91 98765 43210',
-        email: property?.ownerId?.email || 'owner@staynest.com'
+        name: property?.owner?.name || property?.ownerId?.name || 'Verified Owner',
+        phone: property?.owner?.phone || property?.ownerId?.phone || '+91 98765 43210',
+        email: property?.owner?.email || property?.ownerId?.email || 'owner@staynest.com'
       });
       setFormState('success');
     } catch (error) {
@@ -478,7 +492,7 @@ const PropertyDetails = () => {
             </div> */}
 
             <div className="text-start text-md-end mt-2 mt-md-0">
-              <div className="text-muted mb-2" style={{ fontSize: '0.75rem' }}>Posted by : <strong className="text-dark">{property.ownerId?.name || 'Owner'}</strong></div>
+              <div className="text-muted mb-2" style={{ fontSize: '0.75rem' }}>Posted by : <strong className="text-dark">{property?.owner?.name || property?.ownerId?.name || 'Owner'}</strong></div>
               <div className="d-flex gap-2 justify-content-md-end">
                 <button className="btn  px-3 py-1 fw-bold text-white" style={{fontSize: '1rem', background: '#f15a29', border: 'none'}} onClick={() => scrollToSection('contact-form')}>Enquire</button>
                 <button className="btn  px-3 py-1 fw-bold text-white" style={{fontSize: '1rem', background: '#ea580c', border: 'none'}} onClick={() => scrollToSection('contact-form')}>Contact Now</button>
@@ -634,7 +648,18 @@ const PropertyDetails = () => {
                         <tr key={idx}>
                           <td className="px-4 py-3 text-center align-middle">
                             {room.image ? (
-                              <img src={resolveImageUrl(room.image)} alt={room.name} className="rounded shadow-sm mx-auto d-block" style={{ width: '100px', height: '75px', objectFit: 'cover' }} />
+                              <img 
+                                src={resolveImageUrl(room.image)} 
+                                alt={room.name} 
+                                className="rounded shadow-sm mx-auto d-block cursor-pointer transition-all" 
+                                style={{ width: '100px', height: '75px', objectFit: 'cover' }}
+                                onClick={() => {
+                                  const url = resolveImageUrl(room.image);
+                                  const allImages = getImagesArray();
+                                  const idx = allImages.findIndex(img => img.url === url);
+                                  if (idx !== -1) handleSelectImage(idx);
+                                }}
+                              />
                             ) : (
                               <div className="bg-light rounded shadow-sm d-flex align-items-center justify-content-center text-muted mx-auto" style={{ width: '100px', height: '75px' }}>
                                 <i className="fas fa-bed"></i>
@@ -1005,7 +1030,13 @@ const PropertyDetails = () => {
             <div className="ho-section-card" id="reviews" style={{ marginBottom: '8px' }}>
               <div className="d-flex justify-content-between align-items-center mb-4">
                 <h3 className="ho-section-title mb-0">Ratings & Reviews</h3>
-                <button className="ho-btn-outline-primary btn-sm" onClick={() => setShowReviewModal(true)}>
+                <button className="ho-btn-outline-primary btn-sm" onClick={() => {
+                  if (!authService.isAuthenticated()) {
+                    openAuthModal(() => setShowReviewModal(true));
+                  } else {
+                    setShowReviewModal(true);
+                  }
+                }}>
                   <Plus size={14} className="me-1" /> Write a Review
                 </button>
               </div>
@@ -1302,12 +1333,17 @@ const PropertyDetails = () => {
           >
             {getImagesArray().map((img, idx) => (
               <Carousel.Item key={idx} className="h-100">
-                <div className="w-100 h-100 d-flex align-items-center justify-content-center">
+                <div className="w-100 h-100 d-flex flex-column align-items-center justify-content-center position-relative">
                   <img 
                     src={img.url} 
                     alt={`${getDisplayName()} - ${idx + 1}`} 
                     style={{ maxHeight: '80vh', maxWidth: '100%', objectFit: 'contain' }} 
                   />
+                  {img.tag && (
+                    <div className="position-absolute bottom-0 mb-5 px-3 py-2 bg-dark text-white rounded-3 shadow bg-opacity-75 fw-semibold" style={{ letterSpacing: '0.5px' }}>
+                      {img.tag}
+                    </div>
+                  )}
                 </div>
               </Carousel.Item>
             ))}

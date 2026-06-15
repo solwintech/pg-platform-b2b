@@ -43,6 +43,7 @@ import ManagerDashboard from '../pages/manager/ManagerDashboard';
 import SubscriptionPlans from '../pages/admin/SubscriptionPlans';
 
 import AdminProperties from '../pages/admin/AdminProperties';
+import AdminAddPG from '../pages/admin/AdminAddPG';
 import ManageAdvertisements from '../pages/admin/ManageAdvertisements';
 import ActivityLogs from "../pages/admin/ActivityLogs";
 import Profile from "../pages/b2b/Profile";
@@ -152,6 +153,7 @@ const AppRoutes = () => {
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="subscription-plans" element={<SubscriptionPlans />} />
           <Route path="properties" element={<AdminProperties />} />
+          <Route path="add-pg" element={<AdminAddPG />} />
           <Route path="edit-pg/:id" element={<EditPG />} />
           <Route path="ads" element={<ManageAdvertisements />} />
           <Route path="logs" element={<ActivityLogs />} />

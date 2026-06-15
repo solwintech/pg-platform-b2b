@@ -34,9 +34,9 @@ const Sidebar = ({ role, isCollapsed, toggleSidebar, isMobileOpen, closeMobile }
     ],
     admin: [
       { path: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    //   { path: '/admin/approvals', icon: CheckCircle, label: 'Approvals' },
-      { path: '/admin/amenities', icon: Award, label: 'Amenities' },
       { path: '/admin/properties', icon: Building2, label: 'All Properties' },
+      { path: '/admin/add-pg', icon: PlusCircle, label: 'Add Property' },
+      { path: '/admin/amenities', icon: Award, label: 'Amenities' },
       { path: '/admin/users', icon: Users, label: 'Users' },
     //   { path: '/admin/settings', icon: Settings, label: 'Settings' },
       // In Sidebar.jsx, add to admin menuItems:
