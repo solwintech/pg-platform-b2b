@@ -140,11 +140,13 @@ const AddPG = () => {
 
   return (
     <div className="add-pg-page">
-      <div className="d-flex justify-content-end mb-3">
-        <button className="btn btn-outline-primary btn-sm" onClick={handleAutofill}>
-          ⚡ Autofill for Testing
-        </button>
-      </div>
+      {JSON.parse(localStorage.getItem('user') || '{}')?.email === 'sourabh@gmail.com' && (
+        <div className="d-flex justify-content-end mb-3">
+          <button className="btn btn-outline-primary btn-sm" onClick={handleAutofill}>
+            ⚡ Autofill for Testing
+          </button>
+        </div>
+      )}
       <div className="card">
         <div className="card-body p-4">
           {submitting ? (

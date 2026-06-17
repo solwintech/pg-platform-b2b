@@ -12,16 +12,16 @@ import { useAuthModal } from '../../context/AuthModalContext';
 import SEO from '../../components/SEO';
 
 const DEFAULT_CITIES_DATA = [
-  { name: "Mumbai", image: "https://images.unsplash.com/photo-1570168007204-dfb528c6958f?w=400&q=80" },
-  { name: "Delhi", image: "https://images.unsplash.com/photo-1587474260584-136574528ed5?w=400&q=80" },
-  { name: "Bangalore", image: "https://images.unsplash.com/photo-1596422846543-75c6fc197f0a?w=400&q=80" },
-  { name: "Hyderabad", image: "https://images.unsplash.com/photo-1605130284535-11dd9eedc58a?w=400&q=80" },
-  { name: "Chennai", image: "https://images.unsplash.com/photo-1582510003544-4d00b7f74220?w=400&q=80" },
-  { name: "Pune", image: "https://images.unsplash.com/photo-1572913017567-02f0649bed21?w=400&q=80" },
-  { name: "Kolkata", image: "https://images.unsplash.com/photo-1536421469767-10559bc65c04?w=400&q=80" },
-  { name: "Ahmedabad", image: "https://images.unsplash.com/photo-1597058712635-3182d1e0bf09?w=400&q=80" },
-  { name: "Jaipur", image: "https://images.unsplash.com/photo-1477587458883-47145ed94245?w=400&q=80" },
-  { name: "Lucknow", image: "https://images.unsplash.com/photo-1587541991851-fe4bbde8416d?w=400&q=80" }
+  { name: "Mumbai", image: "/images/cities/mumbai.png" },
+  { name: "Delhi", image: "/images/cities/delhi.png" },
+  { name: "Bangalore", image: "/images/cities/bangalore.png" },
+  { name: "Hyderabad", image: "/images/cities/hyderabad.png" },
+  { name: "Chennai", image: "/images/cities/chennai.png" },
+  { name: "Pune", image: "/images/cities/pune.png" },
+  { name: "Kolkata", image: "/images/cities/kolkata.png" },
+  { name: "Ahmedabad", image: "/images/cities/ahmedabad.png" },
+  { name: "Jaipur", image: "/images/cities/jaipur.png" },
+  { name: "Lucknow", image: "/images/cities/lucknow.png" }
 ];
 
 const getBaseImageUrl = () => {
@@ -188,10 +188,11 @@ const HomePage = () => {
   const getPropertyMinPrice = (property) => {
     if (property.minPrice) return property.minPrice;
     if (property.pricing?.deposit) return property.pricing.deposit;
-    if (property.rooms && property.rooms.length > 0) {
-      return Math.min(...property.rooms.map(r => r.price));
+    const pRooms = property.roomTypes || property.rooms;
+    if (pRooms && pRooms.length > 0) {
+      return Math.min(...pRooms.map(r => Number(r.price) || 0));
     }
-    return property.totalRooms * 1000;
+    return (property.totalRooms * 1000) || 5000;
   };
 
   const getDisplayName = (property) => {
@@ -199,9 +200,11 @@ const HomePage = () => {
   };
 
   const getDisplayLocation = (property) => {
+    if (property.area) return property.area;
     if (property.location?.area) return property.location.area;
+    if (property.address) return property.address;
     if (property.location?.address) return property.location.address;
-    return property.location?.city || 'Location';
+    return property.city || property.location?.city || 'Location';
   };
 
   const goToListings = (overrideCity = null) => {
@@ -257,7 +260,7 @@ const HomePage = () => {
             <div className="compact-card-content">
               <div className="compact-title">{getDisplayName(property)}</div>
               <div className="compact-location">
-                <i className="fas fa-map-pin"></i> {getDisplayLocation(property)}, {property.location?.city || 'City'}
+                <i className="fas fa-map-pin"></i> {getDisplayLocation(property)}, {property.city || property.location?.city || 'City'}
               </div>
               <div className="compact-features">
                 <span><i className="fas fa-bed"></i> {property.totalRooms} rooms</span>

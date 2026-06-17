@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Container, Row, Col, Card, Form, Button, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, Button, Alert, Accordion } from 'react-bootstrap';
 import Header from './Header';
 import Footer from './Footer';
 import './Contact.css';
@@ -58,11 +58,6 @@ const ContactPage = () => {
 
   const contactInfo = [
     {
-      icon: "fas fa-map-marker-alt",
-      title: "Visit Us",
-      details: ["123, Tech Park, Koramangala", "Bangalore - 560034, India"]
-    },
-    {
       icon: "fas fa-phone-alt",
       title: "Call Us",
       details: ["+91 98765 43210", "+91 98765 43211"]
@@ -70,7 +65,7 @@ const ContactPage = () => {
     {
       icon: "fas fa-envelope",
       title: "Email Us",
-      details: ["support@staynest.com", "careers@staynest.com"]
+      details: ["contact@sortifystays.com", "sales@sortifystays.com"]
     },
     {
       icon: "fas fa-clock",
@@ -103,7 +98,7 @@ const ContactPage = () => {
   ];
 
   return (
-    <div className="contact-page">
+    <div className="contact-page" style={{ fontSize: '0.9rem' }}>
       <Header />
       
       {/* Hero Section */}
@@ -119,28 +114,30 @@ const ContactPage = () => {
       </section>
 
       <Container className="py-5">
-        {/* Contact Info Cards */}
-        <Row className="g-4 contact-info-grid">
-          {contactInfo.map((info, index) => (
-            <Col key={index} md={6} lg={3}>
-              <Card className="h-100 text-center border-0 shadow-sm contact-info-card">
-                <Card.Body className="p-4">
-                  <div className="info-icon mx-auto mb-3">
+        {/* Contact Content Grid */}
+        <Row className="g-4 mt-2">
+          {/* Left Column: Contact Info */}
+          <Col lg={4} className="d-flex flex-column gap-3">
+            {contactInfo.map((info, index) => (
+              <Card key={index} className="h-100 text-start border-0 shadow-sm contact-info-card">
+                <Card.Body className="p-4 d-flex align-items-center gap-4">
+                  <div className="info-icon m-0 flex-shrink-0">
                     <i className={info.icon}></i>
                   </div>
-                  <h3 className="h5 fw-bold mb-3">{info.title}</h3>
-                  {info.details.map((detail, idx) => (
-                    <p key={idx} className="text-muted mb-1">{detail}</p>
-                  ))}
+                  <div>
+                    <h3 className="h6 fw-bold mb-1">{info.title}</h3>
+                    {info.details.map((detail, idx) => (
+                      <p key={idx} className="text-muted mb-0" style={{ fontSize: '0.85rem' }}>{detail}</p>
+                    ))}
+                  </div>
                 </Card.Body>
               </Card>
-            </Col>
-          ))}
-        </Row>
+            ))}
+          </Col>
 
-        <Row className="g-4 mt-4 justify-content-center">
-          <Col lg={10}>
-            <Card className="border-0 shadow-sm">
+          {/* Right Column: Form */}
+          <Col lg={8}>
+            <Card className="contact-form-card h-100">
               <Card.Body className="p-4 p-lg-5">
                 <h2 className="h3 fw-bold mb-2">Send us a Message</h2>
                 <p className="text-muted mb-4">Have questions? Fill out the form below and our team will get back to you within 24 hours.</p>
@@ -262,8 +259,6 @@ const ContactPage = () => {
               </Card.Body>
             </Card>
           </Col>
-          
-
         </Row>
 
         {/* FAQ Section */}
@@ -276,20 +271,26 @@ const ContactPage = () => {
           </Col>
         </Row>
         
-        <Row className="g-4">
-          {faqs.map((faq, index) => (
-            <Col key={index} md={6}>
-              <Card className="h-100 border-0 shadow-sm faq-card">
-                <Card.Body className="p-4">
-                  <div className="d-flex gap-3 mb-3">
-                    <i className="fas fa-question-circle fa-2x contact-primary-text"></i>
-                    <h3 className="h6 fw-bold mb-0">{faq.question}</h3>
-                  </div>
-                  <p className="text-muted mb-0 ms-5">{faq.answer}</p>
-                </Card.Body>
-              </Card>
-            </Col>
-          ))}
+        <Row className="g-4 justify-content-center">
+          <Col lg={10}>
+            <Accordion className="custom-accordion">
+              {faqs.map((faq, index) => (
+                <Accordion.Item key={index} eventKey={index.toString()} className="border-0 mb-3 shadow-sm faq-card overflow-hidden">
+                  <Accordion.Header>
+                    <div className="d-flex align-items-center gap-3 w-100">
+                      <div className="icon-container" style={{ width: '35px', height: '35px', fontSize: '1rem' }}>
+                        <i className="fas fa-question"></i>
+                      </div>
+                      <span className="fw-bold text-dark">{faq.question}</span>
+                    </div>
+                  </Accordion.Header>
+                  <Accordion.Body className="text-muted bg-white border-top">
+                    {faq.answer}
+                  </Accordion.Body>
+                </Accordion.Item>
+              ))}
+            </Accordion>
+          </Col>
         </Row>
 
 

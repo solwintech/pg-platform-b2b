@@ -145,7 +145,25 @@ const StepPropertyDetails = ({ data, updateData }) => {
           <div className="card border-0 bg-light-orange-subtle p-3 rounded-4">
             <div className="row g-3">
               <div className="col-12">
-                <label className="form-label small fw-bold text-muted mb-2">Select Available Days</label>
+                <div className="d-flex justify-content-between align-items-center mb-2">
+                  <label className="form-label small fw-bold text-muted mb-0">Select Available Days</label>
+                  <button 
+                    type="button" 
+                    className="btn btn-sm btn-link text-primary p-0 text-decoration-none" 
+                    style={{ fontSize: '12px' }}
+                    onClick={() => {
+                      const allDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                      const currentDays = data.visitingHours?.availableDays || [];
+                      if (currentDays.length === 7) {
+                        handleVisitingHoursChange('availableDays', []);
+                      } else {
+                        handleVisitingHoursChange('availableDays', allDays);
+                      }
+                    }}
+                  >
+                    {data.visitingHours?.availableDays?.length === 7 ? 'Deselect All' : 'Select All Days'}
+                  </button>
+                </div>
                 <div className="d-flex flex-wrap gap-2">
                   {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
                     <button

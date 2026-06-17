@@ -62,9 +62,16 @@ const StepUploads = ({ data, updateData }) => {
     });
 
     const newImages = await Promise.all(compressPromises);
-    const newGallery = [...galleryImages, ...newImages];
-    setGalleryImages(newGallery);
-    updateData({ galleryImages: newGallery });
+    const combined = [...galleryImages, ...newImages];
+    
+    let finalGallery = combined;
+    if (combined.length > 8) {
+      alert("You can only upload up to 8 photos at a time. Extra photos were ignored.");
+      finalGallery = combined.slice(0, 8);
+    }
+    
+    setGalleryImages(finalGallery);
+    updateData({ galleryImages: finalGallery });
   };
 
   const removeGalleryImage = (index) => {
@@ -76,7 +83,12 @@ const StepUploads = ({ data, updateData }) => {
   return (
     <div className="step-uploads">
       <h5 className="mb-3 fw-semibold">Media Gallery</h5>
-      <p className="text-muted small mb-4">Upload photos and tag them for better organization</p>
+      <p className="text-muted small mb-3">Upload photos and tag them for better organization</p>
+
+      <div className="alert alert-info py-2 mb-4" style={{ fontSize: '0.85rem' }}>
+        <i className="fas fa-info-circle me-2"></i>
+        <strong>Note:</strong> Only 8 photos can be uploaded at a time. You can upload more photos after property approval.
+      </div>
 
       <div className="mb-4">
         <label className="form-label small fw-bold text-dark">Main Property Photo *</label>
@@ -180,18 +192,20 @@ const StepUploads = ({ data, updateData }) => {
               </div>
             ))}
 
-            <div className="col-md-4">
-              <div
-                className="border rounded d-flex align-items-center justify-content-center bg-white border-dashed"
-                style={{ height: '200px', cursor: 'pointer' }}
-                onClick={() => document.getElementById('galleryUpload').click()}
-              >
-                <div className="text-center">
-                  <Plus size={32} className="text-primary mb-2" />
-                  <p className="text-muted small mb-0">Add More Photos</p>
+            {galleryImages.length < 8 && (
+              <div className="col-md-4">
+                <div
+                  className="border rounded d-flex align-items-center justify-content-center bg-white border-dashed"
+                  style={{ height: '200px', cursor: 'pointer' }}
+                  onClick={() => document.getElementById('galleryUpload').click()}
+                >
+                  <div className="text-center">
+                    <Plus size={32} className="text-primary mb-2" />
+                    <p className="text-muted small mb-0">Add More Photos</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
           <input
             type="file"

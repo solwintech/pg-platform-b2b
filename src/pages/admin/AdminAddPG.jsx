@@ -142,9 +142,11 @@ const AdminAddPG = () => {
     <div className="add-pg-page p-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>Add Property (on behalf of B2B)</h2>
-        <button className="btn btn-outline-primary btn-sm" onClick={handleAutofill}>
-          ⚡ Autofill for Testing
-        </button>
+        {JSON.parse(localStorage.getItem('user') || '{}')?.email === 'sourabh@gmail.com' && (
+          <button className="btn btn-outline-primary btn-sm" onClick={handleAutofill}>
+            ⚡ Autofill for Testing
+          </button>
+        )}
       </div>
       <div className="card">
         <div className="card-body p-4">

@@ -11,6 +11,7 @@ import authService from '../../services/authService';
 import PropertyMap from '../../components/MapComponent';
 import PromotionalAd from '../../components/PromotionalAd';
 import './PropertyDetails.css';
+import LeadActionModal from '../../components/modals/LeadActionModal';
 import { useAuthModal } from '../../context/AuthModalContext';
 import SEO from '../../components/SEO';
 
@@ -48,6 +49,7 @@ const PropertyDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { openAuthModal } = useAuthModal();
+  const leadActionModalRef = React.useRef(null);
   const [property, setProperty] = useState(null);
   const [rooms, setRooms] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -494,8 +496,8 @@ const PropertyDetails = () => {
             <div className="text-start text-md-end mt-2 mt-md-0">
               <div className="text-muted mb-2" style={{ fontSize: '0.75rem' }}>Posted by : <strong className="text-dark">{property?.owner?.name || property?.ownerId?.name || 'Owner'}</strong></div>
               <div className="d-flex gap-2 justify-content-md-end">
-                <button className="btn  px-3 py-1 fw-bold text-white" style={{fontSize: '1rem', background: '#f15a29', border: 'none'}} onClick={() => scrollToSection('contact-form')}>Enquire</button>
-                <button className="btn  px-3 py-1 fw-bold text-white" style={{fontSize: '1rem', background: '#ea580c', border: 'none'}} onClick={() => scrollToSection('contact-form')}>Contact Now</button>
+                <button className="btn  px-3 py-1 fw-bold text-white" style={{fontSize: '1rem', background: '#f15a29', border: 'none'}} onClick={() => leadActionModalRef.current?.open(property, 'enquiry')}>Enquire</button>
+                <button className="btn  px-3 py-1 fw-bold text-white" style={{fontSize: '1rem', background: '#ea580c', border: 'none'}} onClick={() => leadActionModalRef.current?.open(property, 'contact')}>Contact Now</button>
               </div>
             </div>
           </div>
@@ -1351,6 +1353,7 @@ const PropertyDetails = () => {
         </Modal.Body>
       </Modal>
 
+      <LeadActionModal ref={leadActionModalRef} />
       <style>{`
         .ho-btn-outline-primary {
           background: transparent;
