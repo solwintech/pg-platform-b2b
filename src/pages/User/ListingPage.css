@@ -1,4 +1,4 @@
-/* ListingPage.css - Modern & Attractive Styles */
+﻿/* ListingPage.css - Modern & Attractive Styles */
 
 /* Base Styles */
 .listing-page {
@@ -7,7 +7,7 @@
   min-height: 100vh;
 }
 
-/* ── Scroll-isolated 3-column layout ─────────────────────────────────── */
+/* â”€â”€ Scroll-isolated 3-column layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 /* Container: Dashboard layout (Fixed page, scrolling columns) */
 @media (min-width: 992px) {
@@ -769,9 +769,9 @@
   font-weight: 600;
 }
 
-/* ═══════════════════════════════════════════════
+/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
    Compact Property Card  (.pc-*)
-   ═══════════════════════════════════════════════ */
+   â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
 
 .pc-card {
   border: none !important;
@@ -788,14 +788,14 @@
   box-shadow: 0 12px 30px rgba(0,0,0,0.12) !important;
 }
 
-/* ── Card body (image + details side by side) ── */
+/* â”€â”€ Card body (image + details side by side) â”€â”€ */
 .pc-body {
   display: flex;
   gap: 16px;
   padding: 16px;
 }
 
-/* ── Image ── */
+/* â”€â”€ Image â”€â”€ */
 .pc-img-wrap {
   position: relative;
   width: 260px;
@@ -850,7 +850,7 @@
   z-index: 1;
 }
 
-/* ── Details panel ── */
+/* â”€â”€ Details panel â”€â”€ */
 .pc-details {
   flex: 1;
   min-width: 0;
@@ -911,7 +911,7 @@
   margin-top: 4px;
 }
 
-/* ── Info grid (Pills) ── */
+/* â”€â”€ Info grid (Pills) â”€â”€ */
 .pc-info-grid {
   display: flex;
   flex-wrap: wrap;
@@ -946,7 +946,7 @@
   line-height: 1;
 }
 
-/* ── Amenity pills ── */
+/* â”€â”€ Amenity pills â”€â”€ */
 .pc-amenities {
   display: flex;
   flex-wrap: wrap;
@@ -969,7 +969,7 @@
   font-weight: 600;
 }
 
-/* ── Footer bar ── */
+/* â”€â”€ Footer bar â”€â”€ */
 .pc-footer {
   border-top: 1px dashed #e2e8f0;
   padding: 5px 5px;
@@ -1480,7 +1480,7 @@
    Right-Side Banner Column Styles
    ======================================== */
 
-/* Banner column wrapper — padding only */
+/* Banner column wrapper â€” padding only */
 .right-banner-col {
   padding-left: 8px;
 }
@@ -1656,3 +1656,43 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
+
+/* Fixed height for Promotional Cards in the right banner column */
+.right-banner-col .ad-sidebar-card .card {
+  height: 280px;
+  display: flex;
+  flex-direction: column;
+}
+
+.right-banner-col .ad-sidebar-card .card-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+
+/* Equal and fixed height without scrollbar */
+.right-banner-col::-webkit-scrollbar {
+  display: none;
+}
+.right-banner-col {
+  -ms-overflow-style: none; 
+  scrollbar-width: none;
+}
+.right-banner-sticky {
+  height: calc(100vh - 100px);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+.right-banner-col .ad-sidebar-card {
+  flex: 1;
+  margin-bottom: 0 !important;
+  height: 100%;
+}
+.right-banner-col .ad-sidebar-card .card {
+  height: 100% !important;
+  display: block;
+}
+

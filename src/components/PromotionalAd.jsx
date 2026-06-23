@@ -21,8 +21,25 @@ const PromotionalAd = ({ location, className = "" }) => {
     fetchAds();
   }, [location]);
 
-  if (loading || ads.length === 0) return null;
+  if (loading) return null;
 
+  if (ads.length === 0) {
+    if (location.includes('sidebar')) {
+      return (
+        <div className={`ad-sidebar-card mb-4 ${className}`}>
+          <div className="card border-0 shadow-sm overflow-hidden rounded-3" style={{ height: '100%' }}>
+            <img 
+              src="https://placehold.co/300x300/FFF3E0/FF8C42?text=Your+Ad+Here" 
+              className="card-img-top" 
+              alt="Advertise with us" 
+              style={{ height: '100%', objectFit: 'cover' }} 
+            />
+          </div>
+        </div>
+      );
+    }
+    return null;
+  }
   // For now, just show the first active ad for that location
   const ad = ads[0];
 
@@ -86,13 +103,9 @@ const PromotionalAd = ({ location, className = "" }) => {
       onClick={handleClick}
       style={{ cursor: ad.link ? 'pointer' : 'default' }}
     >
-      <div className="card border-0 shadow-sm overflow-hidden rounded-3">
-        <img src={ad.imageUrl} className="card-img-top" alt={ad.title} style={{ height: '140px', objectFit: 'cover' }} />
-        <div className="card-body p-3">
-          <h6 className="card-title fw-bold mb-1">{ad.title}</h6>
-          <p className="card-text small text-muted mb-2">{ad.subtitle}</p>
-          {ad.link && <span className="text-warning fw-bold small">Explore Now <i className="fas fa-arrow-right ms-1"></i></span>}
-        </div>
+      <div className="card border-0 shadow-sm overflow-hidden rounded-3" style={{ height: '100%' }}>
+        <img src={ad.imageUrl} className="card-img-top" alt={ad.title} style={{ height: '100%', objectFit: 'cover' }} />
+        
       </div>
     </div>
   );

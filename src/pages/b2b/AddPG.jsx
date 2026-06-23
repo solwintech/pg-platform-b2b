@@ -7,6 +7,7 @@ import StepPropertyDetails from '../../components/forms/StepPropertyDetails';
 import StepRoomTypes from '../../components/forms/StepRoomTypes';
 import StepPricing from '../../components/forms/StepPricing';
 import StepAmenities from '../../components/forms/StepAmenities';
+import StepHouseRules from '../../components/forms/StepHouseRules';
 import StepUploads from '../../components/forms/StepUploads';
 import StepReview from '../../components/forms/StepReview';
 import propertyService from '../../services/propertyService';
@@ -94,6 +95,10 @@ const AddPG = () => {
         if (!data.amenities || data.amenities.length === 0) return "Please select at least one Amenity";
         return null;
       }
+    },
+    { 
+      title: "House Rules", 
+      component: StepHouseRules 
     },
     { 
       title: "Common Charges", 

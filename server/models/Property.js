@@ -58,6 +58,7 @@ const propertySchema = new mongoose.Schema({
   // Amenities & Config
   roomTypes: [Object], // Store array of room type objects
   amenities: [String],
+  houseRules: [String],
   nearbyPlaces: [Object],
   
   // Pricing

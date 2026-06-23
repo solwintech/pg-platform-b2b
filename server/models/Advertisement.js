@@ -22,7 +22,9 @@ const AdvertisementSchema = new mongoose.Schema({
       'home_mid',
       'listing_sidebar',
       'listing_bottom',
-      'property_sidebar'
+      'property_sidebar',
+      'listing_sidebar_1',
+      'listing_sidebar_2'
     ],
     default: 'home_hero'
   },

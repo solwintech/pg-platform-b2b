@@ -89,6 +89,7 @@ const ListingPage = () => {
     amenities: location.state?.amenities || [],
     gender: location.state?.gender || "all",
     city: location.state?.city || localStorage.getItem('selected_city') || "",
+    localities: [],
     propertyType: location.state?.propertyType || "all",
     agentName: urlAgentName || location.state?.agentName || ""
   });
@@ -100,6 +101,7 @@ const ListingPage = () => {
     amenities: location.state?.amenities || [],
     gender: location.state?.gender || "all",
     city: location.state?.city || localStorage.getItem('selected_city') || "",
+    localities: [],
     propertyType: location.state?.propertyType || "all",
     agentName: urlAgentName || location.state?.agentName || ""
   });
@@ -129,6 +131,7 @@ const ListingPage = () => {
   const [currentSort, setCurrentSort] = useState("");
   const [showFilters, setShowFilters] = useState(true);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
+  const [localityInput, setLocalityInput] = useState("");
   
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedPropertyForReviews, setSelectedPropertyForReviews] = useState(null);
@@ -207,6 +210,16 @@ const ListingPage = () => {
                  searchCity.includes(cityString) || 
                  (cityString === 'bangalore' && searchCity === 'bengaluru') ||
                  (cityString === 'bengaluru' && searchCity === 'bangalore');
+        });
+      }
+      if (appliedFilters.localities && appliedFilters.localities.length > 0) {
+        fetchedProperties = fetchedProperties.filter(p => {
+          const areaString = (p.area || p.address || p.location?.area || p.location?.address || '').toLowerCase();
+          if (!areaString) return false;
+          return appliedFilters.localities.some(loc => {
+            const searchLoc = loc.toLowerCase();
+            return areaString.includes(searchLoc) || searchLoc.includes(areaString);
+          });
         });
       }
       if (appliedFilters.propertyType && appliedFilters.propertyType !== 'all') {
@@ -391,11 +404,33 @@ const ListingPage = () => {
     setFilters({ ...filters, city: value });
   };
 
-  const onCityPlaceChanged = () => {
+  const handleLocalityChange = (value) => {
+    setLocalityInput(value);
+  };
+
+  const handleLocalityKeyDown = (e) => {
+    if (e.key === 'Enter' && localityInput.trim()) {
+      e.preventDefault();
+      const val = localityInput.trim();
+      if (!filters.localities.includes(val)) {
+        setFilters(prev => ({ ...prev, localities: [...prev.localities, val] }));
+      }
+      setLocalityInput("");
+    }
+  };
+
+  const removeLocality = (loc) => {
+    setFilters(prev => ({ ...prev, localities: prev.localities.filter(l => l !== loc) }));
+  };
+
+  const onLocalityPlaceChanged = () => {
     if (cityAutocompleteRef.current !== null) {
       const place = cityAutocompleteRef.current.getPlace();
       if (place && place.name) {
-        setFilters(prev => ({ ...prev, city: place.name }));
+        if (!filters.localities.includes(place.name)) {
+          setFilters(prev => ({ ...prev, localities: [...prev.localities, place.name] }));
+        }
+        setLocalityInput("");
       }
     }
   };
@@ -408,9 +443,12 @@ const ListingPage = () => {
     setCurrentPage(1);
     setAppliedFilters(filters);
     
-    const cityToSave = filters.city || 'All India';
-    localStorage.setItem('selected_city', cityToSave);
-    window.dispatchEvent(new CustomEvent('city-changed', { detail: cityToSave }));
+    // Only update global city if the header city was explicitly changed
+    if (filters.city !== appliedFilters.city) {
+      const cityToSave = filters.city || 'All India';
+      localStorage.setItem('selected_city', cityToSave);
+      window.dispatchEvent(new CustomEvent('city-changed', { detail: cityToSave }));
+    }
   };
 
   const handleAgentClick = (agentName) => {
@@ -424,16 +462,15 @@ const ListingPage = () => {
       occupancy: [],
       amenities: [],
       gender: "all",
-      city: "",
+      city: appliedFilters.city, // retain the globally selected city
+      localities: [],
       propertyType: "all",
       agentName: ""
     };
+    setLocalityInput("");
     setFilters(defaultFilters);
     setAppliedFilters(defaultFilters);
     setCurrentPage(1);
-    
-    localStorage.setItem('selected_city', 'All India');
-    window.dispatchEvent(new CustomEvent('city-changed', { detail: 'All India' }));
   };
 
   const handleSortChange = (sortType) => {
@@ -503,38 +540,63 @@ const ListingPage = () => {
                     <h5 className="filter-header mb-0">
                       <i className="fas fa-sliders-h me-2"></i> Filters
                     </h5>
-                    <Button 
-                      variant="link" 
-                      className="reset-filters-btn p-0"
-                      onClick={resetFilters}
-                    >
-                      Reset All
-                    </Button>
+                    <div className="d-flex gap-3 align-items-center">
+                      <Button 
+                        variant="link" 
+                        className="reset-filters-btn p-0 text-muted"
+                        style={{ textDecoration: 'none', fontSize: '0.85rem' }}
+                        onClick={resetFilters}
+                      >
+                        Reset
+                      </Button>
+                      <Button 
+                        variant="warning" 
+                        size="sm"
+                        className="fw-bold shadow-sm"
+                        style={{ borderRadius: '6px', padding: '0.25rem 0.75rem' }}
+                        onClick={applyFilters}
+                      >
+                        Apply
+                      </Button>
+                    </div>
                   </div>
                   
                   <div className="mb-3">
                     {isLoaded ? (
                       <Autocomplete
                         onLoad={ref => cityAutocompleteRef.current = ref}
-                        onPlaceChanged={onCityPlaceChanged}
-                        options={{ types: ['(cities)'], componentRestrictions: { country: 'in' } }}
+                        onPlaceChanged={onLocalityPlaceChanged}
+                        options={{ types: ['geocode'], componentRestrictions: { country: 'in' } }}
                       >
                         <Form.Control 
                           type="text" 
-                          placeholder="Enter city name"
-                          value={filters.city}
-                          onChange={(e) => handleCityChange(e.target.value)}
+                          placeholder={`Search locality in ${appliedFilters.city || 'your city'}`}
+                          value={localityInput}
+                          onChange={(e) => handleLocalityChange(e.target.value)}
+                          onKeyDown={handleLocalityKeyDown}
                           className="filter-input"
                         />
                       </Autocomplete>
                     ) : (
                       <Form.Control 
                         type="text" 
-                        placeholder="Enter city name"
-                        value={filters.city}
-                        onChange={(e) => handleCityChange(e.target.value)}
+                        placeholder={`Search locality in ${appliedFilters.city || 'your city'}`}
+                        value={localityInput}
+                        onChange={(e) => handleLocalityChange(e.target.value)}
+                        onKeyDown={handleLocalityKeyDown}
                         className="filter-input"
                       />
+                    )}
+                    
+                    {filters.localities.length > 0 && (
+                      <div className="d-flex flex-wrap gap-2 mt-2">
+                        {filters.localities.map((loc, idx) => (
+                          <div key={idx} className="badge bg-light text-dark border px-2 py-1 d-flex align-items-center gap-1 rounded-pill" style={{ fontSize: '0.8rem' }}>
+                            {loc}
+                            <i className="fas fa-times text-muted" style={{ cursor: 'pointer' }} onClick={() => removeLocality(loc)}></i>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
 
@@ -688,8 +750,6 @@ const ListingPage = () => {
                   </Button>
                 </div>
               </Card>
-
-              <PromotionalAd location="listing_sidebar" className="mt-3" />
             </Col>
           )}
 
@@ -805,13 +865,15 @@ const ListingPage = () => {
                         {/* Row 1: Title + Price */}
                         <div className="pc-title-row">
                           <div className="pc-title-block">
-                            <h6 className="pc-title" title={getDisplayName(property)}>
-                              {getDisplayName(property)}
-                               <div className="pc-info-pill pc-status-pill ms-2">
-                            <i className="fas fa-check-circle" style={{color:'#10b981'}}/>
-                            <span style={{color:'#10b981', fontWeight: 600, fontSize: '0.60rem'}}>Available</span>
-                          </div>
-                            </h6>
+                            <div className="d-flex align-items-center">
+                              <h6 className="pc-title mb-0" title={getDisplayName(property)}>
+                                {getDisplayName(property)}
+                              </h6>
+                              <div className="pc-info-pill pc-status-pill ms-2 flex-shrink-0">
+                                <i className="fas fa-check-circle" style={{color:'#10b981'}}/>
+                                <span style={{color:'#10b981', fontWeight: 600, fontSize: '0.60rem'}}>Available</span>
+                              </div>
+                            </div>
                               
 
                             <div className="pc-location">
@@ -920,27 +982,8 @@ const ListingPage = () => {
           {!urlAgentName && (
             <Col lg={2} className="d-none d-lg-block right-banner-col">
               <div className="right-banner-sticky">
-                {/* First Advertisement Banner */}
-                <div className="right-banner-card ad-banner-card mb-4">
-                  <div 
-                    className="ad-banner-image"
-                    style={{ backgroundImage: "url('https://placehold.co/300x300/FFF3E0/FF8C42?text=Premium+Ad+1')" }}
-                  >
-                    <span className="ad-badge">SPONSORED</span>
-                  </div>
-                 
-                </div>
-
-                {/* Second Advertisement Banner */}
-                <div className="right-banner-card ad-banner-card">
-                  <div 
-                    className="ad-banner-image"
-                    style={{ backgroundImage: "url('https://placehold.co/300x300/E0F7FA/0097A7?text=Premium+Ad+2')" }}
-                  >
-                    <span className="ad-badge">SPONSORED</span>
-                  </div>
-                  
-                </div>
+                <PromotionalAd location="listing_sidebar_1" className="mb-4" />
+                <PromotionalAd location="listing_sidebar_2" />
               </div>
             </Col>
           )}

@@ -282,7 +282,7 @@ const PropertyDetails = () => {
   const getImagesArray = () => {
     let images = [];
     if (property?.coverImage) {
-      images.push({ url: resolveImageUrl(property.coverImage), tag: 'Cover' });
+      images.push({ url: resolveImageUrl(property.coverImage), tag: '' });
     }
     
     if (property?.galleryImages && Array.isArray(property.galleryImages)) {
@@ -760,26 +760,46 @@ const PropertyDetails = () => {
             {/* House Rules Section */}
             <div className="ho-section-card" id="rules" style={{ marginBottom: '8px' }}>
               <h3 className="ho-section-title">House Rules</h3>
-              <div className="ho-rules-list">
+              <div className="ho-rules-list" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px' }}>
                 {(property.houseRules && property.houseRules.length > 0) ? (
-                  property.houseRules.map((rule, idx) => (
-                    <div key={idx} className="ho-rule-item">
-                      <i className="fas fa-check-circle ho-rule-icon"></i>
-                      <span className="ho-rule-text">{rule}</span>
-                    </div>
-                  ))
+                  (() => {
+                    const parsedRules = property.houseRules.flatMap(rule => {
+                      try {
+                        const parsed = JSON.parse(rule);
+                        if (Array.isArray(parsed)) return parsed;
+                        return [rule];
+                      } catch (e) {
+                        return [rule];
+                      }
+                    }).filter(Boolean);
+
+                    return parsedRules.map((rule, idx) => {
+                      let icon = "fa-check-circle text-orange";
+                      const lower = rule.toLowerCase();
+                      if (lower.includes('clean')) icon = "fa-broom text-info";
+                      else if (lower.includes('music') || lower.includes('loud') || lower.includes('noise')) icon = "fa-volume-mute text-danger";
+                      else if (lower.includes('guest') || lower.includes('visitor')) icon = "fa-user-friends text-primary";
+                      else if (lower.includes('smok') || lower.includes('alcohol') || lower.includes('drink')) icon = "fa-ban text-danger";
+                      else if (lower.includes('rent') || lower.includes('payment')) icon = "fa-money-bill-wave text-success";
+                      else if (lower.includes('water') || lower.includes('electric')) icon = "fa-leaf text-success";
+                      else if (lower.includes('secur') || lower.includes('safe')) icon = "fa-shield-alt text-primary";
+                      else if (lower.includes('damage') || lower.includes('maintain') || lower.includes('maintenance')) icon = "fa-tools text-secondary";
+                      
+                      return (
+                        <div key={idx} className="ho-amenity-item" style={{display: 'flex', alignItems: 'flex-start', gap: '12px', padding: '15px', border: '1px solid #e2e8f0', borderRadius: '12px', background: '#fff', boxShadow: '0 2px 5px rgba(0,0,0,0.02)', transition: 'all 0.2s'}}>
+                          <div className="ho-amenity-icon" style={{width: '32px', height: '32px', borderRadius: '50%', background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.1rem', flexShrink: 0}}>
+                            <i className={`fas ${icon}`}></i>
+                          </div>
+                          <span className="ho-amenity-name" style={{fontWeight: 500, color: '#334155', lineHeight: '1.4', fontSize: '0.9rem', flex: 1}}>{rule}</span>
+                        </div>
+                      );
+                    });
+                  })()
                 ) : (
-                  [
-                    "Maintain cleanliness in common areas",
-                    "No loud music after 10 PM",
-                    "Guests allowed with prior permission",
-                    "Smoking and drinking strictly prohibited inside rooms"
-                  ].map((rule, idx) => (
-                    <div key={idx} className="ho-rule-item">
-                      <i className="fas fa-check-circle ho-rule-icon"></i>
-                      <span className="ho-rule-text">{rule}</span>
-                    </div>
-                  ))
+                  <div className="text-muted p-3 bg-light rounded-3 text-center w-100">
+                    <i className="fas fa-clipboard-list mb-2" style={{ fontSize: '1.5rem', opacity: 0.5 }}></i>
+                    <p className="mb-0 small">No specific house rules have been added for this property.</p>
+                  </div>
                 )}
               </div>
             </div>

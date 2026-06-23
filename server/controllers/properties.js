@@ -176,7 +176,7 @@ exports.createProperty = async (req, res, next) => {
     }
 
     // Parse JSON fields from formData
-    const jsonFields = ['roomTypes', 'amenities', 'nearbyPlaces', 'visitingHours', 'galleryImages'];
+    const jsonFields = ['roomTypes', 'amenities', 'nearbyPlaces', 'visitingHours', 'galleryImages', 'houseRules'];
     jsonFields.forEach(field => {
       if (req.body[field] && typeof req.body[field] === 'string') {
         try { req.body[field] = JSON.parse(req.body[field]); } catch (e) { }
@@ -259,7 +259,7 @@ exports.updateProperty = async (req, res, next) => {
     const before = property.toObject();
 
     // Parse JSON fields from formData
-    const jsonFields = ['roomTypes', 'amenities', 'nearbyPlaces', 'visitingHours', 'galleryImages'];
+    const jsonFields = ['roomTypes', 'amenities', 'nearbyPlaces', 'visitingHours', 'galleryImages', 'houseRules'];
     jsonFields.forEach(field => {
       if (req.body[field] && typeof req.body[field] === 'string') {
         try { req.body[field] = JSON.parse(req.body[field]); } catch (e) { }

@@ -6,9 +6,9 @@ import Compressor from 'compressorjs';
 const LOCATION_LABELS = {
   home_hero: 'Home Hero',
   home_mid: 'Home Middle',
-  listing_sidebar: 'Listing Sidebar',
-  listing_bottom: 'Listing Bottom',
-  property_sidebar: 'Property Sidebar',
+  listing_sidebar_1: 'Listing Sidebar 1',
+  listing_sidebar_2: 'Listing Sidebar 2',
+  
 };
 
 const EMPTY_FORM = {
@@ -313,6 +313,21 @@ const ManageAdvertisements = () => {
               <Form.Label className="fw-semibold small">
                 Advertisement Image <span className="text-danger">*</span>
               </Form.Label>
+              
+              <div className="mb-2 text-muted small bg-light p-2 rounded border border-light d-flex align-items-center">
+                <i className="fas fa-info-circle me-2 text-primary"></i> 
+                <div>
+                  <strong>Recommended Size: </strong>
+                  {formData.location?.includes('sidebar') ? (
+                    <span><strong>300x600 px</strong> (Vertical/Portrait) for sidebar ads.</span>
+                  ) : formData.location === 'listing_bottom' ? (
+                    <span><strong>1200x200 px</strong> (Horizontal/Landscape) for the bottom banner.</span>
+                  ) : (
+                    <span><strong>1200x300 px</strong> (Horizontal/Landscape) for wide placements.</span>
+                  )}
+                </div>
+              </div>
+
               {/* Toggle */}
               <div className="d-flex gap-3 mb-2">
                 <Form.Check

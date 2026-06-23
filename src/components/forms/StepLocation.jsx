@@ -198,10 +198,12 @@ const StepLocation = ({ data, updateData }) => {
               const addressComponents = place.address_components || [];
               let city = '';
               let pinCode = '';
+              let area = '';
 
               addressComponents.forEach(component => {
                 if (component.types.includes('locality')) city = component.long_name;
                 if (component.types.includes('postal_code')) pinCode = component.long_name;
+                if (component.types.includes('sublocality')) area = component.long_name;
               });
 
               updateData({
@@ -209,6 +211,7 @@ const StepLocation = ({ data, updateData }) => {
                 longitude,
                 city: city || data.city,
                 pinCode: pinCode || data.pinCode,
+                area: area || data.area,
                 address: place.formatted_address
               });
             }

@@ -10,7 +10,7 @@
 .chatbot-launcher-tab {
   background: linear-gradient(135deg, var(--primary, #4361ee), var(--secondary, #3f37c9));
   color: white;
-  padding: 12px 24px;
+  padding: 6px 12px;
   border-radius: 12px 12px 0 0;
   display: flex;
   align-items: center;
@@ -18,7 +18,7 @@
   cursor: pointer;
   box-shadow: 0 -4px 15px rgba(0,0,0,0.1);
   font-weight: 600;
-  font-size: 15px;
+  font-size: 13px;
   transition: transform 0.2s, background 0.2s;
   transform-origin: bottom center;
 }

@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import './Chatbot.css';
 import api from '../../services/api';
 
 const Chatbot = () => {
+  const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -50,6 +52,11 @@ const Chatbot = () => {
     }
     return null;
   };
+
+  // Do not render on B2B and Admin pages
+  if (location.pathname.startsWith('/b2b') || location.pathname.startsWith('/admin')) {
+    return null;
+  }
 
   const handleQuickReply = (type) => {
     const newHistory = [...chatHistory, { sender: 'user', text: type }];
@@ -191,9 +198,9 @@ const Chatbot = () => {
             {step === 1 && (
               <div className="fancy-quick-replies">
                 <button onClick={() => handleQuickReply('PG')}>🏠 PG</button>
+                <button onClick={() => handleQuickReply('Hostel')}>🛏️ Hostel</button>
+                <button onClick={() => handleQuickReply('Home Stay')}>🏡 Home Stay</button>
                 <button onClick={() => handleQuickReply('Service Apartment')}>🏢 Service Apartment</button>
-                <button onClick={() => handleQuickReply('Flat')}>🔑 Flat</button>
-                <button onClick={() => handleQuickReply('Other')}>✨ Other</button>
               </div>
             )}
 
