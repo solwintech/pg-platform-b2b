@@ -1,7 +1,7 @@
 // ListingPage.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
-import { Container, Row, Col, Card, Button, Form, Spinner, Pagination, Modal, Dropdown } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button, Form, Spinner, Pagination, Modal, Dropdown, Carousel } from 'react-bootstrap';
 import Header from './Header';
 import Footer from './Footer';
 import propertyService from '../../services/propertyService';
@@ -76,6 +76,7 @@ const ListingPage = () => {
   };
 
   const [properties, setProperties] = useState([]);
+  const [filteredProperties, setFilteredProperties] = useState([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
@@ -83,7 +84,7 @@ const ListingPage = () => {
   
   const [filters, setFilters] = useState({
     minPrice: location.state?.minPrice || 0,
-    maxPrice: location.state?.maxPrice || 50000,
+    maxPrice: location.state?.maxPrice || 100000,
     occupancy: location.state?.occupancy || [],
     amenities: location.state?.amenities || [],
     gender: location.state?.gender || "all",
@@ -94,7 +95,7 @@ const ListingPage = () => {
 
   const [appliedFilters, setAppliedFilters] = useState({
     minPrice: location.state?.minPrice || 0,
-    maxPrice: location.state?.maxPrice || 50000,
+    maxPrice: location.state?.maxPrice || 100000,
     occupancy: location.state?.occupancy || [],
     amenities: location.state?.amenities || [],
     gender: location.state?.gender || "all",
@@ -128,11 +129,34 @@ const ListingPage = () => {
   const [currentSort, setCurrentSort] = useState("");
   const [showFilters, setShowFilters] = useState(true);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
-  const [showAllOccupancy, setShowAllOccupancy] = useState(false);
-  const [showAllAmenities, setShowAllAmenities] = useState(false);
   
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [selectedPropertyForReviews, setSelectedPropertyForReviews] = useState(null);
+
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [showAllOccupancy, setShowAllOccupancy] = useState(false);
+  const [showAllAmenities, setShowAllAmenities] = useState(false);
+  const [modalImages, setModalImages] = useState([]);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  
+  const loaderRef = useRef(null);
+
+  const handleImageClick = (e, property) => {
+    e.stopPropagation();
+    const images = [];
+    if (property.coverImage) images.push(property.coverImage);
+    if (property.galleryImages && property.galleryImages.length > 0) {
+      property.galleryImages.forEach(img => images.push(img.url || img.image || img));
+    } else if (property.images && property.images.length > 0) {
+      property.images.forEach(img => images.push(img.url || img.image || img));
+    }
+    const uniqueImages = [...new Set(images)];
+    if (uniqueImages.length > 0) {
+      setModalImages(uniqueImages.map(url => resolveImageUrl(url)));
+      setActiveImageIndex(0);
+      setShowImageModal(true);
+    }
+  };
 
 
   // Helper functions for data display
@@ -203,7 +227,7 @@ const ListingPage = () => {
         });
       }
       if (appliedFilters.agentName) {
-        fetchedProperties = fetchedProperties.filter(p => p.agentName === appliedFilters.agentName);
+        fetchedProperties = fetchedProperties.filter(p => p.agentName === appliedFilters.agentName || p.managerName === appliedFilters.agentName || (p.owner && p.owner.name === appliedFilters.agentName));
       }
       if (appliedFilters.minPrice !== undefined) {
         fetchedProperties = fetchedProperties.filter(p => getPropertyMinPrice(p) >= appliedFilters.minPrice);
@@ -239,11 +263,7 @@ const ListingPage = () => {
       setTotal(fetchedProperties.length);
       setTotalPages(Math.ceil(fetchedProperties.length / 10) || 1);
       
-      // Pagination locally
-      const startIndex = (currentPage - 1) * 10;
-      const paginatedProperties = fetchedProperties.slice(startIndex, startIndex + 10);
-      
-      setProperties(paginatedProperties);
+      setFilteredProperties(fetchedProperties);
     } catch (error) {
       console.error('Failed to fetch properties:', error);
     } finally {
@@ -296,6 +316,29 @@ const ListingPage = () => {
   }, []);
 
   useEffect(() => {
+    const handleObserver = (entries) => {
+      const target = entries[0];
+      if (target.isIntersecting && currentPage < totalPages) {
+        handleLoadMore();
+      }
+    };
+    
+    const observer = new IntersectionObserver(handleObserver, { 
+      root: null, 
+      rootMargin: '100px', 
+      threshold: 0.1 
+    });
+    
+    if (loaderRef.current) {
+      observer.observe(loaderRef.current);
+    }
+    
+    return () => {
+      if (loaderRef.current) observer.unobserve(loaderRef.current);
+    };
+  }, [currentPage, totalPages]);
+
+  useEffect(() => {
     const handleCityChange = (e) => {
       if (e.detail) {
         setFilters(prev => ({ ...prev, city: e.detail }));
@@ -308,8 +351,19 @@ const ListingPage = () => {
   }, []);
 
   useEffect(() => {
+    setFilters(prev => ({ ...prev, agentName: urlAgentName || "" }));
+    setAppliedFilters(prev => ({ ...prev, agentName: urlAgentName || "" }));
+    setCurrentPage(1);
+  }, [urlAgentName]);
+
+  useEffect(() => {
     fetchProperties();
-  }, [appliedFilters, currentSort, currentPage]);
+  }, [appliedFilters, currentSort]);
+
+  useEffect(() => {
+    const numItems = currentPage * 10;
+    setProperties(filteredProperties.slice(0, numItems));
+  }, [filteredProperties, currentPage]);
 
   const handlePriceChange = (type, value) => {
     setFilters({ ...filters, [type]: value });
@@ -366,7 +420,7 @@ const ListingPage = () => {
   const resetFilters = () => {
     const defaultFilters = {
       minPrice: 0,
-      maxPrice: 50000,
+      maxPrice: 100000,
       occupancy: [],
       amenities: [],
       gender: "all",
@@ -394,6 +448,10 @@ const ListingPage = () => {
   const handlePageChange = (page) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleLoadMore = () => {
+    setCurrentPage(prev => prev + 1);
   };
 
   if (loading) {
@@ -535,7 +593,7 @@ const ListingPage = () => {
                           className="price-input-sm"
                           value={filters.minPrice}
                           onChange={(e) => handlePriceChange('minPrice', e.target.value)}
-                          style={{ width: '80px' }}
+                          style={{ width: '90px' }}
                         />
                         <Form.Control 
                           type="number" 
@@ -544,68 +602,60 @@ const ListingPage = () => {
                           className="price-input-sm"
                           value={filters.maxPrice}
                           onChange={(e) => handlePriceChange('maxPrice', e.target.value)}
-                          style={{ width: '80px' }}
+                          style={{ width: '100px' }}
                         />
                       </div>
                     </div>
                   </div>
 
-                  <div className="mb-4 ">
+                  <div className="mb-4">
                     <h6 className="filter-section-title">Room Type / Occupancy</h6>
-                    <div className="d-flex flex-wrap  filter-scroll-area">
-                      {getOccupancyOptions(filters.propertyType).slice(0, showAllOccupancy ? undefined : 6).map(occ => (
+                    <div className="d-flex flex-wrap filter-scroll-area" style={{ gap: '6px' }}>
+                      {getOccupancyOptions(filters.propertyType).slice(0, showAllOccupancy ? undefined : 5).map(occ => (
                         <span 
                           key={occ}
                           className={`filter-chip ${filters.occupancy.includes(occ) ? 'active' : ''}`}
                           onClick={() => handleOccupancyChange(occ)}
+                          style={{ marginBottom: '0' }}
                         >
                           {occ}
                         </span>
                       ))}
-                    </div>
-                    {getOccupancyOptions(filters.propertyType).length > 6 && (
-                      <div className="mt-3">
-                        <button 
-                          className="view-more-modern-btn"
-                          onClick={() => setShowAllOccupancy(!showAllOccupancy)}
+                      {!showAllOccupancy && getOccupancyOptions(filters.propertyType).length > 5 && (
+                        <span 
+                          className="filter-chip fw-bold text-warning border-warning"
+                          onClick={() => setShowAllOccupancy(true)}
+                          style={{ marginBottom: '0', cursor: 'pointer', backgroundColor: '#fff7ed' }}
                         >
-                          {showAllOccupancy ? (
-                            <><i className="fas fa-chevron-up me-2"></i> View Less</>
-                          ) : (
-                            <><i className="fas fa-chevron-down me-2"></i> View More</>
-                          )}
-                        </button>
-                      </div>
-                    )}
+                          +{getOccupancyOptions(filters.propertyType).length - 5} More
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mb-4">
                     <h6 className="filter-section-title">Amenities</h6>
-                    <div className="d-flex flex-wrap  filter-scroll-area">
+                    <div className="d-flex flex-wrap filter-scroll-area" style={{ gap: '6px' }}>
                       {mockAmenitiesList.slice(0, showAllAmenities ? undefined : 6).map(amenity => (
                         <span 
                           key={amenity}
                           className={`filter-chip ${filters.amenities.includes(amenity) ? 'active' : ''}`}
                           onClick={() => handleAmenitiesChange(amenity)}
+                          style={{ marginBottom: '0' }}
                         >
                           {amenity}
                         </span>
                       ))}
-                    </div>
-                    {mockAmenitiesList.length > 6 && (
-                      <div className="mt-3">
-                        <button 
-                          className="view-more-modern-btn"
-                          onClick={() => setShowAllAmenities(!showAllAmenities)}
+                      {!showAllAmenities && mockAmenitiesList.length > 6 && (
+                        <span 
+                          className="filter-chip fw-bold text-warning border-warning"
+                          onClick={() => setShowAllAmenities(true)}
+                          style={{ marginBottom: '0', cursor: 'pointer', backgroundColor: '#fff7ed' }}
                         >
-                          {showAllAmenities ? (
-                            <><i className="fas fa-chevron-up me-2"></i> View Less</>
-                          ) : (
-                            <><i className="fas fa-chevron-down me-2"></i> View More</>
-                          )}
-                        </button>
-                      </div>
-                    )}
+                          +{mockAmenitiesList.length - 6} More
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   <div className="mb-4">
@@ -738,14 +788,14 @@ const ListingPage = () => {
                     <div className="pc-body">
 
                       {/* ── Image ── */}
-                      <div className="pc-img-wrap">
+                      <div className="pc-img-wrap" onClick={(e) => handleImageClick(e, property)} style={{ cursor: 'pointer' }}>
                         <div
                           className="pc-img"
-                          style={{ backgroundImage: `url(${resolveImageUrl(property.images?.[0]?.url || property.coverImage)})` }}
+                          style={{ backgroundImage: `url(${resolveImageUrl(property.galleryImages?.[0]?.url || property.galleryImages?.[0] || property.images?.[0]?.url || property.images?.[0] || property.coverImage)})` }}
                         />
                         <span className="pc-type-badge">{getDisplayType(property)}</span>
                         <span className="pc-photo-count">
-                          <i className="fas fa-camera" /> {property.images?.length || 1}
+                          <i className="fas fa-camera" /> {property.galleryImages?.length || property.images?.length || (property.coverImage ? 1 : 0) || 1}
                         </span>
                       </div>
 
@@ -833,9 +883,9 @@ const ListingPage = () => {
                           <span className="text-muted" style={{fontSize: '0.8rem'}}>
                             By <span 
                               style={{color: '#f97316', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline', textUnderlineOffset: '2px'}} 
-                              onClick={() => handleAgentClick(property.agentName)}
+                              onClick={() => handleAgentClick(property.managerName || property.owner?.name || property.agentName)}
                             >
-                              {property.managerName}
+                              {property.managerName || property.owner?.name || 'Owner'}
                             </span>
                           </span>
                         </div>
@@ -857,13 +907,9 @@ const ListingPage = () => {
               </div>
             )}
 
-            {totalPages > 1 && (
-              <div className="d-flex justify-content-center mt-5">
-                <Pagination>
-                  <Pagination.Prev onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1} />
-                  <span className="px-3 py-1">{currentPage} / {totalPages}</span>
-                  <Pagination.Next onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages} />
-                </Pagination>
+            {currentPage < totalPages && (
+              <div ref={loaderRef} className="d-flex justify-content-center mt-5">
+                <Spinner animation="border" variant="warning" />
               </div>
             )}
 
@@ -874,21 +920,26 @@ const ListingPage = () => {
           {!urlAgentName && (
             <Col lg={2} className="d-none d-lg-block right-banner-col">
               <div className="right-banner-sticky">
-                {/* Single Advertisement Banner */}
-                <div className="right-banner-card ad-banner-card">
+                {/* First Advertisement Banner */}
+                <div className="right-banner-card ad-banner-card mb-4">
                   <div 
                     className="ad-banner-image"
-                    style={{ backgroundImage: "url('https://placehold.co/300x400/FFF3E0/FF8C42?text=Premium+Ad')" }}
+                    style={{ backgroundImage: "url('https://placehold.co/300x300/FFF3E0/FF8C42?text=Premium+Ad+1')" }}
                   >
                     <span className="ad-badge">SPONSORED</span>
                   </div>
-                  <div className="ad-banner-content text-center">
-                    <h5 className="ad-headline">List Your Property Free</h5>
-                    <p className="ad-subtext">Reach thousands of genuine tenants directly.</p>
-                    <button className="ad-btn" onClick={() => navigate('/agent/login')}>
-                      Post Property →
-                    </button>
+                 
+                </div>
+
+                {/* Second Advertisement Banner */}
+                <div className="right-banner-card ad-banner-card">
+                  <div 
+                    className="ad-banner-image"
+                    style={{ backgroundImage: "url('https://placehold.co/300x300/E0F7FA/0097A7?text=Premium+Ad+2')" }}
+                  >
+                    <span className="ad-badge">SPONSORED</span>
                   </div>
+                  
                 </div>
               </div>
             </Col>
@@ -950,9 +1001,35 @@ const ListingPage = () => {
           <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowReviewModal(false)}>Close</button>
         </Modal.Footer>
       </Modal>
+
+      {/* Image Gallery Modal */}
+      <Modal show={showImageModal} onHide={() => setShowImageModal(false)} size="lg" centered className="image-gallery-modal">
+        <Modal.Header closeButton className="border-0 pb-0" style={{ position: 'absolute', right: '10px', top: '10px', zIndex: 1050 }}>
+        </Modal.Header>
+        <Modal.Body className="p-0 bg-dark text-center" style={{ overflow: 'hidden' }}>
+          {modalImages.length > 0 ? (
+            <Carousel activeIndex={activeImageIndex} onSelect={(idx) => setActiveImageIndex(idx)} interval={null}>
+              {modalImages.map((imgUrl, idx) => (
+                <Carousel.Item key={idx} style={{ height: '70vh' }}>
+                  <img
+                    className="d-block w-100 h-100"
+                    src={imgUrl}
+                    alt={`Property image ${idx + 1}`}
+                    style={{ objectFit: 'contain' }}
+                  />
+                </Carousel.Item>
+              ))}
+            </Carousel>
+          ) : (
+            <div className="p-5 text-white">No images available</div>
+          )}
+        </Modal.Body>
+      </Modal>
+
       </main>
 
       <Footer />
+
       <style>{`
         .filter-chip {
           display: inline-block;

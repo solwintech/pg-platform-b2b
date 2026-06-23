@@ -46,6 +46,7 @@ const leads = require('./routes/leads');
 const reviews = require('./routes/reviews');
 const settings = require('./routes/settings');
 const notifications = require('./routes/notifications');
+const support = require('./routes/support');
 
 // Mount routers
 app.use('/api/v1/auth', auth);
@@ -56,6 +57,7 @@ app.use('/api/v1/leads', leads);
 app.use('/api/v1/reviews', reviews);
 app.use('/api/v1/settings', settings);
 app.use('/api/v1/notifications', notifications);
+app.use('/api/v1/support', support);
 
 // Combined Public Test Endpoint
 app.get('/check-status', async (req, res) => {

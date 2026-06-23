@@ -1121,12 +1121,12 @@ const PropertyDetails = () => {
                     onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                   >
                     <div className="related-img-box" style={{height: '180px', position: 'relative'}}>
-                      <img src={related.images?.[0]?.url || related.coverImage || 'https://placehold.co/300x200?text=Property'} alt={related.pgName} style={{width: '100%', height: '100%', objectFit: 'cover'}} />
+                      <img src={resolveImageUrl(related.galleryImages?.[0]?.url || related.galleryImages?.[0] || related.images?.[0]?.url || related.images?.[0] || related.coverImage) || 'https://placehold.co/300x200?text=Property'} alt={related.pgName} style={{width: '100%', height: '100%', objectFit: 'cover'}} />
                       <div className="related-badge" style={{position: 'absolute', top: '10px', left: '10px', background: 'rgba(255,255,255,0.9)', color: '#f97316', padding: '4px 10px', borderRadius: '20px', fontSize: '0.75rem', fontWeight: 700, boxShadow: '0 2px 5px rgba(0,0,0,0.1)'}}>{related.propertyType || 'PG'}</div>
                     </div>
                     <div className="related-info" style={{padding: '15px'}}>
                       <h6 style={{fontWeight: 700, marginBottom: '8px', fontSize: '1.05rem', color: '#1e293b', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis'}}>{related.pgName || related.title}</h6>
-                      <p style={{color: '#64748b', fontSize: '0.85rem', marginBottom: '12px'}}><i className="fas fa-map-marker-alt text-orange me-1" style={{color: '#f97316'}}></i> {related.location?.area || related.location?.city || 'Location'}</p>
+                      <p style={{color: '#64748b', fontSize: '0.85rem', marginBottom: '12px'}}><i className="fas fa-map-marker-alt text-orange me-1" style={{color: '#f97316'}}></i> {related.area || related.city || related.address || 'Location'}</p>
                       <div className="related-price" style={{fontSize: '1.2rem', fontWeight: 800, color: '#f97316'}}>₹{getPropertyMinPrice(related).toLocaleString()} <span style={{fontSize: '0.8rem', color: '#94a3b8', fontWeight: 500}}>/mo</span></div>
                     </div>
                   </div>

@@ -23,6 +23,30 @@ const PropertyMap = ({ properties, center, zoom, height = "400px", highlightedId
   const getLat = (p) => p?.location?.lat || p?.location?.latitude || p?.latitude || p?.lat;
   const getLng = (p) => p?.location?.lng || p?.location?.longitude || p?.longitude || p?.lng;
 
+  const getBaseImageUrl = () => {
+    const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://staysorted.in/api/v1' : 'http://localhost:5000/api/v1');
+    return apiUrl.replace('/api/v1', '');
+  };
+
+  const resolveImageUrl = (url) => {
+    if (!url) return 'https://placehold.co/250x140?text=Property';
+    if (url.startsWith('http')) return url;
+    const baseUrl = getBaseImageUrl();
+    if (url.startsWith('/uploads/')) return `${baseUrl}${url}`;
+    if (url.startsWith('uploads/')) return `${baseUrl}/${url}`;
+    return url;
+  };
+
+  const getPropertyMinPrice = (property) => {
+    if (property.minPrice) return property.minPrice;
+    if (property.pricing?.deposit) return property.pricing.deposit;
+    const rooms = property.roomTypes || property.rooms;
+    if (rooms && rooms.length > 0) {
+      return Math.min(...rooms.map(r => Number(r.price) || 0));
+    }
+    return property.totalRooms ? property.totalRooms * 1000 : 0;
+  };
+
   // Calculate center
   let mapCenter = defaultCenter;
   if (center) {
@@ -113,7 +137,7 @@ const PropertyMap = ({ properties, center, zoom, height = "400px", highlightedId
             <div className="map-popup-card shadow-sm" style={{ width: '250px', padding: '0', overflow: 'hidden', borderRadius: '12px', fontFamily: 'inherit' }}>
               <div className="popup-image-wrapper position-relative" style={{ height: '140px', overflow: 'hidden', borderBottom: '1px solid #f1f5f9' }}>
                 <img 
-                  src={selectedProperty.images?.[0]?.url || selectedProperty.coverImage || 'https://placehold.co/250x140?text=Property'} 
+                  src={resolveImageUrl(selectedProperty.coverImage || selectedProperty.galleryImages?.[0]?.url || selectedProperty.images?.[0]?.url)} 
                   alt={selectedProperty.pgName}
                   style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                 />
@@ -128,12 +152,12 @@ const PropertyMap = ({ properties, center, zoom, height = "400px", highlightedId
                   {selectedProperty.pgName || selectedProperty.title || 'Property Name'}
                 </h6>
                 <div className="popup-location text-muted mb-3 text-truncate" style={{ fontSize: '0.8rem' }}>
-                  <i className="fas fa-map-marker-alt me-1" style={{ color: '#ef4444' }}></i> {selectedProperty.location?.area || selectedProperty.location?.city || 'Location Details'}
+                  <i className="fas fa-map-marker-alt me-1" style={{ color: '#ef4444' }}></i> {selectedProperty.area || selectedProperty.city || selectedProperty.location?.area || 'Location Details'}
                 </div>
                 <div className="d-flex justify-content-between align-items-center border-top pt-3 mt-2" style={{ borderColor: '#f1f5f9' }}>
                   <div className="popup-price-info">
                     <span className="text-muted d-block fw-semibold" style={{ fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Starts from</span>
-                    <span className="fw-bolder" style={{ fontSize: '1.15rem', color: '#ea580c' }}>₹{selectedProperty.minPrice?.toLocaleString() || 'N/A'}</span>
+                    <span className="fw-bolder" style={{ fontSize: '1.15rem', color: '#ea580c' }}>₹{getPropertyMinPrice(selectedProperty) > 0 ? getPropertyMinPrice(selectedProperty).toLocaleString() : 'N/A'}</span>
                     <span className="text-muted fw-medium" style={{ fontSize: '0.75rem' }}>/mo</span>
                   </div>
                   <button 

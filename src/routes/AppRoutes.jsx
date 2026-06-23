@@ -52,6 +52,8 @@ import Profile from "../pages/b2b/Profile";
 // User Pages (Removed)
 
 import HomePage from '../pages/User/HomePage';
+import FeaturedProperties from '../pages/User/FeaturedProperties';
+import NewProperties from '../pages/User/NewProperties';
 import ListingPage from '../pages/User/ListingPage';
 import Contact from '../pages/User/Contact';
 import AuthPage from '../pages/User/AuthPage';
@@ -93,6 +95,8 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/" element={<HomePage />} />
+      <Route path="/featured-properties" element={<FeaturedProperties />} />
+      <Route path="/new-properties" element={<NewProperties />} />
       <Route path="/listings" element={<ListingPage />} />
       <Route path="/agent/:agentName" element={<ListingPage />} />
       <Route path="/contact" element={<Contact />} />

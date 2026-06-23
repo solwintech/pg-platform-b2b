@@ -114,13 +114,13 @@ const HomePage = () => {
       // 1. Featured Properties: only explicitly marked properties
       const featured = realProperties
         .filter(p => p.isFeatured === true)
-        .slice(0, 6);
+        .slice(0, 10);
       setFeaturedProperties(featured);
       
       // 2. Newly Launched: Sort by creation date (from database data)
       const newest = [...realProperties]
         .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-        .slice(0, 6);
+        .slice(0, 10);
       setNewlyLaunched(newest);
       
       // 3. Top Brands: Aggregate by ownerName (from database data)
@@ -210,7 +210,7 @@ const HomePage = () => {
   const goToListings = (overrideCity = null) => {
     const finalCity = (typeof overrideCity === 'string') ? overrideCity : filters.city;
     
-    let minPrice = 0, maxPrice = 50000;
+    let minPrice = 0, maxPrice = 100000;
     if (filters.budget === '<8000') {
       maxPrice = 8000;
     } else if (filters.budget === '8000-15000') {
@@ -317,7 +317,7 @@ const HomePage = () => {
             {/* 1. FEATURED PROPERTIES */}
             <div className="section-header compact">
               <h3><i className="fas fa-star" style={{ color: '#f97316' }}></i> Featured Properties</h3>
-              <a href="#" className="section-link" onClick={(e) => { e.preventDefault(); goToListings(); }}>
+              <a href="#" className="section-link" onClick={(e) => { e.preventDefault(); navigate('/featured-properties'); }}>
                 View all <i className="fas fa-arrow-right"></i>
               </a>
             </div>
@@ -348,7 +348,7 @@ const HomePage = () => {
             {/* 3. NEWLY LAUNCHED */}
             <div className="section-header compact mt-5">
               <h3><i className="fas fa-rocket" style={{ color: '#ef4444' }}></i> Newly Launched</h3>
-              <a href="#" className="section-link" onClick={(e) => { e.preventDefault(); goToListings(); }}>
+              <a href="#" className="section-link" onClick={(e) => { e.preventDefault(); navigate('/new-properties'); }}>
                 Explore more <i className="fas fa-arrow-right"></i>
               </a>
             </div>
