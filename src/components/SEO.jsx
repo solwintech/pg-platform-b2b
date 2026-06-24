@@ -2,8 +2,8 @@ import React from 'react';
 import { Helmet } from 'react-helmet-async';
 
 const SEO = ({ title, description, keywords, image, url }) => {
-  const siteName = 'StayNest';
-  const defaultTitle = 'StayNest - Find the Best PGs and Hostels';
+  const siteName = 'Sortify Stays';
+  const defaultTitle = 'Sortify Stays - Find the Best PGs and Hostels';
   const defaultDescription = 'Discover top-rated PGs, hostels, and service apartments. Sortify Stays helps you find the perfect place with verified listings, amenities, and easy booking.';
   
   const seoTitle = title ? `${title} | ${siteName}` : defaultTitle;

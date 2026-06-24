@@ -92,7 +92,7 @@ const AuthPage = () => {
           // Complete registration by calling authService.register
           const regResponse = await authService.register({
             name: formData.name || 'User',
-            email: formData.email || `${formData.identifier}@staynest.com`,
+            email: formData.email || `${formData.identifier}@sortifystays.com`,
             phone: formData.identifier,
             password: 'password123', // Dummy password for passwordless OTP auth
             isMobileVerified: true,

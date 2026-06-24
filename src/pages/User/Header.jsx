@@ -7,6 +7,8 @@ import './Header.css';
 import { useAuthModal } from '../../context/AuthModalContext';
 import { useGoogleMaps } from '../../context/GoogleMapsContext';
 import { Autocomplete } from '@react-google-maps/api';
+import CityNotAvailableModal from '../../components/modals/CityNotAvailableModal';
+import propertyService from '../../services/propertyService';
 
 const Header = () => {
   const location = useLocation();
@@ -19,6 +21,8 @@ const Header = () => {
   const cityAutocompleteRef = useRef(null);
   const megaMenuRef = useRef(null);
   const [citySearchQuery, setCitySearchQuery] = useState('');
+  const [showCityModal, setShowCityModal] = useState(false);
+  const [unavailableCity, setUnavailableCity] = useState('');
 
   useEffect(() => {
     const checkAuth = () => {
@@ -79,7 +83,32 @@ const Header = () => {
     return () => window.removeEventListener('city-changed', handleCityChange);
   }, [currentCity]);
 
-  const handleCitySelect = (city) => {
+  const handleCitySelect = async (city) => {
+    // Check if city has any properties before selecting it
+    if (city !== 'All India') {
+      try {
+        const res = await propertyService.getProperties({ public: true }, false);
+        const properties = res.properties || [];
+        const hasProps = properties.some(p => {
+          const cityString = (p.city || p.location?.city || '').toLowerCase();
+          const searchCity = city.toLowerCase();
+          return cityString.includes(searchCity) || 
+                 searchCity.includes(cityString) || 
+                 (cityString === 'bangalore' && searchCity === 'bengaluru') ||
+                 (cityString === 'bengaluru' && searchCity === 'bangalore');
+        });
+
+        if (!hasProps) {
+          setUnavailableCity(city);
+          setShowCityModal(true);
+          setShowMegaMenu(false);
+          return; // Do not update selected city or navigate
+        }
+      } catch (error) {
+        console.error("Failed to fetch properties for city check:", error);
+      }
+    }
+
     setCurrentCity(city);
     setShowMegaMenu(false);
     localStorage.setItem('selected_city', city);
@@ -173,7 +202,7 @@ const Header = () => {
     >
       <Container fluid className="px-3 px-lg-4 position-relative">
         <Navbar.Brand as={Link} to="/" className="py-2">
-          <img src={logo} alt="StayNest Logo" height="40" style={{ objectFit: 'contain' }} />
+          <img src={logo} alt="Sortify Stays Logo" height="40" style={{ objectFit: 'contain' }} />
         </Navbar.Brand>
 
         <Navbar.Toggle
@@ -333,6 +362,11 @@ const Header = () => {
           </div>
         </Navbar.Collapse>
       </Container>
+      <CityNotAvailableModal 
+        show={showCityModal} 
+        onHide={() => setShowCityModal(false)} 
+        city={unavailableCity} 
+      />
     </Navbar>
   );
 };

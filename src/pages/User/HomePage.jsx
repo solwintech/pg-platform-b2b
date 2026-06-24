@@ -10,6 +10,10 @@ import './HomePage.css';
 import authService from '../../services/authService';
 import { useAuthModal } from '../../context/AuthModalContext';
 import SEO from '../../components/SEO';
+import CityNotAvailableModal from '../../components/modals/CityNotAvailableModal';
+import WhyChooseUs from '../../components/common/WhyChooseUs';
+import HowItWorks from '../../components/common/HowItWorks';
+import CTASection from '../../components/common/CTASection';
 
 const DEFAULT_CITIES_DATA = [
   { name: "Mumbai", image: "/images/cities/mumbai.png" },
@@ -47,6 +51,8 @@ const HomePage = () => {
   const [topBrands, setTopBrands] = useState([]);
   const [activeCities, setActiveCities] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showCityModal, setShowCityModal] = useState(false);
+  const [unavailableCity, setUnavailableCity] = useState('');
   
   const [filters, setFilters] = useState({
     city: localStorage.getItem('selected_city') || 'Bangalore',
@@ -210,6 +216,24 @@ const HomePage = () => {
   const goToListings = (overrideCity = null) => {
     const finalCity = (typeof overrideCity === 'string') ? overrideCity : filters.city;
     
+    // Check if the finalCity has any properties
+    if (finalCity && finalCity.toLowerCase() !== 'all india') {
+      const hasProps = allProperties.some(p => {
+        const cityString = (p.city || p.location?.city || '').toLowerCase();
+        const searchCity = finalCity.toLowerCase();
+        return cityString.includes(searchCity) || 
+               searchCity.includes(cityString) || 
+               (cityString === 'bangalore' && searchCity === 'bengaluru') ||
+               (cityString === 'bengaluru' && searchCity === 'bangalore');
+      });
+
+      if (!hasProps) {
+        setUnavailableCity(finalCity);
+        setShowCityModal(true);
+        return; // Stop navigation
+      }
+    }
+
     let minPrice = 0, maxPrice = 100000;
     if (filters.budget === '<8000') {
       maxPrice = 8000;
@@ -305,6 +329,8 @@ const HomePage = () => {
         </div>
       </section>
 
+     
+
       <div className="container">
         
         {loading ? (
@@ -386,8 +412,28 @@ const HomePage = () => {
         )}
       </div>
       </main>
-
+      
+      
+      <div className="container mb-5 mt-2">
+        <div className="row g-4 align-items-stretch">
+          <div className="col-lg-8">
+            <div className="bg-white rounded-4 shadow-sm border border-light h-100 p-4 p-md-5">
+              <HowItWorks />
+            </div>
+          </div>
+          <div className="col-lg-4">
+            <CTASection />
+          </div>
+        </div>
+      </div>
+<WhyChooseUs />
       <Footer />
+      
+      <CityNotAvailableModal 
+        show={showCityModal} 
+        onHide={() => setShowCityModal(false)} 
+        city={unavailableCity} 
+      />
     </div>
   );
 };

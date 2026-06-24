@@ -15,6 +15,7 @@ import { useAuthModal } from '../../context/AuthModalContext';
 import { useGoogleMaps } from '../../context/GoogleMapsContext';
 import { Autocomplete } from '@react-google-maps/api';
 import SEO from '../../components/SEO';
+import CityNotAvailableModal from '../../components/modals/CityNotAvailableModal';
 
 
 const formatTime12hr = (timeStr) => {
@@ -137,6 +138,7 @@ const ListingPage = () => {
   const [selectedPropertyForReviews, setSelectedPropertyForReviews] = useState(null);
 
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showCityNotAvailableModal, setShowCityNotAvailableModal] = useState(false);
   const [showAllOccupancy, setShowAllOccupancy] = useState(false);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [modalImages, setModalImages] = useState([]);
@@ -211,6 +213,13 @@ const ListingPage = () => {
                  (cityString === 'bangalore' && searchCity === 'bengaluru') ||
                  (cityString === 'bengaluru' && searchCity === 'bangalore');
         });
+        if (fetchedProperties.length === 0) {
+          setShowCityNotAvailableModal(true);
+        } else {
+          setShowCityNotAvailableModal(false);
+        }
+      } else {
+        setShowCityNotAvailableModal(false);
       }
       if (appliedFilters.localities && appliedFilters.localities.length > 0) {
         fetchedProperties = fetchedProperties.filter(p => {
@@ -992,6 +1001,12 @@ const ListingPage = () => {
       </Container>
 
       <LeadActionModal ref={leadActionModalRef} />
+
+      <CityNotAvailableModal 
+        show={showCityNotAvailableModal} 
+        onHide={() => setShowCityNotAvailableModal(false)} 
+        city={filters.city} 
+      />
 
       {/* Review Modal */}
       <Modal show={showReviewModal} onHide={() => setShowReviewModal(false)} centered>

@@ -76,12 +76,12 @@ const ContactPage = () => {
 
   const faqs = [
     {
-      question: "How do I list my property on StayNest?",
+      question: "How do I list my property on Sortify Stays?",
       answer: "Click on 'Post Property' button on the top right corner, fill in the property details, and our team will verify your listing within 24 hours."
     },
     {
       question: "Is there any brokerage fee?",
-      answer: "No, StayNest is a zero-brokerage platform. We connect tenants directly with property owners."
+      answer: "No, Sortify Stays is a zero-brokerage platform. We connect tenants directly with property owners."
     },
     {
       question: "How can I book a PG?",
@@ -89,7 +89,7 @@ const ContactPage = () => {
     },
     {
       question: "Are the listings verified?",
-      answer: "Yes, all properties on StayNest go through a thorough verification process including document verification and site visits."
+      answer: "Yes, all properties on Sortify Stays go through a thorough verification process including document verification and site visits."
     },
     {
       question: "What is the minimum stay duration?",
@@ -266,7 +266,7 @@ const ContactPage = () => {
           <Col xs={12}>
             <div className="text-center mb-5">
               <h2 className="display-6 fw-bold mb-2">Frequently Asked Questions</h2>
-              <p className="text-muted">Find quick answers to common questions about StayNest</p>
+              <p className="text-muted">Find quick answers to common questions about Sortify Stays</p>
             </div>
           </Col>
         </Row>

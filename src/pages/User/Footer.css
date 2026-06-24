@@ -11,64 +11,6 @@
   width: 100%;
 }
 
-.footer-cta-bar {
-  background: #f15a29;
-  padding: 30px 0;
-  color: white;
-}
-
-.app-icon i {
-  font-size: 3rem;
-  color: white;
-}
-
-.app-text h4 {
-  font-weight: 700;
-  font-size: 1.2rem;
-}
-
-.app-text p {
-  font-size: 0.9rem;
-  opacity: 0.9;
-}
-
-.store-badge {
-  background: #122b46;
-  color: white;
-  display: flex;
-  align-items: center;
-  padding: 6px 15px;
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-
-.store-badge:hover {
-  background: #0d1e30;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2);
-}
-
-.newsletter-box .form-control::placeholder {
-  color: #adb5bd;
-  font-size: 0.9rem;
-}
-
-.newsletter-box .form-control:focus {
-  box-shadow: none;
-}
-
-.newsletter-btn-modern {
-  background: #122b46;
-  border: none;
-  font-weight: 600;
-  padding: 8px 24px;
-}
-
-.newsletter-btn-modern:hover {
-  background: #0d1e30;
-  color: white;
-}
-
 .footer-links-section {
   background: #122b46;
   color: #fff;
@@ -182,9 +124,6 @@
 }
 
 @media (max-width: 991px) {
-  .footer-cta-bar {
-    text-align: center;
-  }
   .footer-links-section {
     text-align: center;
   }

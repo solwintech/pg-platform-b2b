@@ -1,0 +1,35 @@
+.how-it-works-section {
+  background-color: transparent;
+}
+
+.how-it-works-title {
+  font-weight: 800;
+  font-size: 1.7rem;
+  color: #1e293b;
+  text-align: left;
+}
+
+.how-it-works-card:hover {
+  background-color: #fff !important;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+  transform: translateY(-2px);
+}
+
+.how-it-works-icon {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s ease;
+}
+
+.how-it-works-card:hover .how-it-works-icon {
+  transform: scale(1.1) rotate(5deg);
+}
+
+@media (max-width: 768px) {
+  .how-it-works-title {
+    text-align: center;
+  }
+}

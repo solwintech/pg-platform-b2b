@@ -1,12 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Container, Row, Col, Form, Button, InputGroup } from 'react-bootstrap';
+import { Container, Row, Col } from 'react-bootstrap';
+import settingsService from '../../services/settingsService';
+import LegalModal from '../../components/modals/LegalModal';
 import logo from '../../assets/logo-white.png';
 import './Footer.css';
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
-  const [newsletterEmail, setNewsletterEmail] = useState('');
+  const [legalData, setLegalData] = useState(null);
+  const [modalState, setModalState] = useState({ show: false, title: '', content: '' });
+  
+  const [socialLinks, setSocialLinks] = useState([
+    { id: 'facebook', icon: 'fab fa-facebook-f', name: 'Facebook', url: 'https://facebook.com', color: '#1877f2' },
+    { id: 'twitter', icon: 'fab fa-twitter', name: 'Twitter', url: 'https://twitter.com', color: '#1da1f2' },
+    { id: 'instagram', icon: 'fab fa-instagram', name: 'Instagram', url: 'https://instagram.com', color: '#e4405f' },
+    { id: 'linkedin', icon: 'fab fa-linkedin-in', name: 'LinkedIn', url: 'https://linkedin.com', color: '#0077b5' },
+    { id: 'youtube', icon: 'fab fa-youtube', name: 'YouTube', url: 'https://youtube.com', color: '#ff0000' }
+  ]);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const response = await settingsService.getSettings();
+        const data = (response && response.success && response.data) ? response.data : response;
+        
+        if (data) {
+          if (data.legalPages) {
+            setLegalData(data.legalPages);
+          }
+          if (data.socialLinks) {
+            setSocialLinks(prevLinks => prevLinks.map(link => ({
+              ...link,
+              url: data.socialLinks[link.id] || link.url
+            })));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load settings:", err);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const openLegalModal = (title, key) => {
+    const content = legalData ? legalData[key] : 'Loading content...';
+    setModalState({ show: true, title, content });
+  };
 
   const exploreLinks = [
     { path: '/listings', label: 'PGs in Bangalore' },
@@ -17,19 +57,10 @@ const Footer = () => {
   ];
 
   const supportLinks = [
-    { label: 'About Us', action: () => alert('Coming soon!') },
-    { label: 'Contact Support', action: () => alert('Coming soon!') },
-    { label: 'Privacy Policy', action: () => alert('Coming soon!') },
-    { label: 'Terms of Service', action: () => alert('Coming soon!') },
-    { label: 'List your Property', action: () => alert('Coming soon!') }
-  ];
-
-  const socialLinks = [
-    { icon: 'fab fa-facebook-f', name: 'Facebook', url: 'https://facebook.com', color: '#1877f2' },
-    { icon: 'fab fa-twitter', name: 'Twitter', url: 'https://twitter.com', color: '#1da1f2' },
-    { icon: 'fab fa-instagram', name: 'Instagram', url: 'https://instagram.com', color: '#e4405f' },
-    { icon: 'fab fa-linkedin-in', name: 'LinkedIn', url: 'https://linkedin.com', color: '#0077b5' },
-    { icon: 'fab fa-youtube', name: 'YouTube', url: 'https://youtube.com', color: '#ff0000' }
+    { label: 'About Us', action: () => openLegalModal('About Us', 'about') },
+    // { label: 'Contact Support', action: () => openLegalModal('Contact Support', 'contact') },
+    { label: 'Privacy Policy', action: () => openLegalModal('Privacy Policy', 'privacy') },
+    { label: 'Terms of Service', action: () => openLegalModal('Terms of Service', 'terms') },
   ];
 
   const handleNewsletterSubmit = (e) => {
@@ -43,74 +74,19 @@ const Footer = () => {
   };
 
   return (
-    <footer className="footer-modern mt-1">
-      <div className="footer-top-accent"></div>
+    <footer className="footer-modern mt-5">
       
-      {/* Top Banner (App Download & Newsletter) */}
-      <div className="footer-cta-bar">
-        <Container>
-          <Row className="align-items-center justify-content-between g-4">
-            <Col lg={6}>
-              <div className="d-flex flex-column flex-sm-row align-items-center gap-3">
-                <div className="app-icon">
-                  <i className="fas fa-mobile-alt"></i>
-                </div>
-                <div className="app-text text-center text-sm-start">
-                  <h4 className="mb-1">Get the StayNest App</h4>
-                  <p className="mb-0">Find your next home directly from your phone</p>
-                </div>
-                <div className="d-flex gap-2 ms-sm-auto mt-3 mt-sm-0">
-                  <button className="store-badge border-0 rounded">
-                    <i className="fab fa-apple fs-4"></i>
-                    <div className="text-start ms-2">
-                      <small style={{fontSize: '0.6rem', display: 'block', lineHeight: 1}}>Download on the</small>
-                      <strong style={{fontSize: '0.9rem', lineHeight: 1}}>App Store</strong>
-                    </div>
-                  </button>
-                  <button className="store-badge border-0 rounded">
-                    <i className="fab fa-google-play fs-4"></i>
-                    <div className="text-start ms-2">
-                      <small style={{fontSize: '0.6rem', display: 'block', lineHeight: 1}}>GET IT ON</small>
-                      <strong style={{fontSize: '0.9rem', lineHeight: 1}}>Google Play</strong>
-                    </div>
-                  </button>
-                </div>
-              </div>
-            </Col>
-            
-            <Col lg={5}>
-              <div className="newsletter-box">
-                <Form onSubmit={handleNewsletterSubmit} className="d-flex align-items-center w-100 bg-white rounded-pill p-1 shadow-sm">
-                  <i className="fas fa-envelope text-muted ms-3 me-2"></i>
-                  <Form.Control
-                    type="email"
-                    placeholder="Subscribe to our newsletter..."
-                    value={newsletterEmail}
-                    onChange={(e) => setNewsletterEmail(e.target.value)}
-                    className="border-0 shadow-none bg-transparent"
-                  />
-                  <Button type="submit" className="newsletter-btn-modern rounded-pill px-4">
-                    Subscribe
-                  </Button>
-                </Form>
-              </div>
-            </Col>
-          </Row>
-        </Container>
-      </div>
-
-      {/* Main Footer Links */}
-      <div className="footer-links-section py-5">
+      <div className="footer-links-section pt-5 pb-4 mt-4">
         <Container>
           <Row className="g-5">
             <Col lg={4} md={12}>
               <div className="footer-brand mb-4">
                 <div className="mb-3">
-                  <img src={logo} alt="StayNest Logo" height="55" style={{ objectFit: 'contain' }} />
+                  <img src={logo} alt="Sortify Stays Logo" height="55" style={{ objectFit: 'contain' }} />
                 </div>
               </div>
               <p className="text-footer-desc mb-4">
-                StayNest connects tenants to verified PG accommodations and Hostels across India. We ensure safety, proper amenities, and transparent pricing to give you peace of mind when looking for your home away from home.
+                Sortify Stays connects tenants to verified PG accommodations and Hostels across India. We ensure safety, proper amenities, and transparent pricing to give you peace of mind when looking for your home away from home.
               </p>
               
               <div className="contact-pills d-flex flex-column gap-3">
@@ -183,7 +159,7 @@ const Footer = () => {
         <Container>
           <div className="d-flex flex-column flex-md-row justify-content-between align-items-center text-center">
             <p className="mb-0 text-muted small">
-              &copy; {currentYear} StayNest Ltd. All rights reserved.
+              &copy; {currentYear} Sortify Stays Ltd. All rights reserved.
             </p>
             <div className="small text-muted mt-2 mt-md-0 d-flex gap-3">
                <span>Designed for a better stay experience.</span>
@@ -191,6 +167,13 @@ const Footer = () => {
           </div>
         </Container>
       </div>
+
+      <LegalModal 
+        show={modalState.show} 
+        onHide={() => setModalState({ ...modalState, show: false })} 
+        title={modalState.title} 
+        content={modalState.content} 
+      />
     </footer>
   );
 };

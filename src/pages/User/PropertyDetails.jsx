@@ -15,6 +15,10 @@ import LeadActionModal from '../../components/modals/LeadActionModal';
 import { useAuthModal } from '../../context/AuthModalContext';
 import SEO from '../../components/SEO';
 
+import dummy1 from '../../assets/dummy1.jpeg';
+import dummy2 from '../../assets/dummy2.jpeg';
+import dummy3 from '../../assets/dummy3.jpeg';
+
 const formatTime12hr = (timeStr) => {
   if (!timeStr) return '--:-- --';
   try {
@@ -309,9 +313,16 @@ const PropertyDetails = () => {
       });
     }
     
-    // Fallback if absolutely no images
+    // Fallback if absolutely no images or less than 3
     if (images.length === 0) {
-      images.push({ url: 'https://placehold.co/800x600/e2e8f0/64748b?text=No+Photos' });
+      images.push({ url: dummy1, tag: 'Property View' });
+      images.push({ url: dummy2, tag: 'Room View' });
+      images.push({ url: dummy3, tag: 'Common Area' });
+    } else if (images.length === 1) {
+      images.push({ url: dummy2, tag: 'Room View' });
+      images.push({ url: dummy3, tag: 'Common Area' });
+    } else if (images.length === 2) {
+      images.push({ url: dummy3, tag: 'Common Area' });
     }
 
     // Deduplicate
@@ -408,7 +419,7 @@ const PropertyDetails = () => {
       setOwnerContact({
         name: property?.owner?.name || property?.ownerId?.name || 'Verified Owner',
         phone: property?.owner?.phone || property?.ownerId?.phone || '+91 98765 43210',
-        email: property?.owner?.email || property?.ownerId?.email || 'owner@staynest.com'
+        email: property?.owner?.email || property?.ownerId?.email || 'owner@sortifystays.com'
       });
       setFormState('success');
     } catch (error) {
@@ -507,15 +518,15 @@ const PropertyDetails = () => {
             {/* Left: Image Gallery */}
             <div className="col-md-8 d-flex gap-2" style={{height: '350px'}}>
               <div className="position-relative w-50 h-100 rounded-3 overflow-hidden shadow-sm" style={{backgroundColor: '#f1f5f9'}}>
-                <img src={getImagesArray()[0]?.url || coverImage} className="w-100 h-100" style={{objectFit: 'cover', cursor: 'pointer', transition: 'transform 0.3s ease'}} onMouseOver={(e) => e.target.style.transform = 'scale(1.02)'} onMouseOut={(e) => e.target.style.transform = 'scale(1)'} onClick={() => handleSelectImage(0)} onError={(e) => { e.target.src = 'https://placehold.co/800x600/e2e8f0/64748b?text=Image+Unavailable'; }} />
+                <img src={getImagesArray()[0]?.url || coverImage || dummy1} className="w-100 h-100" style={{objectFit: 'cover', cursor: 'pointer', transition: 'transform 0.3s ease'}} onMouseOver={(e) => e.target.style.transform = 'scale(1.02)'} onMouseOut={(e) => e.target.style.transform = 'scale(1)'} onClick={() => handleSelectImage(0)} onError={(e) => { e.target.src = dummy1; }} />
                 <div className="position-absolute bottom-0 end-0 m-2 badge bg-dark bg-opacity-75 text-white shadow-sm" style={{fontSize: '0.7rem', cursor: 'pointer', padding: '6px 10px'}} onClick={() => handleSelectImage(0)}>{getImagesArray().length} Property & Guest Photos <i className="fas fa-arrow-right ms-1"></i></div>
               </div>
               <div className="d-flex flex-column gap-2 w-50 h-100">
                 <div className="h-50 rounded-3 overflow-hidden shadow-sm" style={{backgroundColor: '#f1f5f9'}}>
-                   <img src={getImagesArray()[1]?.url || 'https://placehold.co/400x300'} className="w-100 h-100" style={{objectFit: 'cover', cursor: 'pointer', transition: 'transform 0.3s ease'}} onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.target.style.transform = 'scale(1)'} onClick={() => handleSelectImage(1)} onError={(e) => { e.target.src = 'https://placehold.co/400x300/e2e8f0/64748b?text=Img'; }} />
+                   <img src={getImagesArray()[1]?.url || dummy2} className="w-100 h-100" style={{objectFit: 'cover', cursor: 'pointer', transition: 'transform 0.3s ease'}} onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.target.style.transform = 'scale(1)'} onClick={() => handleSelectImage(1)} onError={(e) => { e.target.src = dummy2; }} />
                 </div>
                 <div className="h-50 rounded-3 overflow-hidden shadow-sm position-relative" style={{backgroundColor: '#f1f5f9'}}>
-                   <img src={getImagesArray()[2]?.url || 'https://placehold.co/400x300'} className="w-100 h-100" style={{objectFit: 'cover', cursor: 'pointer', transition: 'transform 0.3s ease'}} onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.target.style.transform = 'scale(1)'} onClick={() => handleSelectImage(2)} onError={(e) => { e.target.src = 'https://placehold.co/400x300/e2e8f0/64748b?text=Img'; }} />
+                   <img src={getImagesArray()[2]?.url || dummy3} className="w-100 h-100" style={{objectFit: 'cover', cursor: 'pointer', transition: 'transform 0.3s ease'}} onMouseOver={(e) => e.target.style.transform = 'scale(1.05)'} onMouseOut={(e) => e.target.style.transform = 'scale(1)'} onClick={() => handleSelectImage(2)} onError={(e) => { e.target.src = dummy3; }} />
                    {getImagesArray().length > 3 && (
                      <div className="position-absolute w-100 h-100 d-flex align-items-center justify-content-center" style={{ top: 0, left: 0, background: 'rgba(0,0,0,0.4)', cursor: 'pointer' }} onClick={() => handleSelectImage(3)}>
                        <span className="text-white fw-bold" style={{ fontSize: '1.2rem' }}>+{getImagesArray().length - 3} More</span>
