@@ -49,13 +49,17 @@ const StepLocation = ({ data, updateData }) => {
         const addressComponents = place.address_components || [];
         let city = '';
         let pinCode = '';
-        let area = place.name || '';
 
         addressComponents.forEach(component => {
           if (component.types.includes('locality')) city = component.long_name;
           if (component.types.includes('postal_code')) pinCode = component.long_name;
-          if (component.types.includes('sublocality') && !area) area = component.long_name;
         });
+
+        const sub1 = addressComponents.find(c => c.types.includes('sublocality_level_1'));
+        const sub = addressComponents.find(c => c.types.includes('sublocality'));
+        const sub2 = addressComponents.find(c => c.types.includes('sublocality_level_2'));
+        
+        let area = sub1 ? sub1.long_name : (sub ? sub.long_name : (sub2 ? sub2.long_name : ''));
 
         updateData({
           latitude: lat,
@@ -86,13 +90,17 @@ const StepLocation = ({ data, updateData }) => {
         const addressComponents = place.address_components || [];
         let city = '';
         let pinCode = '';
-        let area = place.name || '';
 
         addressComponents.forEach(component => {
           if (component.types.includes('locality')) city = component.long_name;
           if (component.types.includes('postal_code')) pinCode = component.long_name;
-          if (component.types.includes('sublocality') && !area) area = component.long_name;
         });
+
+        const sub1 = addressComponents.find(c => c.types.includes('sublocality_level_1'));
+        const sub = addressComponents.find(c => c.types.includes('sublocality'));
+        const sub2 = addressComponents.find(c => c.types.includes('sublocality_level_2'));
+        
+        let area = sub1 ? sub1.long_name : (sub ? sub.long_name : (sub2 ? sub2.long_name : ''));
 
         updateData({
           latitude: lat,
@@ -144,13 +152,17 @@ const StepLocation = ({ data, updateData }) => {
         const addressComponents = place.address_components || [];
         let city = '';
         let pinCode = '';
-        let area = '';
 
         addressComponents.forEach(component => {
           if (component.types.includes('locality')) city = component.long_name;
           if (component.types.includes('postal_code')) pinCode = component.long_name;
-          if (component.types.includes('sublocality')) area = component.long_name;
         });
+
+        const sub1 = addressComponents.find(c => c.types.includes('sublocality_level_1'));
+        const sub = addressComponents.find(c => c.types.includes('sublocality'));
+        const sub2 = addressComponents.find(c => c.types.includes('sublocality_level_2'));
+        
+        let area = sub1 ? sub1.long_name : (sub ? sub.long_name : (sub2 ? sub2.long_name : ''));
 
         updateData({
           latitude: lat,
@@ -198,13 +210,17 @@ const StepLocation = ({ data, updateData }) => {
               const addressComponents = place.address_components || [];
               let city = '';
               let pinCode = '';
-              let area = '';
 
               addressComponents.forEach(component => {
                 if (component.types.includes('locality')) city = component.long_name;
                 if (component.types.includes('postal_code')) pinCode = component.long_name;
-                if (component.types.includes('sublocality')) area = component.long_name;
               });
+
+              const sub1 = addressComponents.find(c => c.types.includes('sublocality_level_1'));
+              const sub = addressComponents.find(c => c.types.includes('sublocality'));
+              const sub2 = addressComponents.find(c => c.types.includes('sublocality_level_2'));
+              
+              let area = sub1 ? sub1.long_name : (sub ? sub.long_name : (sub2 ? sub2.long_name : ''));
 
               updateData({
                 latitude,
@@ -299,10 +315,10 @@ const StepLocation = ({ data, updateData }) => {
               <span className="input-group-text bg-light text-muted" style={{ fontSize: '10px' }}>LAT</span>
               <input
                 type="number"
-                className="form-control"
+                className="form-control bg-light"
                 name="latitude"
                 value={data.latitude || ''}
-                onChange={handleChange}
+                readOnly
                 placeholder="0.000000"
                 step="any"
               />
@@ -313,10 +329,10 @@ const StepLocation = ({ data, updateData }) => {
               <span className="input-group-text bg-light text-muted" style={{ fontSize: '10px' }}>LNG</span>
               <input
                 type="number"
-                className="form-control"
+                className="form-control bg-light"
                 name="longitude"
                 value={data.longitude || ''}
-                onChange={handleChange}
+                readOnly
                 placeholder="0.000000"
                 step="any"
               />
@@ -333,50 +349,33 @@ const StepLocation = ({ data, updateData }) => {
       <div className="row g-3">
         {/* Area / Sector Selection */}
         <div className="col-md-12">
-          <label className="form-label small fw-medium text-muted">Search Area / Property Location *</label>
-          {isLoaded ? (
-            <Autocomplete
-              onLoad={ref => autocompleteRef.current = ref}
-              onPlaceChanged={onPlaceChanged}
-            >
-              <div className="input-group input-group-sm">
-                <span className="input-group-text bg-white border-end-0">
-                  <Search size={14} className="text-muted" />
-                </span>
-                <input
-                  type="text"
-                  className="form-control border-start-0"
-                  name="area"
-                  value={data.area || ''}
-                  onChange={handleChange}
-                  placeholder="Type to search area, sector or landmark..."
-                  autoComplete="off"
-                />
-              </div>
-            </Autocomplete>
-          ) : (
+          <label className="form-label small fw-medium text-muted">Area / Property Location *</label>
+          <div className="input-group input-group-sm">
+            <span className="input-group-text bg-light border-end-0">
+              <MapPin size={14} className="text-muted" />
+            </span>
             <input
               type="text"
-              className="form-control form-control-sm"
+              className="form-control border-start-0 bg-light"
               name="area"
               value={data.area || ''}
-              onChange={handleChange}
-              placeholder="Loading search..."
-              disabled
+              readOnly
+              placeholder="Location will be fetched from map"
+              autoComplete="off"
             />
-          )}
+          </div>
         </div>
 
         {/* Full Address */}
         <div className="col-12">
           <label className="form-label small fw-medium text-muted">Full Address *</label>
           <textarea
-            className="form-control form-control-sm"
+            className="form-control form-control-sm bg-light"
             name="address"
             value={data.address || ''}
-            onChange={handleChange}
+            readOnly
             rows="2"
-            placeholder="House No, Street name, Landmark, etc."
+            placeholder="Address will be fetched from map"
             autoComplete="off"
             spellCheck="false"
           />
@@ -387,22 +386,22 @@ const StepLocation = ({ data, updateData }) => {
           <label className="form-label small fw-medium text-muted">City *</label>
           <input
             type="text"
-            className="form-control form-control-sm"
+            className="form-control form-control-sm bg-light"
             name="city"
             value={data.city || ''}
-            onChange={handleChange}
-            placeholder="e.g. Bhopal"
+            readOnly
+            placeholder="City"
           />
         </div>
         <div className="col-md-6">
           <label className="form-label small fw-medium text-muted">PIN Code *</label>
           <input
             type="text"
-            className="form-control form-control-sm"
+            className="form-control form-control-sm bg-light"
             name="pinCode"
             value={data.pinCode || ''}
-            onChange={handleChange}
-            placeholder="462001"
+            readOnly
+            placeholder="PIN Code"
           />
         </div>
 

@@ -2,7 +2,7 @@
 
 /* Google Places Autocomplete Fix for Modals */
 .pac-container {
-  z-index: 9999 !important;
+  z-index: 2147483647 !important;
   border-radius: 8px;
   border: none;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);

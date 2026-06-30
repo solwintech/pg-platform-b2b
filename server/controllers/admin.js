@@ -1,5 +1,7 @@
 const Property = require('../models/Property');
 const User = require('../models/User');
+const Lead = require('../models/Lead');
+const PropertyClick = require('../models/PropertyClick');
 const ActivityLog = require('../models/ActivityLog');
 const SubscriptionPlan = require('../models/SubscriptionPlan');
 const logActivity = require('../utils/logger');
@@ -200,6 +202,148 @@ exports.getDashboardStats = async (req, res, next) => {
           properties: [5, 10, 8, 12, 15, totalProperties]
         }
       }
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Get Admin Analytics (Leads & Clicks)
+// @route   GET /api/v1/admin/analytics
+// @access  Private/Admin
+exports.getAnalytics = async (req, res, next) => {
+  try {
+    const { timeframe, viewType = 'date', propertyId } = req.query; // timeframe: 'day', 'month', 'year'. viewType: 'date', 'property'
+    
+    // Determine the date filter based on timeframe if viewType is 'property'
+    // If viewType is property, we filter by the current day/month/year to show relevant stats.
+    let dateFilter = {};
+    const now = new Date();
+    if (viewType === 'property') {
+      let startDate = new Date();
+      if (timeframe === 'year') {
+        startDate = new Date(now.getFullYear(), 0, 1);
+      } else if (timeframe === 'month') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      } else {
+        startDate.setHours(0, 0, 0, 0);
+      }
+      dateFilter = { createdAt: { $gte: startDate } };
+    }
+
+    let dateFormat;
+    if (timeframe === 'year') {
+      dateFormat = "%Y";
+    } else if (timeframe === 'month') {
+      dateFormat = "%Y-%m";
+    } else {
+      dateFormat = "%Y-%m-%d"; // default to day
+    }
+
+    if (viewType === 'property') {
+      // Group by property for the timeframe
+      const leadStats = await Lead.aggregate([
+        { $match: dateFilter },
+        {
+          $group: {
+            _id: "$property",
+            leads: { $sum: 1 }
+          }
+        }
+      ]);
+
+      const clickStats = await PropertyClick.aggregate([
+        { $match: dateFilter },
+        {
+          $group: {
+            _id: "$property",
+            clicks: { $sum: 1 }
+          }
+        }
+      ]);
+
+      const statsMap = {};
+      leadStats.forEach(item => {
+        if(item._id) statsMap[item._id.toString()] = { leads: item.leads, clicks: 0 };
+      });
+      clickStats.forEach(item => {
+        if(item._id) {
+          if (statsMap[item._id.toString()]) {
+            statsMap[item._id.toString()].clicks = item.clicks;
+          } else {
+            statsMap[item._id.toString()] = { leads: 0, clicks: item.clicks };
+          }
+        }
+      });
+
+      // Populate property details for ALL properties (so we don't miss ones with 0 activity in the timeframe)
+      const Property = require('../models/Property');
+      const allProperties = await Property.find({}).select('pgName city views status propertyType');
+      
+      const data = allProperties.map(p => {
+        const propId = p._id.toString();
+        const stats = statsMap[propId] || { leads: 0, clicks: 0 };
+        return {
+          propertyId: propId,
+          propertyName: p.pgName,
+          city: p.city,
+          status: p.status,
+          propertyType: p.propertyType,
+          historicViews: p.views || 0,
+          leads: stats.leads,
+          clicks: stats.clicks
+        };
+      }).sort((a, b) => b.historicViews - a.historicViews);
+
+      return res.status(200).json({ success: true, data });
+    }
+
+    // Group by Date
+    const dateMatch = {};
+    if (propertyId) {
+      dateMatch.property = new (require('mongoose').Types.ObjectId)(propertyId);
+    }
+    
+    const leadStats = await Lead.aggregate([
+      ...(Object.keys(dateMatch).length > 0 ? [{ $match: dateMatch }] : []),
+      {
+        $group: {
+          _id: { $dateToString: { format: dateFormat, date: "$createdAt" } },
+          leads: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    const clickStats = await PropertyClick.aggregate([
+      ...(Object.keys(dateMatch).length > 0 ? [{ $match: dateMatch }] : []),
+      {
+        $group: {
+          _id: { $dateToString: { format: dateFormat, date: "$createdAt" } },
+          clicks: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Merge stats
+    const statsMap = {};
+    leadStats.forEach(item => {
+      statsMap[item._id] = { date: item._id, leads: item.leads, clicks: 0 };
+    });
+    clickStats.forEach(item => {
+      if (statsMap[item._id]) {
+        statsMap[item._id].clicks = item.clicks;
+      } else {
+        statsMap[item._id] = { date: item._id, leads: 0, clicks: item.clicks };
+      }
+    });
+
+    const data = Object.values(statsMap).sort((a, b) => a.date.localeCompare(b.date));
+
+    res.status(200).json({
+      success: true,
+      data
     });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });

@@ -21,6 +21,16 @@ const leadService = {
     }
   },
 
+  // Get analytics (leads & clicks)
+  getAnalytics: async (timeframe, viewType = 'date') => {
+    try {
+      const response = await api.get('/leads/analytics', { params: { timeframe, viewType } });
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  },
+
   // Update lead status
   updateLeadStatus: async (id, status, notes = '') => {
     try {

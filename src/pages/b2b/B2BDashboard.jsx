@@ -33,6 +33,23 @@ const B2BDashboard = () => {
   const [recentLeads, setRecentLeads] = useState([]);
   const [recentReviews, setRecentReviews] = useState([]);
 
+  const [analyticsTimeframe, setAnalyticsTimeframe] = useState('day');
+  const [analyticsViewType, setAnalyticsViewType] = useState('date');
+  const [analyticsData, setAnalyticsData] = useState([]);
+
+  useEffect(() => {
+    fetchAnalytics();
+  }, [analyticsTimeframe, analyticsViewType]);
+
+  const fetchAnalytics = async () => {
+    try {
+      const response = await leadService.getAnalytics(analyticsTimeframe, analyticsViewType);
+      if (response.success) setAnalyticsData(response.data || []);
+    } catch (err) {
+      console.error('Error fetching analytics:', err);
+    }
+  };
+
   useEffect(() => {
     fetchDashboardData();
 
@@ -544,7 +561,117 @@ const B2BDashboard = () => {
         </div>
       </div>
 
+      <div className="modern-card mb-4">
+        <div className="card-header-modern d-flex justify-content-between align-items-center flex-wrap gap-3">
+          <div>
+            <span className="fw-semibold">Analytics Dashboard</span>
+            <p className="text-muted small mb-0">Monitor your property clicks and incoming leads</p>
+          </div>
+          
+          <div className="d-flex gap-3 align-items-center">
+            {/* Segmented Control for View Type */}
+            <div className="bg-light rounded p-1 d-flex align-items-center" style={{ border: '1px solid var(--border-color)' }}>
+              <button 
+                className={`btn btn-sm ${analyticsViewType === 'date' ? 'btn-white shadow-sm fw-600' : 'btn-light border-0 text-muted'}`}
+                onClick={() => setAnalyticsViewType('date')}
+                style={{ borderRadius: '6px', fontSize: '12px', padding: '4px 12px' }}
+              >
+                Time Trend
+              </button>
+              <button 
+                className={`btn btn-sm ${analyticsViewType === 'property' ? 'btn-white shadow-sm fw-600' : 'btn-light border-0 text-muted'}`}
+                onClick={() => setAnalyticsViewType('property')}
+                style={{ borderRadius: '6px', fontSize: '12px', padding: '4px 12px' }}
+              >
+                Property Wise
+              </button>
+            </div>
 
+            <select className="form-select form-select-sm" value={analyticsTimeframe} onChange={(e) => setAnalyticsTimeframe(e.target.value)} style={{ width: 'auto' }}>
+              <option value="day">Today / Daily</option>
+              <option value="month">This Month</option>
+              <option value="year">This Year</option>
+            </select>
+          </div>
+        </div>
+        
+        <div className="card-body p-0">
+          <div className="table-responsive">
+            <table className="table-modern">
+              <thead>
+                <tr>
+                  {analyticsViewType === 'date' ? <th>Date</th> : <th>Property</th>}
+                  <th style={{ width: '40%' }}>Performance (Clicks & Leads)</th>
+                  <th className="text-end">Conversion Rate</th>
+                </tr>
+              </thead>
+              <tbody>
+                {analyticsData.length === 0 ? (
+                  <tr>
+                    <td colSpan="3" className="text-center py-5 text-muted">
+                      <Target size={32} className="opacity-25 mb-2" />
+                      <p className="mb-0 small">No data available for this period</p>
+                    </td>
+                  </tr>
+                ) : (
+                  analyticsData.map((item, idx) => {
+                    const maxClicks = Math.max(...analyticsData.map(d => d.clicks || 0), 1);
+                    const clicksWidth = ((item.clicks || 0) / maxClicks) * 100;
+                    
+                    const maxLeads = Math.max(...analyticsData.map(d => d.leads || 0), 1);
+                    const leadsWidth = ((item.leads || 0) / maxLeads) * 100;
+                    
+                    const conversion = item.clicks > 0 ? ((item.leads / item.clicks) * 100).toFixed(1) : 0;
+
+                    return (
+                      <tr key={item.date || item.propertyId || idx}>
+                        <td>
+                          {analyticsViewType === 'date' ? (
+                            <span className="fw-600 small">{item.date}</span>
+                          ) : (
+                            <div className="d-flex align-items-center gap-2">
+                              <div className="bg-light rounded p-2 text-primary">
+                                <Building2 size={16} />
+                              </div>
+                              <div>
+                                <div className="fw-600 small">{item.propertyName}</div>
+                                <div className="text-muted" style={{ fontSize: '11px' }}>{item.city}</div>
+                              </div>
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          <div className="d-flex flex-column gap-2" style={{ minWidth: '200px' }}>
+                            <div className="d-flex align-items-center gap-2">
+                              <div className="text-muted" style={{ fontSize: '10px', width: '40px' }}>VIEWS</div>
+                              <div className="progress flex-grow-1" style={{ height: '6px', backgroundColor: 'var(--surface-hover)' }}>
+                                <div className="progress-bar bg-primary rounded" style={{ width: `${clicksWidth}%` }}></div>
+                              </div>
+                              <div className="fw-600 small" style={{ width: '30px', textAlign: 'right' }}>{item.clicks}</div>
+                            </div>
+                            <div className="d-flex align-items-center gap-2">
+                              <div className="text-muted" style={{ fontSize: '10px', width: '40px' }}>LEADS</div>
+                              <div className="progress flex-grow-1" style={{ height: '6px', backgroundColor: 'var(--surface-hover)' }}>
+                                <div className="progress-bar bg-success rounded" style={{ width: `${leadsWidth}%` }}></div>
+                              </div>
+                              <div className="fw-600 small" style={{ width: '30px', textAlign: 'right' }}>{item.leads}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="text-end">
+                          <span className={`badge-premium ${conversion > 10 ? 'badge-success' : (conversion > 0 ? 'badge-info' : 'badge-light text-muted')}`}>
+                            {conversion}%
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
 
       {/* Quick Actions Footer */}
       <div className="modern-card">

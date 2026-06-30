@@ -1,276 +1,367 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
+import { MessageCircle, X, MapPin, Search, User, Phone, Mail, Building2, Home, BedDouble, ShieldCheck, ArrowLeft } from 'lucide-react';
+import { Autocomplete } from '@react-google-maps/api';
+import { useGoogleMaps } from '../../context/GoogleMapsContext';
 import './Chatbot.css';
 import api from '../../services/api';
+
+const STAYS = [
+  { id: 'All Stays', label: 'All Stays', icon: <span style={{fontSize: '1.2rem', marginBottom: '4px'}}>✨</span> },
+  { id: 'PG', label: 'PG', icon: <Building2 size={24} strokeWidth={1.5} /> },
+  { id: 'Hostel', label: 'Hostel', icon: <BedDouble size={24} strokeWidth={1.5} /> },
+  { id: 'Home Stay', label: 'Home Stay', icon: <Home size={24} strokeWidth={1.5} /> },
+  { id: 'Service Apartment', label: 'Service Apartment', icon: <Building2 size={24} strokeWidth={1.5} /> }
+];
 
 const Chatbot = () => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [chatHistory, setChatHistory] = useState([
-    { sender: 'bot', text: 'Hi there! 👋 What are you looking for today?' }
-  ]);
-  const [inputValue, setInputValue] = useState('');
+  
+  const { isLoaded } = useGoogleMaps();
+  const cityAutocompleteRef = useRef(null);
+  const localityAutocompleteRef = useRef(null);
+  const [cityBounds, setCityBounds] = useState(null);
   
   const [formData, setFormData] = useState({
-    type: '',
-    location: '',
+    type: 'All Stays',
+    city: '',
+    locality: '',
     name: '',
-    mobile: ''
+    mobile: '',
+    email: ''
   });
-
-  const [contactForm, setContactForm] = useState({
-    name: '',
-    mobile: ''
-  });
-
-  const chatEndRef = useRef(null);
-
-  useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [chatHistory, step]);
-
-  const handleOpen = () => {
-    setIsOpen(true);
-  };
-
-  const handleClose = () => {
-    setIsOpen(false);
-  };
-
-  const checkUserLoggedIn = () => {
-    const userStr = localStorage.getItem('user');
-    if (userStr) {
-      try {
-        return JSON.parse(userStr);
-      } catch (e) {
-        return null;
-      }
-    }
-    return null;
-  };
 
   // Do not render on B2B and Admin pages
   if (location.pathname.startsWith('/b2b') || location.pathname.startsWith('/admin')) {
     return null;
   }
 
-  const handleQuickReply = (type) => {
-    const newHistory = [...chatHistory, { sender: 'user', text: type }];
+  // Pre-fill user data if logged in
+  useEffect(() => {
+    const userStr = localStorage.getItem('user');
+    if (userStr) {
+      try {
+        const parsedData = JSON.parse(userStr);
+        // Safely extract user object in case it's nested
+        const user = parsedData.user || parsedData.data || parsedData;
+        setFormData(prev => ({
+          ...prev,
+          name: user.name || user.firstName || prev.name,
+          mobile: user.phone || user.mobile || user.phoneNumber || prev.mobile,
+          email: user.email || prev.email
+        }));
+      } catch (e) {
+        console.error('Error parsing user data:', e);
+      }
+    }
+  }, []);
+
+  // Update bounds when city changes
+  useEffect(() => {
+    if (isLoaded && formData.city && formData.city !== 'All India' && window.google) {
+      const geocoder = new window.google.maps.Geocoder();
+      geocoder.geocode({ address: `${formData.city}, India` }, (results, status) => {
+        if (status === 'OK' && results[0]) {
+          setCityBounds(results[0].geometry.viewport);
+        }
+      });
+    } else {
+      setCityBounds(null);
+    }
+  }, [isLoaded, formData.city]);
+
+  const onCityPlaceChanged = () => {
+    if (cityAutocompleteRef.current !== null) {
+      const place = cityAutocompleteRef.current.getPlace();
+      if (place && place.name) {
+        setFormData({ ...formData, city: place.name });
+      }
+    }
+  };
+
+  const onLocalityPlaceChanged = () => {
+    if (localityAutocompleteRef.current !== null) {
+      const place = localityAutocompleteRef.current.getPlace();
+      if (place && place.name) {
+        setFormData({ ...formData, locality: place.name });
+      }
+    }
+  };
+
+  const handleOpen = () => setIsOpen(true);
+  const handleClose = () => {
+    setIsOpen(false);
+    setTimeout(() => setStep(1), 300); // Reset after close animation
+  };
+
+  const handleSelectType = (type) => {
     setFormData({ ...formData, type });
-    newHistory.push({ sender: 'bot', text: 'Excellent! And in which location or city?' });
-    setChatHistory(newHistory);
     setStep(2);
   };
 
-  const handleNextStep = async (e) => {
+  const goBack = () => setStep(1);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!inputValue.trim() && step !== 4) return;
-
-    let nextStep = step + 1;
-    let nextBotMessage = '';
-    const newHistory = [...chatHistory, { sender: 'user', text: inputValue }];
-    const newFormData = { ...formData };
-
-    if (step === 2) {
-      newFormData.location = inputValue;
-      const user = checkUserLoggedIn();
-      if (user && user.name && user.phone) {
-        newFormData.name = user.name;
-        newFormData.mobile = user.phone;
-        nextStep = 4;
-      } else {
-        nextBotMessage = 'Almost done! Please provide your contact details:';
-      }
-    }
-
-    if (nextBotMessage) {
-      newHistory.push({ sender: 'bot', text: nextBotMessage });
-    }
-
-    setChatHistory(newHistory);
-    setFormData(newFormData);
-    setStep(nextStep);
-    setInputValue('');
-
-    if (nextStep === 4) {
-      submitInquiry(newFormData);
-    }
-  };
-
-  const handleContactSubmit = (e) => {
-    e.preventDefault();
-    if (!contactForm.name.trim() || !contactForm.mobile.trim()) return;
-
-    const newHistory = [...chatHistory, { sender: 'user', text: `${contactForm.name}, ${contactForm.mobile}` }];
-    const newFormData = { ...formData, name: contactForm.name, mobile: contactForm.mobile };
-    
-    setChatHistory(newHistory);
-    setFormData(newFormData);
-    setStep(4);
-    submitInquiry(newFormData);
-  };
-
-  const submitInquiry = async (data) => {
     setLoading(true);
     try {
-      await api.post('/support/chatbot', data);
-      setChatHistory(prev => [
-        ...prev,
-        { 
-          sender: 'bot', 
-          text: 'Thank you! 🎉 One of our executives will contact you shortly. For immediate assistance, call us at +91 98937 58477.' 
-        }
-      ]);
+      await api.post('/support/chatbot', formData);
+      setStep(3);
+      setTimeout(() => {
+        handleClose();
+      }, 5000);
     } catch (error) {
       console.error('Error submitting chatbot inquiry:', error);
-      setChatHistory(prev => [
-        ...prev,
-        { sender: 'bot', text: 'Oops! There was an error submitting your request. Please call us at +91 98937 58477.' }
-      ]);
+      alert("There was an error submitting your request. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
-  const resetChat = () => {
-    setStep(1);
-    setFormData({ type: '', location: '', name: '', mobile: '' });
-    setContactForm({ name: '', mobile: '' });
-    setChatHistory([{ sender: 'bot', text: 'Hi there! 👋 What are you looking for today?' }]);
-    setInputValue('');
-  };
-
   return (
-    <div className="chatbot-fancy-container">
+    <div className="cb-container">
+      {/* FAB Launcher */}
       {!isOpen && (
-        <div className="chatbot-launcher-tab" onClick={handleOpen}>
-          <span className="tab-online-indicator"></span>
-          <span className="tab-text">Chat with us</span>
+        <div className="cb-fab-wrapper">
+          <div className="cb-fab-label">May I Help You ⤴</div>
+          <button className="cb-fab" onClick={handleOpen}>
+            <MessageCircle size={32} color="white" fill="white" />
+          </button>
         </div>
       )}
 
+      {/* Main Chatbot Window */}
       {isOpen && (
-        <div className="chatbot-fancy-window">
-          <div className="chatbot-fancy-header">
-            <div className="header-bg-shapes">
-              <div className="shape shape-1"></div>
-              <div className="shape shape-2"></div>
-            </div>
-            <div className="chatbot-header-content">
-              <div className="header-agent-info">
-                <div className="agent-avatar-wrapper">
-                  <div className="agent-avatar">S</div>
-                  <span className="agent-status-dot"></span>
-                </div>
-                <div className="agent-text">
-                  <span className="agent-name">Sortify Assistant</span>
-                  <span className="agent-status">Replies instantly</span>
-                </div>
-              </div>
-              <button className="chatbot-fancy-close" onClick={handleClose}>
-                <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="18" y1="6" x2="6" y2="18"></line>
-                  <line x1="6" y1="6" x2="18" y2="18"></line>
-                </svg>
+        <>
+          <div className="cb-overlay" onClick={handleClose}></div>
+          <div className={`cb-modal ${step === 2 || step === 3 ? 'cb-modal-expanded' : ''}`}>
+            
+            <div className="cb-modal-header-actions">
+              {step === 2 && (
+                <button className="cb-icon-btn-header" onClick={goBack} title="Back">
+                  <ArrowLeft size={20} />
+                </button>
+              )}
+
+              <div style={{ flex: 1 }}></div>
+              <button className="cb-icon-btn-header" onClick={handleClose} title="Close">
+                <X size={20} />
               </button>
             </div>
-            <svg className="header-wave" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 320">
-              <path fill="#ffffff" fillOpacity="1" d="M0,96L48,112C96,128,192,160,288,160C384,160,480,128,576,122.7C672,117,768,139,864,149.3C960,160,1056,160,1152,138.7C1248,117,1344,75,1392,53.3L1440,32L1440,320L1392,320C1344,320,1248,320,1152,320C1056,320,960,320,864,320C768,320,672,320,576,320C480,320,384,320,288,320C192,320,96,320,48,320L0,320Z"></path>
-            </svg>
-          </div>
-          
-          <div className="chatbot-fancy-body">
-            {chatHistory.map((msg, idx) => (
-              <div key={idx} className={`message-row ${msg.sender === 'bot' ? 'bot-row' : 'user-row'}`}>
-                {msg.sender === 'bot' && (
-                  <div className="mini-bot-avatar">S</div>
-                )}
-                <div className={`fancy-bubble ${msg.sender === 'bot' ? 'bot-bubble' : 'user-bubble'}`}>
-                  {msg.text}
-                </div>
-              </div>
-            ))}
 
             {step === 1 && (
-              <div className="fancy-quick-replies">
-                <button onClick={() => handleQuickReply('PG')}>🏠 PG</button>
-                <button onClick={() => handleQuickReply('Hostel')}>🛏️ Hostel</button>
-                <button onClick={() => handleQuickReply('Home Stay')}>🏡 Home Stay</button>
-                <button onClick={() => handleQuickReply('Service Apartment')}>🏢 Service Apartment</button>
+              <div className="cb-step-content fade-in">
+                <div className="cb-mini-header">
+                  <div className="cb-avatar">
+                    <img src="/logo192.png" alt="bot" onError={(e) => e.target.style.display='none'} />
+                    <div className="cb-avatar-fallback">🎧</div>
+                  </div>
+                  <div className="cb-header-text">
+                    <h3>May I help you?</h3>
+                    <p>Choose the type of stay you are looking for</p>
+                  </div>
+                </div>
+
+                <div className="cb-stay-grid">
+                  {STAYS.map(stay => (
+                    <div 
+                      key={stay.id} 
+                      className={`cb-stay-card ${formData.type === stay.id ? 'active' : ''}`}
+                      onClick={() => handleSelectType(stay.id)}
+                    >
+                      <div className="cb-stay-icon">{stay.icon}</div>
+                      <span>{stay.label}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="cb-trust-banner">
+                  <ShieldCheck size={24} className="cb-trust-icon" />
+                  <div>
+                    <strong>Verified stays. Flexible stays. All across India.</strong>
+                    <p>We're here to help you find the perfect stay.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {step === 2 && (
+              <div className="cb-step-content fade-in cb-form-wrapper">
+                <div className="cb-form-header">
+                  <h2>May I Help You?</h2>
+                  <p>Tell us what you're looking for and we'll get back to you with the best options.</p>
+                </div>
+
+                <form onSubmit={handleSubmit} className="cb-form">
+                  
+                  {/* Selected Stay Type (Summary/Editable) */}
+                  <div className="cb-form-section cb-form-section-compact">
+                    <div className="cb-section-header">
+                      <h3 className="cb-section-title">1. Stay Type</h3>
+                      <button type="button" className="cb-edit-link" onClick={goBack}>Edit</button>
+                    </div>
+                    <div className="cb-selected-type">
+                      <div className="cb-stay-card active cb-stay-card-small">
+                        <div className="cb-stay-icon">{STAYS.find(s => s.id === formData.type)?.icon}</div>
+                        <span>{formData.type}</span>
+                        <div className="cb-check-badge">✓</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 2. Location */}
+                  <div className="cb-form-section cb-form-section-compact">
+                    <h3 className="cb-section-title">2. Location</h3>
+                    
+                    <label className="cb-input-label">City</label>
+                    <div className="cb-input-group">
+                      <MapPin size={18} className="cb-input-icon" style={{ zIndex: 1 }} />
+                      {isLoaded ? (
+                        <div style={{ flex: 1, width: '100%' }}>
+                          <Autocomplete
+                            onLoad={ref => cityAutocompleteRef.current = ref}
+                            onPlaceChanged={onCityPlaceChanged}
+                            options={{ types: ['(cities)'], componentRestrictions: { country: 'in' } }}
+                          >
+                            <input 
+                              type="text" 
+                              placeholder="Search city..." 
+                              required
+                              value={formData.city}
+                              onChange={e => setFormData({...formData, city: e.target.value})}
+                              className="cb-input"
+                              style={{ width: '100%' }}
+                            />
+                          </Autocomplete>
+                        </div>
+                      ) : (
+                        <input 
+                          type="text" 
+                          placeholder="Search city..." 
+                          required
+                          value={formData.city}
+                          onChange={e => setFormData({...formData, city: e.target.value})}
+                          className="cb-input"
+                        />
+                      )}
+                    </div>
+
+                    <label className="cb-input-label">Search Locality / Area <span>(Optional)</span></label>
+                    <div className="cb-input-group">
+                      <Search size={18} className="cb-input-icon" style={{ zIndex: 1 }} />
+                      {isLoaded ? (
+                        <div style={{ flex: 1, width: '100%' }}>
+                          <Autocomplete
+                            onLoad={ref => localityAutocompleteRef.current = ref}
+                            onPlaceChanged={onLocalityPlaceChanged}
+                            options={{
+                              bounds: cityBounds,
+                              strictBounds: !!cityBounds,
+                              componentRestrictions: { country: 'in' }
+                            }}
+                          >
+                            <input 
+                              type="text" 
+                              placeholder="e.g., Koramangala..." 
+                              value={formData.locality}
+                              onChange={e => setFormData({...formData, locality: e.target.value})}
+                              className="cb-input"
+                              style={{ width: '100%' }}
+                            />
+                          </Autocomplete>
+                        </div>
+                      ) : (
+                        <input 
+                          type="text" 
+                          placeholder="e.g., Koramangala..." 
+                          value={formData.locality}
+                          onChange={e => setFormData({...formData, locality: e.target.value})}
+                          className="cb-input"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 3. Your Details */}
+                  <div className="cb-form-section cb-form-section-compact">
+                    <h3 className="cb-section-title">3. Your Details</h3>
+                    
+                    <div className="cb-input-wrapper">
+                      <label className="cb-input-label">Full Name</label>
+                      <div className="cb-input-group">
+                        <User size={18} className="cb-input-icon" />
+                        <input 
+                          type="text" 
+                          placeholder="Enter your full name" 
+                          required
+                          value={formData.name}
+                          onChange={e => setFormData({...formData, name: e.target.value})}
+                          className="cb-input"
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="cb-input-wrapper">
+                      <label className="cb-input-label">Mobile Number</label>
+                      <div className="cb-input-group">
+                        <Phone size={18} className="cb-input-icon" />
+                        <input 
+                          type="tel" 
+                          placeholder="Enter mobile number" 
+                          required
+                          value={formData.mobile}
+                          onChange={e => setFormData({...formData, mobile: e.target.value})}
+                          className="cb-input"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="cb-input-wrapper">
+                      <label className="cb-input-label">Email Address</label>
+                      <div className="cb-input-group">
+                        <Mail size={18} className="cb-input-icon" />
+                        <input 
+                          type="email" 
+                          placeholder="Enter email address" 
+                          required
+                          value={formData.email}
+                          onChange={e => setFormData({...formData, email: e.target.value})}
+                          className="cb-input"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <button type="submit" className="cb-submit-btn" disabled={loading}>
+                    {loading ? 'Submitting...' : 'Submit Inquiry →'}
+                  </button>
+                  
+                  <p className="cb-secure-text">
+                    🔒 Your information is safe with us.
+                  </p>
+                </form>
               </div>
             )}
 
             {step === 3 && (
-              <div className="fancy-contact-card">
-                <div className="contact-card-header">Your Details</div>
-                <form onSubmit={handleContactSubmit}>
-                  <div className="fancy-input-group">
-                    <input 
-                      type="text" 
-                      placeholder="Full Name" 
-                      value={contactForm.name}
-                      onChange={(e) => setContactForm({...contactForm, name: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <div className="fancy-input-group">
-                    <input 
-                      type="tel" 
-                      placeholder="Mobile Number" 
-                      value={contactForm.mobile}
-                      onChange={(e) => setContactForm({...contactForm, mobile: e.target.value})}
-                      required
-                    />
-                  </div>
-                  <button type="submit" className="fancy-submit-btn">Continue ➔</button>
-                </form>
-              </div>
-            )}
-            
-            {loading && (
-              <div className="message-row bot-row">
-                <div className="mini-bot-avatar">S</div>
-                <div className="fancy-bubble bot-bubble typing-bubble">
-                  <div className="dot"></div><div className="dot"></div><div className="dot"></div>
+              <div className="cb-step-content fade-in cb-form-wrapper" style={{ textAlign: 'center', paddingBottom: '32px' }}>
+                <div style={{ margin: '0 auto 20px auto', display: 'flex', justifyContent: 'center', alignItems: 'center', width: '64px', height: '64px', borderRadius: '50%', backgroundColor: '#ecfdf5', color: '#10b981' }}>
+                  <ShieldCheck size={36} />
                 </div>
-              </div>
-            )}
-
-            <div ref={chatEndRef} />
-          </div>
-
-          <div className="chatbot-fancy-footer">
-            {step === 2 && (
-              <form onSubmit={handleNextStep} className="fancy-input-wrapper">
-                <input
-                  type="text"
-                  className="fancy-chat-input"
-                  placeholder="Type location or city..."
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  autoFocus
-                />
-                <button type="submit" className="fancy-send-btn">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="22" y1="2" x2="11" y2="13"></line>
-                    <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-                  </svg>
-                </button>
-              </form>
-            )}
-            {step === 4 && !loading && (
-              <div className="restart-wrapper">
-                <button className="fancy-restart-btn" onClick={resetChat}>
-                  ↻ Start New Conversation
+                <h2 style={{ fontSize: '24px', color: '#0f172a', margin: '0 0 12px 0' }}>Request Submitted!</h2>
+                <p style={{ color: '#64748b', fontSize: '15px', lineHeight: '1.5', margin: '0 0 32px 0' }}>
+                  Thank you for reaching out. One of our executives will contact you shortly with the best options.
+                </p>
+                <button className="cb-submit-btn" onClick={handleClose} style={{ marginTop: 0 }}>
+                  Done
                 </button>
               </div>
             )}
           </div>
-        </div>
+        </>
       )}
     </div>
   );

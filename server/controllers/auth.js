@@ -247,12 +247,29 @@ exports.generateOtp = async (req, res, next) => {
   }
 };
 
+// @desc    Check if mobile is registered
+// @route   POST /api/v1/auth/check-mobile
+// @access  Public
+exports.checkMobile = async (req, res, next) => {
+  try {
+    const { mobile, role } = req.body;
+    if (!mobile || !/^\d{10}$/.test(mobile)) {
+      return res.status(400).json({ success: false, message: 'Please provide a valid 10-digit mobile number' });
+    }
+    const queryRole = role || 'user';
+    const user = await User.findOne({ phone: mobile, role: queryRole });
+    res.status(200).json({ success: true, isRegistered: !!user });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
 // @desc    Verify OTP
 // @route   POST /api/v1/auth/verify-otp
 // @access  Public
 exports.verifyOtp = async (req, res, next) => {
   try {
-    const { mobile, otp, role } = req.body;
+    const { mobile, otp, role, name, email } = req.body;
 
     if (!mobile || !otp) {
       return res.status(400).json({
@@ -305,6 +322,38 @@ exports.verifyOtp = async (req, res, next) => {
       }
 
       // If user doesn't exist (it's a registration flow)
+      // And we were given name and email, register them now!
+      if (!user && name && email) {
+        user = await User.create({
+          name,
+          email,
+          phone: mobile,
+          role: queryRole,
+          isMobileVerified: true,
+          profileImage: ''
+        });
+
+        // Generate token
+        const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+          expiresIn: '30d'
+        });
+
+        await Otp.deleteOne({ _id: otpRecord._id });
+
+        return res.status(200).json({
+          success: true,
+          message: 'Registration and login successful',
+          token,
+          user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            phone: user.phone
+          }
+        });
+      }
+
       await Otp.deleteOne({ _id: otpRecord._id });
 
       res.status(200).json({

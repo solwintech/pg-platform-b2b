@@ -3,7 +3,7 @@ import { Upload, X, Image, Camera, Plus } from 'lucide-react';
 import Compressor from 'compressorjs';
 
 const getBaseImageUrl = () => {
-  const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api/v1' : 'http://localhost:5000/api/v1');
+  const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://staysorted.in/api/v1' : 'http://localhost:5000/api/v1');
   return apiUrl.replace('/api/v1', '');
 };
 
@@ -84,14 +84,19 @@ const StepUploads = ({ data, updateData }) => {
     <div className="step-uploads">
       <h5 className="mb-3 fw-semibold">Media Gallery</h5>
       <p className="text-muted small mb-3">Upload photos and tag them for better organization</p>
+      
+      <div className="alert alert-warning  " style={{ fontSize: '0.75rem' }}>
+        <i className="fas fa-exclamation-triangle me-2"></i>
+        <strong>Note:</strong> Image upload is not mandatory right now. If you skip, we'll upload default images. However, you must upload actual images within 7 days or your property will be delisted.
+      </div>
 
-      <div className="alert alert-info py-2 mb-4" style={{ fontSize: '0.85rem' }}>
+      <div className="alert alert-info  " style={{ fontSize: '0.75rem' }}>
         <i className="fas fa-info-circle me-2"></i>
         <strong>Note:</strong> Only 8 photos can be uploaded at a time. You can upload more photos after property approval.
       </div>
 
       <div className="mb-4">
-        <label className="form-label small fw-bold text-dark">Main Property Photo *</label>
+        <label className="form-label small fw-bold text-dark">Main Property Photo</label>
         <div className="border rounded-2 p-3 text-center bg-light border-dashed">
           {coverImage ? (
             <div className="position-relative d-inline-block">

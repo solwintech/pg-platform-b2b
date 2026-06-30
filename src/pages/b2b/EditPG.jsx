@@ -109,7 +109,9 @@ const EditPG = () => {
       title: "Uploads", 
       component: StepUploads,
       validate: (data) => {
-        if (!data.coverImage) return "Please upload the Main Property Photo";
+        if (data.imageWarningAccepted) return null;
+        const totalImages = (data.coverImage ? 1 : 0) + (data.galleryImages ? data.galleryImages.length : 0);
+        if (totalImages < 3) return "SHOW_UPLOAD_WARNING";
         return null;
       }
     },

@@ -57,10 +57,10 @@ const Footer = () => {
   ];
 
   const supportLinks = [
-    { label: 'About Us', action: () => openLegalModal('About Us', 'about') },
-    // { label: 'Contact Support', action: () => openLegalModal('Contact Support', 'contact') },
-    { label: 'Privacy Policy', action: () => openLegalModal('Privacy Policy', 'privacy') },
-    { label: 'Terms of Service', action: () => openLegalModal('Terms of Service', 'terms') },
+    { label: 'About Us', path: '/about-us' },
+    // { label: 'Contact Support', path: '/contact' },
+    { label: 'Privacy Policy', path: '/privacy-policy' },
+    { label: 'Terms of Service', path: '/terms-of-service' },
   ];
 
   const handleNewsletterSubmit = (e) => {
@@ -74,7 +74,7 @@ const Footer = () => {
   };
 
   return (
-    <footer className="footer-modern mt-5">
+    <footer className="footer-modern ">
       
       <div className="footer-links-section pt-5 pb-4 mt-4">
         <Container>
@@ -120,9 +120,9 @@ const Footer = () => {
               <ul className="modern-link-list list-unstyled">
                 {supportLinks.map((link, index) => (
                   <li key={index}>
-                    <a href="#" onClick={(e) => { e.preventDefault(); link.action(); }}>
+                    <Link to={link.path}>
                       {link.label}
-                    </a>
+                    </Link>
                   </li>
                 ))}
               </ul>

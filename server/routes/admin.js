@@ -12,7 +12,8 @@ const {
   getSubscriptionPlans,
   createSubscriptionPlan,
   updateSubscriptionPlan,
-  deleteSubscriptionPlan
+  deleteSubscriptionPlan,
+  getAnalytics
 } = require('../controllers/admin');
 const { protect, authorize } = require('../middleware/auth');
 
@@ -20,6 +21,7 @@ router.use(protect);
 router.use(authorize('admin')); // Only admins can access these routes
 
 router.get('/stats', getDashboardStats);
+router.get('/analytics', getAnalytics);
 router.put('/properties/:id/status', updatePropertyStatus);
 router.get('/logs', getActivityLogs);
 router.get('/users', getUsers);

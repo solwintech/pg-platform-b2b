@@ -36,7 +36,28 @@ const StepHouseRules = ({ data, updateData }) => {
       
       {/* Predefined Rules Section */}
       <div className="rules-section mb-4">
-        <p className="text-muted small mb-4">Select the house rules applicable to your property</p>
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <p className="text-muted small mb-0">Select the house rules applicable to your property</p>
+          <button 
+            type="button"
+            className="btn btn-sm btn-outline-primary"
+            onClick={(e) => {
+              e.preventDefault();
+              const allSelected = predefinedRules.every(rule => selectedRules.includes(rule));
+              let updated;
+              if (allSelected) {
+                updated = selectedRules.filter(rule => !predefinedRules.includes(rule));
+              } else {
+                const customRules = selectedRules.filter(rule => !predefinedRules.includes(rule));
+                updated = [...predefinedRules, ...customRules];
+              }
+              setSelectedRules(updated);
+              updateData({ houseRules: updated });
+            }}
+          >
+            {predefinedRules.every(rule => selectedRules.includes(rule)) ? 'Deselect All' : 'Select All'}
+          </button>
+        </div>
         <div className="row g-2">
           {predefinedRules.map(rule => (
             <div key={rule} className="col-md-6 col-sm-12">

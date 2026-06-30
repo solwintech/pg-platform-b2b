@@ -10,10 +10,13 @@ import reviewService from '../../services/reviewService';
 import authService from '../../services/authService';
 import PropertyMap from '../../components/MapComponent';
 import PromotionalAd from '../../components/PromotionalAd';
-import './PropertyDetails.css';
-import LeadActionModal from '../../components/modals/LeadActionModal';
+import { Autocomplete } from '@react-google-maps/api';
+import CityNotAvailableModal from '../../components/modals/CityNotAvailableModal';
+import { getPropertyUrl } from '../../utils/seoHelpers';
 import { useAuthModal } from '../../context/AuthModalContext';
 import SEO from '../../components/SEO';
+import './PropertyDetails.css';
+import LeadActionModal from '../../components/modals/LeadActionModal';
 
 import dummy1 from '../../assets/dummy1.jpeg';
 import dummy2 from '../../assets/dummy2.jpeg';
@@ -36,7 +39,7 @@ const formatTime12hr = (timeStr) => {
 };
 
 const getBaseImageUrl = () => {
-  const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api/v1' : 'http://localhost:5000/api/v1');
+  const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://staysorted.in/api/v1' : 'http://localhost:5000/api/v1');
   return apiUrl.replace('/api/v1', '');
 };
 
@@ -50,7 +53,8 @@ const resolveImageUrl = (url) => {
 };
 
 const PropertyDetails = () => {
-  const { id } = useParams();
+  const { id, slug } = useParams();
+  const propertyId = slug ? slug.split('-').pop() : id;
   const navigate = useNavigate();
   const { openAuthModal } = useAuthModal();
   const leadActionModalRef = React.useRef(null);
@@ -102,12 +106,12 @@ const PropertyDetails = () => {
 
   useEffect(() => {
     if (!hasIncremented.current) {
-      propertyService.incrementViews(id);
+      propertyService.incrementViews(propertyId);
       hasIncremented.current = true;
     }
     fetchPropertyDetails();
     fetchReviews();
-  }, [id]);
+  }, [propertyId]);
 
   useEffect(() => {
     let eventSource = null;
@@ -121,8 +125,8 @@ const PropertyDetails = () => {
           
           if (data.event === 'review_approved') {
             const newReview = data.payload;
-            const propertyId = newReview.property?._id || newReview.property;
-            if (propertyId === id) {
+            const pId = newReview.property?._id || newReview.property;
+            if (pId === propertyId) {
               setReviews(prev => {
                 if (!prev.find(r => r._id === newReview._id)) {
                   return [newReview, ...prev];
@@ -132,8 +136,8 @@ const PropertyDetails = () => {
             }
           } else if (data.event === 'review_replied') {
             const updatedReview = data.payload;
-            const propertyId = updatedReview.property?._id || updatedReview.property;
-            if (propertyId === id) {
+            const pId = updatedReview.property?._id || updatedReview.property;
+            if (pId === propertyId) {
               setReviews(prev => prev.map(r => r._id === updatedReview._id ? updatedReview : r));
             }
           }
@@ -154,7 +158,7 @@ const PropertyDetails = () => {
         eventSource.close();
       }
     };
-  }, [id]);
+  }, [propertyId]);
 
   useEffect(() => {
     const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
@@ -176,7 +180,8 @@ const PropertyDetails = () => {
   const fetchPropertyDetails = async () => {
     setLoading(true);
     try {
-      const response = await propertyService.getPropertyById(id);
+      if (!propertyId) return;
+      const response = await propertyService.getProperty(propertyId);
       const propData = response.data || response.property;
       setProperty(propData);
       setRooms(response.rooms || propData?.roomTypes || propData?.rooms || []);
@@ -193,7 +198,7 @@ const PropertyDetails = () => {
 
   const fetchReviews = async () => {
     try {
-      const response = await reviewService.getPropertyReviews(id);
+      const response = await reviewService.getPropertyReviews(propertyId);
       setReviews(response.reviews || response.data || []);
     } catch (error) {
       console.error('Failed to fetch reviews:', error);
@@ -212,7 +217,7 @@ const PropertyDetails = () => {
     
     setSubmittingReview(true);
     try {
-      await reviewService.addReview(id, reviewForm);
+      const res = await reviewService.addReview(propertyId, reviewForm);
       alert('Review submitted successfully! It will be visible after admin approval.');
       setShowReviewModal(false);
       setReviewForm({ rating: 5, title: '', comment: '' });
@@ -256,6 +261,10 @@ const PropertyDetails = () => {
     if (property?.genderAllowed === 'Girls' || property?.genderAllowed === 'Girls Only') return 'Girls';
     if (property?.genderAllowed === 'Unisex' || property?.genderAllowed === 'Co-ed') return 'Co-ed';
     return 'Co-ed';
+  };
+  
+  const getDisplayType = () => {
+    return property?.propertyType || property?.type || 'PG';
   };
   
   const getMinPrice = () => {
@@ -478,13 +487,16 @@ const PropertyDetails = () => {
                 <span className="d-flex align-items-center fw-bold" style={{fontSize:'0.75rem', letterSpacing: '0.5px'}}><i className="fas fa-check-circle me-1"></i>Partner Verified</span>
                 <span className="opacity-50" style={{fontSize:'0.6rem'}}>•</span>
                 <span className="d-flex align-items-center fw-bold" style={{fontSize:'0.75rem', letterSpacing: '0.5px'}}><i className="fas fa-star me-1"></i>Brand New</span>
+                <span className="opacity-50" style={{fontSize:'0.6rem'}}>•</span>
+                <span className="d-flex align-items-center fw-bold" style={{fontSize:'0.75rem', letterSpacing: '0.5px'}}><i className="fas fa-building me-1"></i>{getDisplayType()}</span>
               </div>
               
               <h1 className="ho-title m-0 d-flex align-items-center flex-wrap gap-2" style={{ fontSize: '1.7rem', fontWeight: '800', letterSpacing: '-0.5px', color: '#111827' }}>
                 <span>{getDisplayName()}</span>
-                <span className="px-2 py-1 rounded-3 d-flex align-items-center shadow-sm" style={{ fontSize: '1.2rem', color: '#ea580c', backgroundColor: '#fff7ed', border: '1px solid #fdba74' }}>
-                  ₹{getMinPrice().toLocaleString()}{property.maxPrice ? ` - ${property.maxPrice.toLocaleString()}` : ''}
-                </span>
+                <div className="pc-info-pill pc-status-pill ms-2 flex-shrink-0" style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', background: '#ecfdf5', padding: '4px 8px', borderRadius: '12px', border: '1px solid #10b981', alignSelf: 'center', height: 'fit-content' }}>
+                  <i className="fas fa-check-circle" style={{color:'#10b981'}}/>
+                  <span style={{color:'#10b981', fontWeight: 600, fontSize: '0.85rem'}}>Available</span>
+                </div>
               </h1>
               <div className="d-flex align-items-center gap-2 mt-2">
                 <span className="text-muted" style={{fontSize: '0.8rem'}}>in {getDisplayLocation()}</span>
@@ -542,10 +554,12 @@ const PropertyDetails = () => {
                 {/* Rent & Deposit Section */}
                 <div className="p-3" style={{ background: 'linear-gradient(145deg, #fff7ed 0%, #ffffff 100%)', borderBottom: '1px solid #fed7aa' }}>
                   <div className="d-flex justify-content-between align-items-center mb-1">
-                    <div>
-                      <div className="text-muted fw-bold text-uppercase" style={{ fontSize: '0.65rem', letterSpacing: '1px' }}>Monthly Rent</div>
-                      <div className="fw-bolder" style={{ fontSize: '1.4rem', color: '#ea580c', letterSpacing: '-0.5px' }}>
-                        ₹{getMinPrice().toLocaleString()}{property.maxPrice ? ` - ${property.maxPrice.toLocaleString()}` : ''}
+                    <div className="d-flex flex-column justify-content-center">
+                      <div className="d-flex align-items-baseline gap-1">
+                        <div className="fw-bolder" style={{ fontSize: '1.5rem', color: '#ea580c', letterSpacing: '-0.5px' }}>
+                          ₹{getMinPrice().toLocaleString()}
+                        </div>
+                        <div className="text-muted" style={{ fontSize: '0.8rem', fontWeight: '500' }}>/ month onwards</div>
                       </div>
                     </div>
                     <div className="text-end">
@@ -1144,7 +1158,7 @@ const PropertyDetails = () => {
                     key={related._id} 
                     className="ho-related-card flex-shrink-0"
                     onClick={() => {
-                      navigate(`/property/${related._id}`);
+                      navigate(getPropertyUrl(related));
                       window.scrollTo(0,0);
                     }}
                     style={{ width: '300px', cursor: 'pointer', background: 'white', borderRadius: '16px', overflow: 'hidden', border: '1px solid #e2e8f0', transition: 'all 0.3s', boxShadow: '0 4px 15px rgba(0,0,0,0.03)' }}

@@ -136,7 +136,7 @@ const SubmissionTermsModal = ({ isOpen, onConfirm, onCancel, isSubmitting }) => 
             <p className="text-muted small mb-3">Before proceeding, please confirm:</p>
             <div className="summary-list">
               {summaryPoints.map((p, i) => (
-                <div key={i} className="summary-item d-flex align-items-center gap-3 mb-3">
+                <div key={i} className="summary-item d-flex align-items-center gap-3 mb-1">
                   <div className="summary-icon-box">
                     {p.icon}
                   </div>
@@ -341,8 +341,8 @@ const SubmissionTermsModal = ({ isOpen, onConfirm, onCancel, isSubmitting }) => 
         }
 
         .summary-icon-box {
-          width: 32px;
-          height: 32px;
+          width: 20px;
+          height: 18px;
           background: #f1f5f9;
           border-radius: 50%;
           display: flex;

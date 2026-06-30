@@ -1,0 +1,197 @@
+/* AuthModalFlow.css - New Single Popup Flow */
+
+.auth-modal-flow-content {
+  border-radius: 20px;
+  border: none;
+  overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+  padding: 0;
+}
+
+.auth-modal-flow-header {
+  border-bottom: none;
+  padding: 20px 24px 10px;
+}
+
+.auth-modal-logo {
+  height: 35px;
+  object-fit: contain;
+}
+
+.auth-modal-close-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #6b7280;
+  cursor: pointer;
+}
+
+.auth-modal-body {
+  padding: 10px 32px 32px;
+  text-align: center;
+}
+
+/* Icon / Graphic */
+.amf-icon-circle {
+  width: 72px;
+  height: 72px;
+  background-color: #fff7ed;
+  color: #ea580c;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  font-size: 28px;
+}
+
+.amf-icon-circle.success {
+  background-color: #ecfdf5;
+  color: #10b981;
+}
+
+/* Typography */
+.amf-title {
+  font-weight: 700;
+  color: #1f2937;
+  font-size: 1.5rem;
+  margin-bottom: 8px;
+}
+
+.amf-subtitle {
+  color: #6b7280;
+  font-size: 0.95rem;
+  margin-bottom: 30px;
+}
+
+/* Inputs */
+.amf-input-group {
+  text-align: left;
+  margin-bottom: 20px;
+}
+
+.amf-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+}
+
+.amf-input-wrapper {
+  display: flex;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: all 0.2s;
+  background: white;
+}
+
+.amf-input-wrapper.disabled {
+  background: #f9fafb;
+}
+
+.amf-input-wrapper:focus-within {
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+}
+
+.amf-input-prefix {
+  padding: 12px 16px;
+  background: #f3f4f6;
+  color: #4b5563;
+  font-weight: 600;
+  border-right: 1px solid #d1d5db;
+}
+
+.amf-input {
+  flex: 1;
+  border: none;
+  padding: 12px 16px;
+  outline: none;
+  font-size: 1rem;
+  color: #1f2937;
+  width: 100%;
+  background: transparent;
+}
+
+.amf-input:disabled {
+  color: #9ca3af;
+}
+
+/* OTP Inputs */
+.amf-otp-container {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 20px;
+}
+
+.amf-otp-input {
+  width: 45px;
+  height: 55px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #1f2937;
+  transition: all 0.2s;
+}
+
+.amf-otp-input:focus {
+  border-color: #f97316;
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.1);
+  outline: none;
+}
+
+/* Button */
+.amf-btn {
+  width: 100%;
+  padding: 14px;
+  background-color: #f97316;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+  margin-bottom: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.amf-btn:hover {
+  background-color: #ea580c;
+}
+
+.amf-btn:active {
+  transform: scale(0.98);
+}
+
+.amf-btn-light {
+  background-color: #fff7ed;
+  color: #ea580c;
+}
+
+.amf-btn-light:hover {
+  background-color: #ffedd5;
+}
+
+/* Footer / Disclaimer */
+.amf-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.amf-timer {
+  color: #ea580c;
+  font-weight: 600;
+}

@@ -37,7 +37,7 @@ import adminService from '../../services/adminService';
 import { formatDate } from '../../utils/dateFormatter';
 
 const getBaseImageUrl = () => {
-  const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api/v1' : 'http://localhost:5000/api/v1');
+  const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://staysorted.in/api/v1' : 'http://localhost:5000/api/v1');
   return apiUrl.replace('/api/v1', '');
 };
 

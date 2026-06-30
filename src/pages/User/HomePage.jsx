@@ -14,22 +14,34 @@ import CityNotAvailableModal from '../../components/modals/CityNotAvailableModal
 import WhyChooseUs from '../../components/common/WhyChooseUs';
 import HowItWorks from '../../components/common/HowItWorks';
 import CTASection from '../../components/common/CTASection';
+import { getPropertyUrl } from '../../utils/seoHelpers';
+
+import mumbaiImg from '../../assets/popular_cities/mumbai.jpg';
+import delhiImg from '../../assets/popular_cities/Delhi.jpg';
+import bangaloreImg from '../../assets/popular_cities/bangalore.webp';
+import hyderabadImg from '../../assets/popular_cities/Hyderabad.jpg';
+import chennaiImg from '../../assets/popular_cities/chennai.jpg';
+import puneImg from '../../assets/popular_cities/pune.jpg';
+import kolkataImg from '../../assets/popular_cities/kolkata.jpg';
+import ahmedabadImg from '../../assets/popular_cities/ahemdabad.jpg';
+import jaipurImg from '../../assets/popular_cities/jaipur.jpg';
+import lucknowImg from '../../assets/popular_cities/lucknow.jpg';
 
 const DEFAULT_CITIES_DATA = [
-  { name: "Mumbai", image: "/images/cities/mumbai.png" },
-  { name: "Delhi", image: "/images/cities/delhi.png" },
-  { name: "Bangalore", image: "/images/cities/bangalore.png" },
-  { name: "Hyderabad", image: "/images/cities/hyderabad.png" },
-  { name: "Chennai", image: "/images/cities/chennai.png" },
-  { name: "Pune", image: "/images/cities/pune.png" },
-  { name: "Kolkata", image: "/images/cities/kolkata.png" },
-  { name: "Ahmedabad", image: "/images/cities/ahmedabad.png" },
-  { name: "Jaipur", image: "/images/cities/jaipur.png" },
-  { name: "Lucknow", image: "/images/cities/lucknow.png" }
+  { name: "Mumbai", image: mumbaiImg },
+  { name: "Delhi", image: delhiImg },
+  { name: "Bangalore", image: bangaloreImg },
+  { name: "Hyderabad", image: hyderabadImg },
+  { name: "Chennai", image: chennaiImg },
+  { name: "Pune", image: puneImg },
+  { name: "Kolkata", image: kolkataImg },
+  { name: "Ahmedabad", image: ahmedabadImg },
+  { name: "Jaipur", image: jaipurImg },
+  { name: "Lucknow", image: lucknowImg }
 ];
 
 const getBaseImageUrl = () => {
-  const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api/v1' : 'http://localhost:5000/api/v1');
+  const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://staysorted.in/api/v1' : 'http://localhost:5000/api/v1');
   return apiUrl.replace('/api/v1', '');
 };
 
@@ -56,7 +68,7 @@ const HomePage = () => {
   
   const [filters, setFilters] = useState({
     city: localStorage.getItem('selected_city') || 'Bangalore',
-    locality: '',
+    localities: [],
     propertyType: 'all',
     budget: 'any',
     occupancy: 'any',
@@ -108,6 +120,32 @@ const HomePage = () => {
     }
   };
 
+  useEffect(() => {
+    if (!allProperties.length) return;
+
+    const matchesCity = (property, selectedCity) => {
+      if (!selectedCity || selectedCity.toLowerCase() === 'all india') return true;
+      const cityString = (property.city || property.location?.city || '').toLowerCase();
+      const searchCity = selectedCity.toLowerCase();
+      return cityString.includes(searchCity) || 
+             searchCity.includes(cityString) || 
+             (cityString === 'bangalore' && searchCity === 'bengaluru') ||
+             (cityString === 'bengaluru' && searchCity === 'bangalore');
+    };
+
+    const filteredProperties = allProperties.filter(p => matchesCity(p, filters.city));
+
+    const featured = filteredProperties
+      .filter(p => p.isFeatured === true)
+      .slice(0, 10);
+    setFeaturedProperties(featured);
+
+    const newest = [...filteredProperties]
+      .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+      .slice(0, 10);
+    setNewlyLaunched(newest);
+  }, [allProperties, filters.city]);
+
   const loadHomePageData = async () => {
     setLoading(true);
     try {
@@ -116,18 +154,6 @@ const HomePage = () => {
       const realProperties = response.properties || [];
       
       setAllProperties(realProperties);
-      
-      // 1. Featured Properties: only explicitly marked properties
-      const featured = realProperties
-        .filter(p => p.isFeatured === true)
-        .slice(0, 10);
-      setFeaturedProperties(featured);
-      
-      // 2. Newly Launched: Sort by creation date (from database data)
-      const newest = [...realProperties]
-        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-        .slice(0, 10);
-      setNewlyLaunched(newest);
       
       // 3. Top Brands: Aggregate by ownerName (from database data)
       const brandsMap = {};
@@ -247,10 +273,25 @@ const HomePage = () => {
     
     let genderMap = { boys: 'male', girls: 'female', 'co-ed': 'any', all: 'all' };
     
-    navigate('/listings', { 
+    const reversePropertyTypeMapping = {
+      'PG': 'residential-paying-guest',
+      'Hostel': 'hostel',
+      'Home Stay': 'home-stay',
+      'Service Apartment': 'service-apartment',
+      'all': 'all-properties'
+    };
+    const pType = filters.propertyType === 'all' ? 'all' : filters.propertyType;
+    const propertyTypeSlug = reversePropertyTypeMapping[pType] || 'all-properties';
+    
+    const queryParams = new URLSearchParams();
+    if (finalCity) queryParams.append('cityName', finalCity);
+    if (filters.localities && filters.localities.length > 0) queryParams.append('locality', filters.localities.join(','));
+
+    navigate(`/verified-pg-hostels/${propertyTypeSlug}?${queryParams.toString()}`, { 
       state: {
         city: finalCity,
-        locality: filters.locality,
+        locality: filters.localities && filters.localities.length > 0 ? filters.localities[0] : "",
+        localities: filters.localities || [],
         propertyType: filters.propertyType === 'all' ? 'all' : filters.propertyType,
         minPrice: minPrice,
         maxPrice: maxPrice,
@@ -270,7 +311,7 @@ const HomePage = () => {
           <div 
             key={property._id} 
             className="compact-card"
-            onClick={() => navigate(`/property/${property.slug || property._id}`)}
+            onClick={() => navigate(getPropertyUrl(property))}
             style={{ cursor: 'pointer' }}
           >
             <div 
@@ -417,7 +458,7 @@ const HomePage = () => {
       <div className="container mb-5 mt-2">
         <div className="row g-4 align-items-stretch">
           <div className="col-lg-8">
-            <div className="bg-white rounded-4 shadow-sm border border-light h-100 p-4 p-md-5">
+            <div className="bg-white rounded-4 shadow-sm border border-light h-100 p-3 p-md-4">
               <HowItWorks />
             </div>
           </div>

@@ -31,6 +31,14 @@ const adminService = {
     return response.data;
   },
 
+  // Get analytics (leads & clicks)
+  getAnalytics: async (timeframe, viewType = 'date', propertyId = null) => {
+    const params = { timeframe, viewType };
+    if (propertyId) params.propertyId = propertyId;
+    const response = await api.get('/admin/analytics', { params });
+    return response.data;
+  },
+
   // Create user
   createUser: async (userData) => {
     const response = await api.post('/admin/users', userData);

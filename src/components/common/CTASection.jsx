@@ -10,13 +10,13 @@ const CTASection = () => {
     <div className="cta-section-wrapper h-100">
       <div className="footer-cta-bar premium-cta shadow-sm h-100 d-flex flex-column justify-content-between text-center">
         <div>
-          <div className="app-icon-premium-small mx-auto mb-3">
+          <div className="app-icon-premium-small mx-auto mb-2">
             <i className="fas fa-mobile-alt"></i>
           </div>
           <h4 className="mb-2 fw-bold text-white">Get the App</h4>
-          <p className="mb-4 text-white-50" style={{fontSize: '0.85rem'}}>Find your next home directly from your phone.</p>
+          <p className="mb-2 text-white-50" style={{fontSize: '0.85rem'}}>Find your next home directly from your phone.</p>
           
-          <div className="d-flex flex-column gap-2 mb-4">
+          <div className="d-flex flex-column gap-2 mb-0">
             <button className="store-badge-premium-small border-0 w-100 justify-content-center py-2" onClick={() => setShowAppModal(true)}>
               <i className="fab fa-apple fs-4"></i>
               <div className="text-start ms-2">

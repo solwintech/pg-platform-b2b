@@ -64,6 +64,17 @@ const authService = {
     return !!localStorage.getItem('token');
   },
 
+  // Check if mobile is registered
+  checkMobile: async (mobile, role = 'user') => {
+    try {
+      const response = await api.post('/auth/check-mobile', { mobile, role });
+      return response.data;
+    } catch (error) {
+      console.warn("API failed, returning default check-mobile false");
+      return { success: true, isRegistered: false };
+    }
+  },
+
   // Generate OTP
   generateOtp: async (mobile, role) => {
     try {
@@ -76,9 +87,9 @@ const authService = {
   },
 
   // Verify OTP
-  verifyOtp: async (mobile, otp, role) => {
+  verifyOtp: async (mobile, otp, role, userData = {}) => {
     try {
-      const response = await api.post('/auth/verify-otp', { mobile, otp, role });
+      const response = await api.post('/auth/verify-otp', { mobile, otp, role, name: userData.name, email: userData.email });
       if (response.data.success && response.data.token) {
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(response.data.user));

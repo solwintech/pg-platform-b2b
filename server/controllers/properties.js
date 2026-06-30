@@ -1,4 +1,5 @@
 const Property = require('../models/Property');
+const PropertyClick = require('../models/PropertyClick');
 const notifyAdmins = require('../utils/notifyAdmins');
 const logActivity = require('../utils/logger');
 const { broadcastEvent, sendEventToUser } = require('../utils/sse');
@@ -575,6 +576,14 @@ exports.incrementPropertyViews = async (req, res, next) => {
 
     if (!property) {
       return res.status(404).json({ success: false, message: 'Property not found' });
+    }
+
+    // Log the property click asynchronously
+    if (property.owner) {
+      PropertyClick.create({
+        property: property._id,
+        owner: property.owner
+      }).catch(err => console.error('Error logging property click:', err));
     }
 
     if (property.owner) {

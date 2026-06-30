@@ -116,7 +116,9 @@ const AddPG = () => {
       title: "Uploads", 
       component: StepUploads,
       validate: (data) => {
-        if (!data.coverImage) return "Please upload the Main Property Photo";
+        if (data.imageWarningAccepted) return null;
+        const totalImages = (data.coverImage ? 1 : 0) + (data.galleryImages ? data.galleryImages.length : 0);
+        if (totalImages < 3) return "SHOW_UPLOAD_WARNING";
         return null;
       }
     },
@@ -145,7 +147,7 @@ const AddPG = () => {
 
   return (
     <div className="add-pg-page">
-      {JSON.parse(localStorage.getItem('user') || '{}')?.email === 'sourabh@gmail.com' && (
+      {(JSON.parse(localStorage.getItem('user') || '{}')?.email === 'sourabhojha734@gmail.com' || JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin') && (
         <div className="d-flex justify-content-end mb-3">
           <button className="btn btn-outline-primary btn-sm" onClick={handleAutofill}>
             ⚡ Autofill for Testing

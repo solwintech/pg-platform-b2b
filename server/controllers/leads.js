@@ -1,5 +1,6 @@
 const Lead = require('../models/Lead');
 const Property = require('../models/Property');
+const PropertyClick = require('../models/PropertyClick');
 const Notification = require('../models/Notification');
 const sendEmail = require('../utils/sendEmail');
 const logActivity = require('../utils/logger');
@@ -71,14 +72,36 @@ exports.createLead = async (req, res, next) => {
       }
     }
 
-    // Send email to the manager if managerEmail is provided
-    if (property.managerEmail) {
-      let emailMessage = '';
-      let emailSubject = '';
+    // Determine the recipients
+    const adminEmails = ['sales@sortifystays.com', 'contact@sortifystays.com'];
+    let recipients = [...adminEmails];
 
-      if (finalType === 'Contact') {
-        emailSubject = `New Contact Request for ${property.pgName}`;
-        emailMessage = `Hello Team,
+    // Fetch the property owner's email
+    let ownerUser = null;
+    try {
+      const User = require('../models/User');
+      ownerUser = await User.findById(property.owner);
+      if (ownerUser && ownerUser.email) {
+        recipients.push(ownerUser.email);
+      } else {
+        console.log('Owner user not found or has no email:', property.owner);
+      }
+    } catch (e) {
+      console.error('Could not fetch owner email for leads', e);
+    }
+
+    if (property.managerEmail && !recipients.includes(property.managerEmail)) {
+      recipients.push(property.managerEmail);
+    }
+
+    console.log('Final email recipients list:', recipients);
+
+    let emailMessage = '';
+    let emailSubject = '';
+
+    if (finalType === 'Contact') {
+      emailSubject = `New Contact Request for ${property.pgName}`;
+      emailMessage = `Hello Team,
 
 A prospective lead has requested to be contacted regarding ${property.pgName}.
 
@@ -95,9 +118,9 @@ Please reach out to the customer soon.
 
 Best regards,
 Sorting Stays`;
-      } else {
-        emailSubject = `New Lead Generated: ${property.pgName}`;
-        emailMessage = `Hello Team,
+    } else {
+      emailSubject = `New Lead Generated: ${property.pgName}`;
+      emailMessage = `Hello Team,
 
 A new inquiry has been received through Sorting Stays.
 
@@ -120,16 +143,59 @@ Please review the inquiry and reach out to the customer at the earliest.
 
 Regards,
 Sorting Stays`;
-      }
+    }
 
+    try {
+      await sendEmail({
+        email: recipients.join(', '),
+        subject: emailSubject,
+        message: emailMessage,
+      });
+    } catch (err) {
+      console.error('Email could not be sent to admins/owners', err);
+    }
+
+    // --- Send Email to User (Lead) ---
+    if (email) {
       try {
+        const userSubject = `Thank You for Your Enquiry – ${property.pgName || 'Property'} | ${new Date().toLocaleDateString()}`;
+        const userMessage = `Dear ${name || 'Customer'},
+
+Thank you for showing interest in ${property.pgName || 'our property'}.
+
+We have successfully received your enquiry on ${new Date().toLocaleDateString()} and shared it with the respective property manager. You may contact them directly using the details below to check room availability and other details.
+
+Property Details
+🏠 Property Name: ${property.pgName || 'N/A'}
+📍 Address: ${property.address || property.area || 'N/A'}
+🏙️ City: ${property.city || 'N/A'}
+
+Property Manager Details
+👤 Name: ${property.managerName || (ownerUser ? ownerUser.name : 'Property Manager')}
+📞 Mobile: ${property.managerPhone || (ownerUser ? ownerUser.phone : 'N/A')}
+✉️ Email: ${property.managerEmail || (ownerUser ? ownerUser.email : 'N/A')}
+
+What's Next?
+- Contact the property manager directly for the fastest response.
+- Discuss room availability and move-in dates.
+- Visit the property before booking.
+
+If you need any assistance, our support team is always happy to help.
+
+Thank you for choosing Sortify Stays.
+
+Warm Regards,
+Team Sortify Stays
+🌐 https://sortifystays.com 
+📧 support@sortifystays.com`;
+
         await sendEmail({
-          email: property.managerEmail,
-          subject: emailSubject,
-          message: emailMessage,
+          email: email,
+          subject: userSubject,
+          message: userMessage,
         });
       } catch (err) {
-        console.error('Email could not be sent', err);
+        console.error('Email could not be sent to user', err);
       }
     }
 
@@ -138,7 +204,8 @@ Sorting Stays`;
       data: lead
     });
   } catch (err) {
-    res.status(400).json({ success: false, message: err.message });
+    console.error('Lead error:', err);
+    res.status(400).json({ success: false, message: err.message, stack: err.stack });
   }
 };
 
@@ -200,6 +267,138 @@ exports.updateLeadStatus = async (req, res, next) => {
     res.status(200).json({
       success: true,
       data: lead
+    });
+  } catch (err) {
+    res.status(400).json({ success: false, message: err.message });
+  }
+};
+
+// @desc    Get B2B Analytics (Leads & Clicks)
+// @route   GET /api/v1/leads/analytics
+// @access  Private/Owner
+exports.getAnalytics = async (req, res, next) => {
+  try {
+    const { timeframe, viewType = 'date' } = req.query; // timeframe: 'day', 'month', 'year'. viewType: 'date', 'property'
+    const ownerId = req.user._id || req.user.id;
+    
+    // Determine the date filter based on timeframe if viewType is 'property'
+    let dateFilter = { owner: ownerId };
+    const now = new Date();
+    if (viewType === 'property') {
+      let startDate = new Date();
+      if (timeframe === 'year') {
+        startDate = new Date(now.getFullYear(), 0, 1);
+      } else if (timeframe === 'month') {
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      } else {
+        startDate.setHours(0, 0, 0, 0);
+      }
+      dateFilter.createdAt = { $gte: startDate };
+    }
+
+    let dateFormat;
+    if (timeframe === 'year') {
+      dateFormat = "%Y";
+    } else if (timeframe === 'month') {
+      dateFormat = "%Y-%m";
+    } else {
+      dateFormat = "%Y-%m-%d"; // default to day
+    }
+
+    if (viewType === 'property') {
+      // Group by property
+      const leadStats = await Lead.aggregate([
+        { $match: dateFilter },
+        {
+          $group: {
+            _id: "$property",
+            leads: { $sum: 1 }
+          }
+        }
+      ]);
+
+      const clickStats = await PropertyClick.aggregate([
+        { $match: dateFilter },
+        {
+          $group: {
+            _id: "$property",
+            clicks: { $sum: 1 }
+          }
+        }
+      ]);
+
+      const statsMap = {};
+      leadStats.forEach(item => {
+        if(item._id) statsMap[item._id.toString()] = { propertyId: item._id, leads: item.leads, clicks: 0 };
+      });
+      clickStats.forEach(item => {
+        if(item._id) {
+          if (statsMap[item._id.toString()]) {
+            statsMap[item._id.toString()].clicks = item.clicks;
+          } else {
+            statsMap[item._id.toString()] = { propertyId: item._id, leads: 0, clicks: item.clicks };
+          }
+        }
+      });
+
+      // Populate property details
+      let data = Object.values(statsMap);
+      const Property = require('../models/Property');
+      const properties = await Property.find({ _id: { $in: data.map(d => d.propertyId) } }).select('pgName city');
+      
+      data = data.map(d => {
+        const p = properties.find(prop => prop._id.toString() === d.propertyId.toString());
+        return {
+          ...d,
+          propertyName: p ? p.pgName : 'Unknown Property',
+          city: p ? p.city : ''
+        };
+      }).sort((a, b) => b.clicks - a.clicks);
+
+      return res.status(200).json({ success: true, data });
+    }
+
+    // Group by Date
+    const leadStats = await Lead.aggregate([
+      { $match: { owner: ownerId } },
+      {
+        $group: {
+          _id: { $dateToString: { format: dateFormat, date: "$createdAt" } },
+          leads: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    const clickStats = await PropertyClick.aggregate([
+      { $match: { owner: ownerId } },
+      {
+        $group: {
+          _id: { $dateToString: { format: dateFormat, date: "$createdAt" } },
+          clicks: { $sum: 1 }
+        }
+      },
+      { $sort: { _id: 1 } }
+    ]);
+
+    // Merge stats
+    const statsMap = {};
+    leadStats.forEach(item => {
+      statsMap[item._id] = { date: item._id, leads: item.leads, clicks: 0 };
+    });
+    clickStats.forEach(item => {
+      if (statsMap[item._id]) {
+        statsMap[item._id].clicks = item.clicks;
+      } else {
+        statsMap[item._id] = { date: item._id, leads: 0, clicks: item.clicks };
+      }
+    });
+
+    const data = Object.values(statsMap).sort((a, b) => a.date.localeCompare(b.date));
+
+    res.status(200).json({
+      success: true,
+      data
     });
   } catch (err) {
     res.status(400).json({ success: false, message: err.message });

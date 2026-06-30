@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { MapPin, Building, Bed, Search, Sparkles, ChevronDown } from 'lucide-react';
+import { MapPin, Building, Bed, Search, Sparkles, ChevronDown, X } from 'lucide-react';
 import { Autocomplete } from '@react-google-maps/api';
 import { useGoogleMaps } from '../context/GoogleMapsContext';
 import './SearchWrapper.css';
@@ -11,6 +11,7 @@ const SearchWrapper = ({ filters, updateFilter, onSearch, locationLoading, getUs
   const { isLoaded } = useGoogleMaps();
 
   const [cityBounds, setCityBounds] = useState(null);
+  const [localityInput, setLocalityInput] = useState("");
 
   useEffect(() => {
     if (isLoaded && filters.city && window.google) {
@@ -42,7 +43,11 @@ const SearchWrapper = ({ filters, updateFilter, onSearch, locationLoading, getUs
     if (autocompleteRef.current !== null) {
       const place = autocompleteRef.current.getPlace();
       if (place.name) {
-        updateFilter('locality', place.name);
+        const currentLocalities = filters.localities || [];
+        if (!currentLocalities.includes(place.name)) {
+          updateFilter('localities', [...currentLocalities, place.name]);
+        }
+        setLocalityInput("");
         
         // Also extract city if possible
         const addressComponents = place.address_components || [];
@@ -52,6 +57,23 @@ const SearchWrapper = ({ filters, updateFilter, onSearch, locationLoading, getUs
         }
       }
     }
+  };
+
+  const handleLocalityKeyDown = (e) => {
+    if (e.key === 'Enter' && localityInput.trim()) {
+      e.preventDefault();
+      const val = localityInput.trim();
+      const currentLocalities = filters.localities || [];
+      if (!currentLocalities.includes(val)) {
+        updateFilter('localities', [...currentLocalities, val]);
+      }
+      setLocalityInput("");
+    }
+  };
+
+  const removeLocality = (loc) => {
+    const currentLocalities = filters.localities || [];
+    updateFilter('localities', currentLocalities.filter(l => l !== loc));
   };
 
   const onCityPlaceChanged = () => {
@@ -140,17 +162,30 @@ const SearchWrapper = ({ filters, updateFilter, onSearch, locationLoading, getUs
                   <input 
                     type="text" 
                     placeholder="Koramangala, Indiranagar..." 
-                    value={filters.locality}
-                    onChange={(e) => updateFilter('locality', e.target.value)}
+                    value={localityInput}
+                    onChange={(e) => setLocalityInput(e.target.value)}
+                    onKeyDown={handleLocalityKeyDown}
                   />
                 </Autocomplete>
               ) : (
                 <input 
                   type="text" 
                   placeholder="Koramangala, Indiranagar..." 
-                  value={filters.locality}
-                  onChange={(e) => updateFilter('locality', e.target.value)}
+                  value={localityInput}
+                  onChange={(e) => setLocalityInput(e.target.value)}
+                  onKeyDown={handleLocalityKeyDown}
                 />
+              )}
+              
+              {(filters.localities && filters.localities.length > 0) && (
+                <div className="d-flex flex-wrap gap-1 mt-2">
+                  {filters.localities.map((loc, idx) => (
+                    <div key={idx} className="badge bg-light text-dark border px-2 py-1 d-flex align-items-center gap-1 rounded-pill" style={{ fontSize: '0.75rem', fontWeight: '500' }}>
+                      {loc}
+                      <X size={12} className="text-muted" style={{ cursor: 'pointer' }} onClick={() => removeLocality(loc)} />
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>

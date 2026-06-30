@@ -17,7 +17,8 @@ import {
   Tag,
   Star,
   Package,
-  ClipboardList
+  ClipboardList,
+  BarChart3
 } from 'lucide-react';
 
 const Sidebar = ({ role, isCollapsed, toggleSidebar, isMobileOpen, closeMobile }) => {
@@ -34,6 +35,7 @@ const Sidebar = ({ role, isCollapsed, toggleSidebar, isMobileOpen, closeMobile }
     ],
     admin: [
       { path: '/admin/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+      { path: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
       { path: '/admin/properties', icon: Building2, label: 'All Properties' },
       { path: '/admin/add-pg', icon: PlusCircle, label: 'Add Property' },
       { path: '/admin/amenities', icon: Award, label: 'Amenities' },

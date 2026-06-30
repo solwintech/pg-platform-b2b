@@ -807,7 +807,7 @@ const LeadActionModal = forwardRef((props, ref) => {
                         </div>
                         <div className="d-flex flex-column">
                           <span className="text-muted" style={{ fontSize: '0.75rem' }}>Contact Person</span>
-                          <span className="fw-bold text-dark">{selectedProperty?.managerPhone ? 'Property Manager' : (selectedProperty?.ownerId?.name || 'Owner')}</span>
+                          <span className="fw-bold text-dark">{selectedProperty?.managerName || selectedProperty?.ownerId?.name || 'Owner'}</span>
                         </div>
                       </div>
                       <div className="d-flex align-items-center gap-3">
@@ -827,8 +827,8 @@ const LeadActionModal = forwardRef((props, ref) => {
                         </div>
                         <div className="d-flex flex-column">
                           <span className="text-muted" style={{ fontSize: '0.75rem' }}>Email Address</span>
-                          <a href={`mailto:${selectedProperty?.ownerId?.email}`} className="text-decoration-none fw-bold text-dark text-truncate" style={{ maxWidth: '200px' }}>
-                            {selectedProperty?.ownerId?.email || 'Not available'}
+                          <a href={`mailto:${selectedProperty?.managerEmail || selectedProperty?.ownerId?.email}`} className="text-decoration-none fw-bold text-dark text-truncate" style={{ maxWidth: '200px' }}>
+                            {selectedProperty?.managerEmail || selectedProperty?.ownerId?.email || 'Not available'}
                           </a>
                         </div>
                       </div>

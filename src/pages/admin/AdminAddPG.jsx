@@ -117,7 +117,9 @@ const AdminAddPG = () => {
       title: "Uploads", 
       component: StepUploads,
       validate: (data) => {
-        if (!data.coverImage) return "Please upload the Main Property Photo";
+        if (data.imageWarningAccepted) return null;
+        const totalImages = (data.coverImage ? 1 : 0) + (data.galleryImages ? data.galleryImages.length : 0);
+        if (totalImages < 3) return "SHOW_UPLOAD_WARNING";
         return null;
       }
     },
@@ -142,7 +144,7 @@ const AdminAddPG = () => {
     <div className="add-pg-page p-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>Add Property (on behalf of B2B)</h2>
-        {JSON.parse(localStorage.getItem('user') || '{}')?.email === 'sourabh@gmail.com' && (
+        {(JSON.parse(localStorage.getItem('user') || '{}')?.email === 'sourabhojha734@gmail.com' || JSON.parse(localStorage.getItem('user') || '{}')?.role === 'admin') && (
           <button className="btn btn-outline-primary btn-sm" onClick={handleAutofill}>
             ⚡ Autofill for Testing
           </button>

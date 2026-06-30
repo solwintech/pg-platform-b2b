@@ -8,7 +8,8 @@ const {
   verifyOtp,
   updateDetails,
   updateProfileImage,
-  updatePassword
+  updatePassword,
+  checkMobile
 } = require('../controllers/auth');
 const { protect } = require('../middleware/auth');
 const upload = require('../utils/fileUpload');
@@ -18,6 +19,7 @@ router.post('/register', register);
 router.post('/login', login);
 router.post('/generate-otp', generateOtp);
 router.post('/verify-otp', verifyOtp);
+router.post('/check-mobile', checkMobile);
 
 // Protected routes
 router.get('/me', protect, getMe);

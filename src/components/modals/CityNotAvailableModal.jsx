@@ -91,16 +91,17 @@ const CityNotAvailableModal = ({ show, onHide, city }) => {
 
         {!submitted ? (
           <div className="notify-section mt-3 d-flex align-items-center justify-content-between p-2 rounded">
-            <div className="d-flex align-items-center text-start me-2">
+            <div className="d-flex align-items-center text-start me-2 flex-grow-1">
               <div className="bell-icon-wrapper me-2">
                 <Bell size={20} color="#F15A29" />
               </div>
               <p className="mb-0 notify-text">
-                We'll notify you when <br /> we launch in your city!
+                We'll notify you when we launch in your city!
               </p>
             </div>
             <Button 
-              className="notify-btn flex-shrink-0" 
+              className="notify-btn flex-shrink-0 w-auto px-3" 
+              style={{ whiteSpace: 'nowrap' }}
               onClick={handleSubmit}
               disabled={submitting}
             >

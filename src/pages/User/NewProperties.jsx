@@ -4,10 +4,11 @@ import Header from './Header';
 import Footer from './Footer';
 import propertyService from '../../services/propertyService';
 import SEO from '../../components/SEO';
+import { getPropertyUrl } from '../../utils/seoHelpers';
 import './HomePage.css';
 
 const getBaseImageUrl = () => {
-  const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api/v1' : 'http://localhost:5000/api/v1');
+  const apiUrl = import.meta.env.VITE_API_URL || (import.meta.env.PROD ? 'https://staysorted.in/api/v1' : 'http://localhost:5000/api/v1');
   return apiUrl.replace('/api/v1', '');
 };
 
@@ -74,7 +75,7 @@ const NewProperties = () => {
           <div 
             key={property._id} 
             className="compact-card"
-            onClick={() => navigate(`/property/${property.slug || property._id}`)}
+            onClick={() => navigate(getPropertyUrl(property))}
             style={{ cursor: 'pointer' }}
           >
             <div 

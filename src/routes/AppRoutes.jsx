@@ -24,6 +24,7 @@ import ManageListings from "../pages/b2b/ManageListings";
 
 // Admin Pages
 import AdminDashboard from "../pages/admin/AdminDashboard";
+import AdminAnalytics from "../pages/admin/AdminAnalytics";
 
 import ManageAmenities from "../pages/admin/ManageAmenities";
 import ManageUsers from "../pages/admin/ManageUsers";
@@ -58,6 +59,7 @@ import ListingPage from '../pages/User/ListingPage';
 import Contact from '../pages/User/Contact';
 import AuthPage from '../pages/User/AuthPage';
 import PropertyDetails from '../pages/User/PropertyDetails';
+import LegalPage from '../pages/User/LegalPage';
 import propertyService from "../services/propertyService";
 
 const B2BRedirect = () => {
@@ -97,11 +99,28 @@ const AppRoutes = () => {
       <Route path="/" element={<HomePage />} />
       <Route path="/featured-properties" element={<FeaturedProperties />} />
       <Route path="/new-properties" element={<NewProperties />} />
+      
+      {/* SEO Friendly Listing Routes */}
+      <Route path="/verified-pg-hostels/:propertyType" element={<ListingPage />} />
+      <Route path="/verified-pg-hostels" element={<ListingPage />} />
+      
+      {/* Original Listing Routes (Retained for compatibility) */}
       <Route path="/listings" element={<ListingPage />} />
+      <Route path="/properties" element={<ListingPage />} />
       <Route path="/agent/:agentName" element={<ListingPage />} />
+      
       <Route path="/contact" element={<Contact />} />
       <Route path="/auth" element={<AuthPage />} />
+      
+      {/* SEO Friendly Property Detail Routes */}
+      <Route path="/pg-in-:city/:slug" element={<PropertyDetails />} />
+      <Route path="/hostels-in-:city/:slug" element={<PropertyDetails />} />
+      <Route path="/property-in-:city/:slug" element={<PropertyDetails />} />
+      
       <Route path="/property/:id" element={<PropertyDetails />} />
+      <Route path="/about-us" element={<LegalPage type="about" title="About Us" />} />
+      <Route path="/privacy-policy" element={<LegalPage type="privacy" title="Privacy Policy" />} />
+      <Route path="/terms-of-service" element={<LegalPage type="terms" title="Terms of Service" />} />
 
 
       <Route path="/register" element={<Register />} />
@@ -147,6 +166,7 @@ const AppRoutes = () => {
           }
         >
           <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="analytics" element={<AdminAnalytics />} />
           {/* <Route path="approvals" element={<ApproveListings />} /> */}
           <Route path="amenities" element={<ManageAmenities />} />
           <Route path="users" element={<ManageUsers />} />

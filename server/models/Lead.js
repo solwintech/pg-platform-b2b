@@ -1,6 +1,11 @@
 const mongoose = require('mongoose');
+const crypto = require('crypto');
 
 const LeadSchema = new mongoose.Schema({
+  leadId: {
+    type: String,
+    unique: true
+  },
   property: {
     type: mongoose.Schema.ObjectId,
     ref: 'Property',
@@ -61,6 +66,12 @@ const LeadSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now
+  }
+});
+
+LeadSchema.pre('save', function() {
+  if (!this.leadId) {
+    this.leadId = 'LID-' + crypto.randomBytes(4).toString('hex').toUpperCase();
   }
 });
 

@@ -42,7 +42,7 @@ const Header = () => {
 
   const navLinks = [
     { path: '/', label: 'Home', icon: 'fas fa-home' },
-    { path: '/listings', label: 'Listings', icon: 'fas fa-list' },
+    { path: '/verified-pg-hostels/all-properties', label: 'Properties', icon: 'fas fa-building' },
     { path: '/contact', label: 'Contact', icon: 'fas fa-envelope' }
   ];
 
@@ -293,18 +293,26 @@ const Header = () => {
               )}
             </div>
 
-            {navLinks.map((link) => (
+            {navLinks.map((link) => {
+              const toPath = link.label === 'Properties' && currentCity && currentCity !== 'All India'
+                ? `${link.path}?cityName=${currentCity}`
+                : link.path;
+              const isActive = (link.label === 'Properties' && location.pathname.includes('/verified-pg-hostels')) || 
+                               (link.label === 'Home' && location.pathname === '/') ||
+                               (link.label === 'Contact' && location.pathname === '/contact');
+              return (
               <Nav.Link
                 key={link.path}
                 as={Link}
-                to={link.path}
+                to={toPath}
                 onClick={() => setExpanded(false)}
-                className={`d-flex align-items-center gap-2 ${location.pathname === link.path ? 'active-link' : ''}`}
+                className={`d-flex align-items-center gap-2 ${isActive ? 'active-link' : ''}`}
               >
                 <i className={link.icon}></i>
                 <span>{link.label}</span>
               </Nav.Link>
-            ))}
+              );
+            })}
           </Nav>
 
           <div className="d-flex gap-2 align-items-center mt-3 mt-lg-0">

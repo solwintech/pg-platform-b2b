@@ -16,7 +16,20 @@ import { useGoogleMaps } from '../../context/GoogleMapsContext';
 import { Autocomplete } from '@react-google-maps/api';
 import SEO from '../../components/SEO';
 import CityNotAvailableModal from '../../components/modals/CityNotAvailableModal';
+import { getPropertyUrl } from '../../utils/seoHelpers';
 
+const getDistance = (lat1, lon1, lat2, lon2) => {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return Infinity;
+  const R = 6371; // Radius of the earth in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c; 
+};
 
 const formatTime12hr = (timeStr) => {
   if (!timeStr) return '--:-- --';
@@ -56,7 +69,23 @@ const getVisitingHoursText = (property) => {
 const ListingPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { agentName: urlAgentName } = useParams();
+  const { agentName: urlAgentName, propertyType: urlPropertyType, intent } = useParams();
+  
+  // Parse SEO query params
+  const queryParams = new URLSearchParams(location.search);
+  const cityNameQuery = queryParams.get('cityName');
+  const localityQuery = queryParams.get('locality');
+
+  // Map URL slugs back to your database's property types
+  const propertyTypeMapping = {
+    'residential-paying-guest': 'PG',
+    'hostel': 'Hostel',
+    'home-stay': 'Home Stay',
+    'service-apartment': 'Service Apartment',
+    'all-properties': 'all'
+  };
+  const mappedPropertyType = urlPropertyType ? (propertyTypeMapping[urlPropertyType] || 'all') : 'all';
+
   const { openAuthModal } = useAuthModal();
   const cityAutocompleteRef = useRef(null);
   const leadActionModalRef = useRef(null);
@@ -89,9 +118,9 @@ const ListingPage = () => {
     occupancy: location.state?.occupancy || [],
     amenities: location.state?.amenities || [],
     gender: location.state?.gender || "all",
-    city: location.state?.city || localStorage.getItem('selected_city') || "",
-    localities: [],
-    propertyType: location.state?.propertyType || "all",
+    city: cityNameQuery || location.state?.city || localStorage.getItem('selected_city') || "",
+    localities: localityQuery ? localityQuery.split(',') : (location.state?.localities || (location.state?.locality ? [location.state.locality] : [])),
+    propertyType: urlPropertyType ? mappedPropertyType : (location.state?.propertyType || "all"),
     agentName: urlAgentName || location.state?.agentName || ""
   });
 
@@ -101,9 +130,9 @@ const ListingPage = () => {
     occupancy: location.state?.occupancy || [],
     amenities: location.state?.amenities || [],
     gender: location.state?.gender || "all",
-    city: location.state?.city || localStorage.getItem('selected_city') || "",
-    localities: [],
-    propertyType: location.state?.propertyType || "all",
+    city: cityNameQuery || location.state?.city || localStorage.getItem('selected_city') || "",
+    localities: localityQuery ? localityQuery.split(',') : (location.state?.localities || (location.state?.locality ? [location.state.locality] : [])),
+    propertyType: urlPropertyType ? mappedPropertyType : (location.state?.propertyType || "all"),
     agentName: urlAgentName || location.state?.agentName || ""
   });
 
@@ -221,16 +250,6 @@ const ListingPage = () => {
       } else {
         setShowCityNotAvailableModal(false);
       }
-      if (appliedFilters.localities && appliedFilters.localities.length > 0) {
-        fetchedProperties = fetchedProperties.filter(p => {
-          const areaString = (p.area || p.address || p.location?.area || p.location?.address || '').toLowerCase();
-          if (!areaString) return false;
-          return appliedFilters.localities.some(loc => {
-            const searchLoc = loc.toLowerCase();
-            return areaString.includes(searchLoc) || searchLoc.includes(areaString);
-          });
-        });
-      }
       if (appliedFilters.propertyType && appliedFilters.propertyType !== 'all') {
         fetchedProperties = fetchedProperties.filter(p => p.propertyType === appliedFilters.propertyType);
       }
@@ -268,21 +287,56 @@ const ListingPage = () => {
         );
       }
 
-      // Sort locally
-      if (currentSort === 'price_asc') {
-        fetchedProperties.sort((a, b) => getPropertyMinPrice(a) - getPropertyMinPrice(b));
-      } else if (currentSort === 'price_desc') {
-        fetchedProperties.sort((a, b) => getPropertyMinPrice(b) - getPropertyMinPrice(a));
-      } else if (currentSort === 'popularity') {
-        fetchedProperties.sort((a, b) => (b.views || 0) - (a.views || 0));
-      } else if (currentSort === 'rating') {
-        fetchedProperties.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-      } else {
-        // default recent
-        fetchedProperties.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      let exactProps = fetchedProperties;
+      let nearProps = [];
+
+      if (appliedFilters.localities && appliedFilters.localities.length > 0) {
+        exactProps = fetchedProperties.filter(p => {
+          const areaString = (p.area || p.address || p.location?.area || p.location?.address || '').toLowerCase();
+          if (!areaString) return false;
+          return appliedFilters.localities.some(loc => {
+            const searchLoc = loc.toLowerCase();
+            return areaString.includes(searchLoc) || searchLoc.includes(areaString);
+          });
+        });
+
+        if (exactProps.length < 10 && exactProps.length > 0) {
+          const refProps = exactProps.filter(p => p.latitude && p.longitude);
+          if (refProps.length > 0) {
+            const refLat = refProps[0].latitude;
+            const refLon = refProps[0].longitude;
+
+            const nonLocality = fetchedProperties.filter(p => !exactProps.includes(p));
+            nearProps = nonLocality.filter(p => {
+              return getDistance(refLat, refLon, p.latitude, p.longitude) <= 10;
+            });
+            nearProps = nearProps.map(p => ({ ...p, isNearbyMarker: true }));
+          }
+        }
       }
 
-      setTotal(fetchedProperties.length);
+      const sortProps = (props) => {
+        let sorted = [...props];
+        if (currentSort === 'price_asc') {
+          sorted.sort((a, b) => getPropertyMinPrice(a) - getPropertyMinPrice(b));
+        } else if (currentSort === 'price_desc') {
+          sorted.sort((a, b) => getPropertyMinPrice(b) - getPropertyMinPrice(a));
+        } else if (currentSort === 'popularity') {
+          sorted.sort((a, b) => (b.views || 0) - (a.views || 0));
+        } else if (currentSort === 'rating') {
+          sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+        } else {
+          sorted.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        }
+        return sorted;
+      };
+
+      exactProps = sortProps(exactProps);
+      nearProps = sortProps(nearProps);
+      
+      fetchedProperties = [...exactProps, ...nearProps];
+
+      setTotal(exactProps.length);
       setTotalPages(Math.ceil(fetchedProperties.length / 10) || 1);
       
       setFilteredProperties(fetchedProperties);
@@ -379,6 +433,24 @@ const ListingPage = () => {
   }, [urlAgentName]);
 
   useEffect(() => {
+    // Sync URL params to state when they change externally (e.g. back button)
+    const newPropertyType = urlPropertyType ? (propertyTypeMapping[urlPropertyType] || 'all') : 'all';
+    setFilters(prev => ({
+      ...prev,
+      city: cityNameQuery || prev.city,
+      localities: localityQuery ? localityQuery.split(',') : prev.localities,
+      propertyType: urlPropertyType ? newPropertyType : prev.propertyType
+    }));
+    setAppliedFilters(prev => ({
+      ...prev,
+      city: cityNameQuery || prev.city,
+      localities: localityQuery ? localityQuery.split(',') : prev.localities,
+      propertyType: urlPropertyType ? newPropertyType : prev.propertyType
+    }));
+    setCurrentPage(1);
+  }, [urlPropertyType, location.search]);
+
+  useEffect(() => {
     fetchProperties();
   }, [appliedFilters, currentSort]);
 
@@ -458,6 +530,23 @@ const ListingPage = () => {
       localStorage.setItem('selected_city', cityToSave);
       window.dispatchEvent(new CustomEvent('city-changed', { detail: cityToSave }));
     }
+    
+    // Update URL to match new filters for SEO
+    const reversePropertyTypeMapping = {
+      'PG': 'residential-paying-guest',
+      'Hostel': 'hostel',
+      'Home Stay': 'home-stay',
+      'Service Apartment': 'service-apartment',
+      'all': 'all-properties'
+    };
+    const pType = filters.propertyType === 'all' ? 'all' : filters.propertyType;
+    const propertyTypeSlug = reversePropertyTypeMapping[pType] || 'all-properties';
+    
+    const queryParams = new URLSearchParams();
+    if (filters.city && filters.city !== 'All India') queryParams.append('cityName', filters.city);
+    if (filters.localities && filters.localities.length > 0) queryParams.append('locality', filters.localities.join(','));
+
+    navigate(`/verified-pg-hostels/${propertyTypeSlug}?${queryParams.toString()}`, { replace: true, state: filters });
   };
 
   const handleAgentClick = (agentName) => {
@@ -488,7 +577,7 @@ const ListingPage = () => {
   };
 
   const handleViewDetails = (property) => {
-    navigate(`/property/${property.slug || property._id}`);
+    navigate(getPropertyUrl(property));
   };
 
   const handlePageChange = (page) => {
@@ -852,9 +941,13 @@ const ListingPage = () => {
                   </Button>
                 </Card>
               ) : (
-                properties.map(property => (
-                  <Card key={property._id} className="pc-card">
-                    <div className="pc-body">
+                properties.map((property, index) => {
+                  const isFirstNearby = property.isNearbyMarker && (index === 0 || !properties[index - 1].isNearbyMarker);
+                  return (
+                  <React.Fragment key={property._id}>
+                    {isFirstNearby && <h4 className="fw-bold mt-4 mb-3 text-secondary border-bottom pb-2">Nearby Properties</h4>}
+                    <Card className="pc-card">
+                      <div className="pc-body">
 
                       {/* ── Image ── */}
                       <div className="pc-img-wrap" onClick={(e) => handleImageClick(e, property)} style={{ cursor: 'pointer' }}>
@@ -892,7 +985,7 @@ const ListingPage = () => {
                           </div>
                           <div className="pc-price-block">
                             <div className="pc-price">₹{getPropertyMinPrice(property).toLocaleString()}</div>
-                            <div className="pc-price-label">/ month</div>
+                            <div className="pc-price-label">/ month onwards</div>
                           </div>
                         </div>
 
@@ -970,7 +1063,9 @@ const ListingPage = () => {
                       </div>
                     </div>
                   </Card>
-                ))
+                  </React.Fragment>
+                  );
+                })
 
               )}
               
