@@ -54,7 +54,7 @@ const resolveImageUrl = (url) => {
 
 const PropertyDetails = () => {
   const { id, slug } = useParams();
-  const propertyId = slug ? slug.split('-').pop() : id;
+  const propertyId = slug || id;
   const navigate = useNavigate();
   const { openAuthModal } = useAuthModal();
   const leadActionModalRef = React.useRef(null);
@@ -181,7 +181,7 @@ const PropertyDetails = () => {
     setLoading(true);
     try {
       if (!propertyId) return;
-      const response = await propertyService.getProperty(propertyId);
+      const response = await propertyService.getPropertyById(propertyId);
       const propData = response.data || response.property;
       setProperty(propData);
       setRooms(response.rooms || propData?.roomTypes || propData?.rooms || []);

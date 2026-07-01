@@ -113,9 +113,9 @@ const AppRoutes = () => {
       <Route path="/auth" element={<AuthPage />} />
       
       {/* SEO Friendly Property Detail Routes */}
-      <Route path="/pg-in-:city/:slug" element={<PropertyDetails />} />
-      <Route path="/hostels-in-:city/:slug" element={<PropertyDetails />} />
-      <Route path="/property-in-:city/:slug" element={<PropertyDetails />} />
+      <Route path="/pg/:city/:slug" element={<PropertyDetails />} />
+      <Route path="/hostels/:city/:slug" element={<PropertyDetails />} />
+      <Route path="/property/:city/:slug" element={<PropertyDetails />} />
       
       <Route path="/property/:id" element={<PropertyDetails />} />
       <Route path="/about-us" element={<LegalPage type="about" title="About Us" />} />

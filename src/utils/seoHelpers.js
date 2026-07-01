@@ -10,10 +10,10 @@ export const getPropertyUrl = (property) => {
   }
 
   if (type === 'PG') {
-    return `/pg-in-${city}/${idOrSlug}`;
+    return `/pg/${city}/${idOrSlug}`;
   } else if (type === 'Hostel') {
-    return `/hostels-in-${city}/${idOrSlug}`;
+    return `/hostels/${city}/${idOrSlug}`;
   }
   
-  return `/property-in-${city}/${idOrSlug}`;
+  return `/property/${city}/${idOrSlug}`;
 };

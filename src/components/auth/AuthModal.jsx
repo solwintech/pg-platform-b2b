@@ -123,11 +123,15 @@ const AuthModal = () => {
     setIsLoading(true);
     setError('');
     try {
-      await authService.generateOtp(formData.mobile, 'user');
+      await authService.generateOtp(formData.mobile, 'user', formData.email);
       setStep('otp');
       setTimer(25);
     } catch (err) {
-      setError('Failed to send OTP. Please try again.');
+      if (err.response && err.response.data && err.response.data.message) {
+        setError(err.response.data.message);
+      } else {
+        setError('Failed to send OTP. Please try again.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -170,6 +174,7 @@ const AuthModal = () => {
         }
         setTimeout(() => {
           handleClose();
+          window.location.reload();
         }, 2000);
       } else {
         setError(res.message || 'Invalid OTP');
@@ -357,7 +362,7 @@ const AuthModal = () => {
               <i className="fas fa-check"></i>
             </div>
             <h2 className="amf-title">Login Successful!</h2>
-            <p className="amf-subtitle">Welcome back to SortifyStays</p>
+            <p className="amf-subtitle">Welcome to SortifyStays</p>
 
             <button className="amf-btn amf-btn-light mt-4" onClick={handleClose}>
               Go to Home

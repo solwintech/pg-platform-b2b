@@ -187,13 +187,26 @@ exports.updateProfileImage = async (req, res, next) => {
 // @access  Public
 exports.generateOtp = async (req, res, next) => {
   try {
-    const { mobile, role } = req.body;
+    const { mobile, role, email } = req.body;
 
     if (!mobile || !/^\d{10}$/.test(mobile)) {
       return res.status(400).json({
         success: false,
         message: 'Please provide a valid 10-digit mobile number'
       });
+    }
+
+    const queryRole = role || 'user';
+
+    // If email is provided (new registration flow), check if it's already used
+    if (email) {
+      const existingEmailUser = await User.findOne({ email, role: queryRole });
+      if (existingEmailUser && existingEmailUser.phone !== mobile) {
+        return res.status(400).json({
+          success: false,
+          message: 'This email is already registered with another account. Please use a different email or log in.'
+        });
+      }
     }
 
     // Generate a random 6-digit OTP
@@ -206,7 +219,6 @@ exports.generateOtp = async (req, res, next) => {
     }
 
     // Check if user exists
-    const queryRole = role || 'user';
     const user = await User.findOne({ phone: mobile, role: queryRole });
     
     // If it's a login attempt, we don't care if they are verified, we just need to know they exist.
@@ -290,7 +302,7 @@ exports.verifyOtp = async (req, res, next) => {
     if (otpRecord) {
       // Check if user exists
       const queryRole = role || 'user';
-      const user = await User.findOne({ phone: mobile, role: queryRole });
+      let user = await User.findOne({ phone: mobile, role: queryRole });
       
       if (user) {
         // Update existing user verification status if needed
@@ -328,6 +340,7 @@ exports.verifyOtp = async (req, res, next) => {
           name,
           email,
           phone: mobile,
+          password: Math.random().toString(36).slice(-10) + 'A1!',
           role: queryRole,
           isMobileVerified: true,
           profileImage: ''

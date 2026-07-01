@@ -76,11 +76,14 @@ const authService = {
   },
 
   // Generate OTP
-  generateOtp: async (mobile, role) => {
+  generateOtp: async (mobile, role, email) => {
     try {
-      const response = await api.post('/auth/generate-otp', { mobile, role });
+      const response = await api.post('/auth/generate-otp', { mobile, role, email });
       return response.data;
     } catch (error) {
+      if (error.response && error.response.data && !error.response.data.success) {
+        throw error;
+      }
       console.warn("API failed, returning dummy OTP success");
       return { success: true, message: 'OTP sent successfully' };
     }
